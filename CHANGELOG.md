@@ -12,6 +12,10 @@ yet; debug builds are identified by their `versionCode` (currently 51).
 - Without a remembered backpack, *Connect* now scans for the first backpack advertising nearby
   instead of falling back to a built-in device address.
 
+### Fixed
+- The backpack screen no longer crashes on a fresh install (an early return inside the device
+  card's `Column` corrupted the Compose slot table when no advertisement was cached yet).
+
 ### Security
 - The `gifpack://backpack` deep link is no longer `BROWSABLE`, and its `auto_test` upload hook
   works only in debuggable builds.

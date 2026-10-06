@@ -11,8 +11,8 @@ Anything not reproduced on real hardware must stay labelled experimental, unveri
 ## Setup
 
 ```bash
-git clone <REPO_URL>
-cd <repo>/BatohManager
+git clone https://github.com/PeterkoCZ91/iledcolor-backpack.git
+cd iledcolor-backpack/BatohManager
 
 # Android SDK location and optional API keys — this file is git-ignored
 cat >> local.properties <<'EOF'

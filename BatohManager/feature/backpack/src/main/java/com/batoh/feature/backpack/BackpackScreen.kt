@@ -379,34 +379,36 @@ private fun BackpackDeviceCard(name: String?, adv: BackpackAdvertisement?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(name ?: stringResource(R.string.backpack_device_title), style = MaterialTheme.typography.titleSmall)
+            // No early return here: returning from an inline composable lambda (Column) corrupts
+            // the Compose slot table and crashed fresh installs, where no advertisement is cached yet.
             if (adv == null) {
                 Text(stringResource(R.string.backpack_device_unknown), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                return@Column
+            } else {
+                Text(
+                    listOf(
+                        stringResource(R.string.backpack_device_firmware, adv.versionCode),
+                        stringResource(R.string.backpack_device_panel, adv.width, adv.height),
+                        stringResource(R.string.backpack_device_colors, colorTypeLabel(adv.colorType)),
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                val features = buildList {
+                    if (adv.supportsGif) add(R.string.backpack_feature_gif)
+                    if (adv.supportsGifText) add(R.string.backpack_feature_gif_text)
+                    if (adv.supportsBrightness) add(R.string.backpack_feature_brightness)
+                    if (adv.supportsTime) add(R.string.backpack_feature_time)
+                    if (adv.supportsPassword) add(R.string.backpack_feature_password)
+                    if (adv.supportsRotation) add(R.string.backpack_feature_rotation)
+                    if (adv.supportsPartition) add(R.string.backpack_feature_partition)
+                    if (adv.supportsBorder) add(R.string.backpack_feature_border)
+                }.map { stringResource(it) }
+                Text(
+                    if (features.isEmpty()) stringResource(R.string.backpack_device_features_none)
+                    else stringResource(R.string.backpack_device_features, features.joinToString(", ")),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Text(
-                listOf(
-                    stringResource(R.string.backpack_device_firmware, adv.versionCode),
-                    stringResource(R.string.backpack_device_panel, adv.width, adv.height),
-                    stringResource(R.string.backpack_device_colors, colorTypeLabel(adv.colorType)),
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            val features = buildList {
-                if (adv.supportsGif) add(R.string.backpack_feature_gif)
-                if (adv.supportsGifText) add(R.string.backpack_feature_gif_text)
-                if (adv.supportsBrightness) add(R.string.backpack_feature_brightness)
-                if (adv.supportsTime) add(R.string.backpack_feature_time)
-                if (adv.supportsPassword) add(R.string.backpack_feature_password)
-                if (adv.supportsRotation) add(R.string.backpack_feature_rotation)
-                if (adv.supportsPartition) add(R.string.backpack_feature_partition)
-                if (adv.supportsBorder) add(R.string.backpack_feature_border)
-            }.map { stringResource(it) }
-            Text(
-                if (features.isEmpty()) stringResource(R.string.backpack_device_features_none)
-                else stringResource(R.string.backpack_device_features, features.joinToString(", ")),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

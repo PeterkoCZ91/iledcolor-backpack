@@ -3,6 +3,7 @@
 *Repository: `iledcolor-backpack` — an unofficial open-source Android client and BLE protocol
 documentation for iledcolor-compatible 64 × 64 LED backpacks.*
 
+[![CI](https://github.com/PeterkoCZ91/iledcolor-backpack/actions/workflows/ci.yml/badge.svg)](https://github.com/PeterkoCZ91/iledcolor-backpack/actions/workflows/ci.yml)
 [![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B%20%28API%2026%29-3DDC84.svg)](https://developer.android.com/about/versions/oreo)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9-7F52FF.svg)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
@@ -60,11 +61,11 @@ capacity, which is unknown. Every upload is 64 × 64; other sizes are converted 
 
 ## Screenshots
 
-Screenshots are not published yet. They will show the home screen, search, collection,
-editor, text banner and backpack screen, captured without personal data or Bluetooth
-identifiers.
+| Home | Scrolling text | Backpack |
+| :---: | :---: | :---: |
+| <img src="docs/images/home.png" width="240" alt="Home screen"> | <img src="docs/images/scrolling-text.png" width="240" alt="Scrolling text generator with preview"> | <img src="docs/images/backpack.png" width="240" alt="Backpack screen with device card, brightness and display switch"> |
 
-<!-- TODO: add docs/images/*.png and reference them here. -->
+Captured on a phone in English with the tested backpack connected.
 
 ## Quick start
 
@@ -72,8 +73,8 @@ Requirements: a phone with Android 8.0 (API 26) or newer and Bluetooth LE; to bu
 and Android SDK Platform 34.
 
 ```bash
-git clone <REPO_URL>
-cd <repo>/BatohManager
+git clone https://github.com/PeterkoCZ91/iledcolor-backpack.git
+cd iledcolor-backpack/BatohManager
 
 # Optional: API keys for online search (see below)
 printf 'GIPHY_API_KEY=<your-giphy-key>\nKLIPY_API_KEY=<your-klipy-key>\n' >> local.properties
