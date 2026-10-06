@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="text_banner_title">Běžící text</string>
+    <string name="text_banner_input_label">Text</string>
+    <string name="text_banner_input_hint">%1$d / %2$d znaků</string>
+    <string name="text_banner_preview_title">Náhled</string>
+    <string name="text_banner_preview_description">Náhled běžícího textu</string>
+    <string name="text_banner_empty">Napiš text, který má po batohu běžet.</string>
+    <string name="text_banner_rendering">Vykresluji…</string>
+    <string name="text_banner_info">%1$d snímků · %2$.1f s · %3$d kB</string>
+    <string name="text_banner_text_color">Barva textu</string>
+    <string name="text_banner_background_color">Barva pozadí</string>
+    <string name="text_banner_same_colors">Text a pozadí mají stejnou barvu, text nebude vidět.</string>
+    <string name="text_banner_speed">Rychlost</string>
+    <string name="text_banner_speed_slow">Pomalu</string>
+    <string name="text_banner_speed_normal">Středně</string>
+    <string name="text_banner_speed_fast">Rychle</string>
+    <string name="text_banner_size">Velikost písma</string>
+    <string name="text_banner_size_small">Malé</string>
+    <string name="text_banner_size_medium">Střední</string>
+    <string name="text_banner_size_large">Velké</string>
+    <string name="text_banner_bold">Tučné písmo</string>
+    <string name="text_banner_save">Uložit do sbírky</string>
+    <string name="text_banner_saving">Ukládám…</string>
+    <string name="text_banner_saved">Uloženo do sbírky</string>
+    <string name="text_banner_send">Odeslat do batohu</string>
+    <string name="text_banner_open_backpack">Otevřít batoh</string>
+    <string name="text_banner_bluetooth_permission">Pro odeslání do batohu je potřeba povolit Bluetooth.</string>
+    <string name="text_banner_error_render">Text se nepodařilo vykreslit</string>
+    <string name="text_banner_error_save">Uložení do sbírky selhalo</string>
+    <string name="text_banner_error_payload">Program pro batoh se nepodařilo připravit</string>
+    <string name="text_banner_error_with_detail">%1$s: %2$s</string>
+    <string name="text_banner_color_white">Bílá</string>
+    <string name="text_banner_color_red">Červená</string>
+    <string name="text_banner_color_orange">Oranžová</string>
+    <string name="text_banner_color_yellow">Žlutá</string>
+    <string name="text_banner_color_green">Zelená</string>
+    <string name="text_banner_color_cyan">Azurová</string>
+    <string name="text_banner_color_blue">Modrá</string>
+    <string name="text_banner_color_magenta">Purpurová</string>
+    <string name="text_banner_color_black">Černá</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_playback_title">Backpack playback (experimental)</string>
+    <string name="editor_playback_experimental_hint">The values are written into the programme when sending. Their real effect on the backpack is not verified yet; the default 100/100 matches the manufacturer app.</string>
+    <string name="editor_playback_speed">Playback speed: %1$d (default %2$d)</string>
+    <string name="editor_playback_light">Programme brightness: %1$d (default %2$d)</string>
+    <string name="editor_playback_reset">Restore defaults</string>
+    <string name="editor_playback_needs_bluetooth">To send with custom speed or brightness, allow Bluetooth on the Backpack screen first.</string>
+    <string name="editor_playback_payload_failed">Could not build the backpack programme (the GIF must be 64×64).</string>
+    <string name="editor_playback_busy">The backpack is busy uploading or changing settings. Try again in a moment.</string>
+</resources>

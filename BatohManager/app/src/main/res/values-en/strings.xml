@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GifPack</string>
+    <string name="common_close">Close</string>
+    <string name="navigation_home">Home</string>
+    <string name="navigation_search">Search</string>
+    <string name="navigation_categories">Categories</string>
+    <string name="navigation_library">Collection</string>
+    <string name="incoming_importing">Importing shared GIF…</string>
+    <string name="incoming_import_success">GIF imported into your collection</string>
+    <string name="incoming_import_failed">Shared GIF import failed</string>
+    <string name="incoming_import_incomplete">Import did not finish</string>
+    <string name="incoming_permission_required">Allow storage access to save the shared GIF</string>
+</resources>

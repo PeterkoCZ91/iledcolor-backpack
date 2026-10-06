@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="convert_title">Video → GIF</string>
+    <string name="convert_back">Back</string>
+    <string name="convert_hint">Paste a link to an MP4 video.\nThe app will download and convert it to a GIF for the backpack.</string>
+    <string name="convert_resolution_info">Output: 64 × 64 px (backpack display)</string>
+    <string name="convert_url_label">Video URL (MP4)</string>
+    <string name="convert_button">Convert &amp; Save</string>
+    <string name="convert_downloading">Downloading… %1$d%%</string>
+    <string name="convert_converting">Converting… %1$d%%</string>
+    <string name="convert_saved">GIF saved to collection!</string>
+    <string name="convert_preview_label">Preview (shown 256×256, GIF is 64×64)</string>
+    <string name="convert_go_to_library">Go to Collection</string>
+    <string name="convert_another">Convert another video</string>
+    <string name="convert_paste_clipboard">Paste from clipboard</string>
+    <string name="convert_cancel">Cancel conversion</string>
+    <string name="convert_cancelling">Cancelling conversion…</string>
+</resources>

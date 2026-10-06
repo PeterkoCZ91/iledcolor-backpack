@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_save_button">SAVE TO MY COLLECTION</string>
+    <string name="detail_saving">Saving…</string>
+    <string name="detail_saved">SAVED</string>
+    <string name="detail_share">SHARE</string>
+    <string name="detail_error">Error while saving</string>
+    <string name="detail_back">Back</string>
+    <string name="detail_convert_backpack">BACKPACK 64×64</string>
+    <string name="detail_converting">Converting… %1$d%%</string>
+    <string name="detail_converted">SAVED FOR BACKPACK</string>
+    <string name="detail_send_to_backpack">Send to backpack</string>
+    <string name="detail_edit_for_backpack">Edit for backpack</string>
+    <string name="detail_download_failed">Download failed</string>
+    <string name="detail_unknown_status">Unknown download status</string>
+    <string name="detail_save_failed">Could not save the GIF</string>
+    <string name="detail_save_incomplete">Saving did not finish</string>
+    <string name="detail_conversion_failed">GIF conversion failed</string>
+    <string name="detail_preview_error">Could not load GIF preview</string>
+    <string name="detail_preview_loaded">GIF preview loaded</string>
+    <string name="detail_preview_description">GIF preview</string>
+    <string name="detail_preview_failed">Could not display the GIF. The file may be damaged; try downloading it again.</string>
+</resources>

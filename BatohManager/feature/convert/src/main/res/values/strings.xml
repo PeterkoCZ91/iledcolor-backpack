@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="convert_title">Video → GIF</string>
+    <string name="convert_back">Zpět</string>
+    <string name="convert_hint">Vložte odkaz na MP4 video.\nApp ho stáhne a převede na GIF pro batoh.</string>
+    <string name="convert_resolution_info">Výstup: 64 × 64 px (displej batohu)</string>
+    <string name="convert_url_label">URL videa (MP4)</string>
+    <string name="convert_button">Konvertovat a uložit</string>
+    <string name="convert_downloading">Stahování… %1$d%%</string>
+    <string name="convert_converting">Konverze… %1$d%%</string>
+    <string name="convert_saved">GIF uložen do sbírky!</string>
+    <string name="convert_preview_label">Náhled (zobrazeno 256×256, GIF je 64×64)</string>
+    <string name="convert_go_to_library">Přejít do sbírky</string>
+    <string name="convert_another">Převést další video</string>
+    <string name="convert_paste_clipboard">Vložit z clipboardu</string>
+    <string name="convert_cancel">Zrušit převod</string>
+    <string name="convert_cancelling">Rušení převodu…</string>
+</resources>

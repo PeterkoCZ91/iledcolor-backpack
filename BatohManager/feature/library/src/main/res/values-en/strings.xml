@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_title">My Collection</string>
+    <string name="library_empty">Nothing here yet.\nTry downloading something.</string>
+    <string name="library_back">Back</string>
+    <string name="library_long_press_hint">Long press a GIF for more options</string>
+    <string name="library_action_dialog_title">What do you want to do?</string>
+    <string name="library_action_share">Share</string>
+    <string name="library_action_delete">Delete</string>
+    <string name="library_refresh">Refresh</string>
+    <string name="library_action_edit">Edit for backpack</string>
+    <string name="library_edit_description">Edit GIF for backpack</string>
+    <string name="library_send_description">Send GIF to backpack</string>
+    <string name="library_import">Import GIF</string>
+    <string name="library_importing">Importing…</string>
+    <string name="library_action_hint">Tap a GIF to view it, the pencil to edit, or the arrow to send it. Long press for more options.</string>
+    <string name="library_load_failed">Could not load the GIF collection</string>
+    <string name="library_delete_success">GIF deleted from your phone</string>
+    <string name="library_delete_failed">Could not delete the GIF</string>
+    <string name="library_delete_incomplete">Deletion did not finish</string>
+    <string name="library_delete_cancelled">Deletion cancelled</string>
+    <string name="library_importing_message">Importing GIF…</string>
+    <string name="library_import_success">GIF imported into your collection</string>
+    <string name="library_import_failed">GIF import failed</string>
+    <string name="library_import_incomplete">Import did not finish</string>
+
+    <string name="favorites_title">Favorites</string>
+    <string name="favorites_back">Back</string>
+    <string name="favorites_remove">Remove from favorites</string>
+    <string name="favorites_empty">No favorites yet.\nTap the heart icon to add a GIF.</string>
+    <string name="favorites_refresh">Refresh</string>
+</resources>

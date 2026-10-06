@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_preview_checking">Checking why the preview failed…</string>
+    <string name="library_preview_only_failed">The phone cannot preview this GIF, but the file is fine and can be edited and sent.</string>
+    <string name="library_problem_missing">The file is missing from the phone (deleted or moved outside the app).</string>
+    <string name="library_problem_no_access">The app can no longer access the file (it belongs to another app or a previous installation).</string>
+    <string name="library_problem_empty">The file is empty (saving did not finish).</string>
+    <string name="library_problem_not_gif">The file is not a GIF (e.g. a video saved with a .gif extension).</string>
+    <string name="library_problem_too_large">The GIF is larger than 20 MB.</string>
+    <string name="library_problem_corrupt">The GIF is damaged or uses unsupported features.</string>
+    <string name="library_problem_unreadable">The file cannot be read (storage error).</string>
+    <string name="library_remove">Remove</string>
+    <string name="library_remove_description">Remove broken GIF from the library</string>
+    <string name="library_remove_title">Remove GIF from the library?</string>
+    <string name="library_remove_message">“%1$s” will be deleted from the phone (Pictures/GifPack folder). This cannot be undone.</string>
+    <string name="library_remove_confirm">Remove</string>
+    <string name="library_remove_cancel">Cancel</string>
+    <string name="library_backpack_view">As on backpack</string>
+    <string name="library_backpack_view_hint">Pixel-exact 64×64 preview as the backpack shows it (first frame, centre crop).</string>
+</resources>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Play triangle made of 9 colorful pixel blocks (LED style) -->
+    <!-- 5 rows forming a right-pointing triangle -->
+    <!-- Each block is 10x10 with 2dp gaps -->
+
+    <!-- Row 0 (1 block) - top point -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M38,26h10v10h-10z" />
+
+    <!-- Row 1 (2 blocks) -->
+    <path
+        android:fillColor="#76FF03"
+        android:pathData="M38,38h10v10h-10z" />
+    <path
+        android:fillColor="#FF1744"
+        android:pathData="M50,38h10v10h-10z" />
+
+    <!-- Row 2 (3 blocks) - widest -->
+    <path
+        android:fillColor="#FFD600"
+        android:pathData="M38,50h10v10h-10z" />
+    <path
+        android:fillColor="#E040FB"
+        android:pathData="M50,50h10v10h-10z" />
+    <path
+        android:fillColor="#00BFA5"
+        android:pathData="M62,50h10v10h-10z" />
+
+    <!-- Row 3 (2 blocks) -->
+    <path
+        android:fillColor="#FF6D00"
+        android:pathData="M38,62h10v10h-10z" />
+    <path
+        android:fillColor="#2979FF"
+        android:pathData="M50,62h10v10h-10z" />
+
+    <!-- Row 4 (1 block) - bottom point -->
+    <path
+        android:fillColor="#FFAB40"
+        android:pathData="M38,74h10v10h-10z" />
+
+</vector>

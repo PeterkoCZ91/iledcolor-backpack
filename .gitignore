@@ -1,0 +1,53 @@
+# --- Build outputs ---------------------------------------------------------
+**/build/
+**/.gradle/
+.kotlin/
+*.apk
+*.aab
+*.ap_
+*.dex
+hs_err_pid*.log
+
+# --- Secrets and machine-local config ---------------------------------------
+# API keys live in BatohManager/local.properties (GIPHY_API_KEY, KLIPY_API_KEY)
+local.properties
+secrets.properties
+*.jks
+*.keystore
+google-services.json
+
+# --- IDE / OS ---------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.DS_Store
+._*
+Thumbs.db
+
+# --- Local tooling (AI assistants, code index) -----------------------------
+.claude/
+.codegraph/
+__pycache__/
+*.pyc
+
+# --- Device captures and vendor material (never publish) --------------------
+# BLE/logcat captures can contain device identifiers and vendor app traffic.
+*.log
+*dump*.txt
+logs_ble.txt
+mfr_ble_log_v2.txt
+brightness_log.txt
+write_ops.txt
+build_log.txt
+mfr_payload.bin
+mfr_image.gif
+*.ufw
+gifs/
+artifacts/
+
+# --- Private working notes and one-off scripts ------------------------------
+BatohManager/FIX_PLAN.md
+BatohManager/komplexni_task/
+BatohManager/verify_phase*.py
+BatohManager/ble-test.sh
+BatohManager/scripts/

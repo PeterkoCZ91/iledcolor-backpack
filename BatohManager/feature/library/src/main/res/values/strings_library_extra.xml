@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_preview_checking">Zjišťuji, proč nejde náhled…</string>
+    <string name="library_preview_only_failed">Náhled telefon nezobrazí, GIF je ale v pořádku a lze ho upravit i odeslat.</string>
+    <string name="library_problem_missing">Soubor v telefonu chybí (byl smazán nebo přesunut mimo aplikaci).</string>
+    <string name="library_problem_no_access">K souboru už aplikace nemá přístup (patří jiné aplikaci nebo předchozí instalaci).</string>
+    <string name="library_problem_empty">Soubor je prázdný (ukládání se nedokončilo).</string>
+    <string name="library_problem_not_gif">Soubor není GIF (např. video uložené s příponou .gif).</string>
+    <string name="library_problem_too_large">GIF je větší než 20 MB.</string>
+    <string name="library_problem_corrupt">GIF je poškozený nebo používá nepodporované funkce.</string>
+    <string name="library_problem_unreadable">Soubor nejde přečíst (chyba úložiště).</string>
+    <string name="library_remove">Odebrat</string>
+    <string name="library_remove_description">Odebrat nefunkční GIF z knihovny</string>
+    <string name="library_remove_title">Odebrat GIF z knihovny?</string>
+    <string name="library_remove_message">„%1$s“ se smaže z telefonu (složka Obrázky/GifPack). Akci nelze vrátit.</string>
+    <string name="library_remove_confirm">Odebrat</string>
+    <string name="library_remove_cancel">Zrušit</string>
+    <string name="library_backpack_view">Jak v batohu</string>
+    <string name="library_backpack_view_hint">Náhled 64×64 po pixelech, jak ho zobrazí batoh (první snímek, oříznutí na střed).</string>
+</resources>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_title">Moje sbírka</string>
+    <string name="library_empty">Zatím tu nic nemáte.\nZkuste něco stáhnout.</string>
+    <string name="library_back">Zpět</string>
+    <string name="library_long_press_hint">Podržte GIF pro další možnosti</string>
+    <string name="library_action_dialog_title">Co chcete udělat?</string>
+    <string name="library_action_share">Sdílet</string>
+    <string name="library_action_delete">Smazat</string>
+    <string name="library_refresh">Obnovit</string>
+    <string name="library_action_edit">Upravit pro batoh</string>
+    <string name="library_edit_description">Upravit GIF pro batoh</string>
+    <string name="library_send_description">Odeslat GIF do batohu</string>
+    <string name="library_import">Importovat GIF</string>
+    <string name="library_importing">Importuji…</string>
+    <string name="library_action_hint">Klepni na GIF pro detail, na tužku pro úpravu nebo na šipku pro odeslání. Podržením otevřeš další možnosti.</string>
+    <string name="library_load_failed">Knihovnu GIFů se nepodařilo načíst</string>
+    <string name="library_delete_success">GIF byl smazán z telefonu</string>
+    <string name="library_delete_failed">GIF se nepodařilo smazat</string>
+    <string name="library_delete_incomplete">Smazání se nedokončilo</string>
+    <string name="library_delete_cancelled">Smazání bylo zrušeno</string>
+    <string name="library_importing_message">Importuji GIF…</string>
+    <string name="library_import_success">GIF byl importován do knihovny</string>
+    <string name="library_import_failed">Import GIFu selhal</string>
+    <string name="library_import_incomplete">Import se nedokončil</string>
+
+    <string name="favorites_title">Oblíbené</string>
+    <string name="favorites_back">Zpět</string>
+    <string name="favorites_remove">Odebrat z oblíbených</string>
+    <string name="favorites_empty">Zatím žádné oblíbené.\nKliknutím na srdíčko přidejte GIF.</string>
+    <string name="favorites_refresh">Obnovit</string>
+</resources>

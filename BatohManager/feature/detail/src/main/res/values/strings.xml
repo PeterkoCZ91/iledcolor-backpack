@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="detail_save_button">ULOŽIT DO MÉ SBÍRKY</string>
+    <string name="detail_saving">Ukládám...</string>
+    <string name="detail_saved">ULOŽENO</string>
+    <string name="detail_share">SDÍLET</string>
+    <string name="detail_error">Chyba při ukládání</string>
+    <string name="detail_back">Zpět</string>
+    <string name="detail_convert_backpack">BATOH 64×64</string>
+    <string name="detail_converting">Konverze… %1$d%%</string>
+    <string name="detail_converted">ULOŽENO PRO BATOH</string>
+    <string name="detail_send_to_backpack">Odeslat do batohu</string>
+    <string name="detail_edit_for_backpack">Upravit pro batoh</string>
+    <string name="detail_download_failed">Stahování selhalo</string>
+    <string name="detail_unknown_status">Neznámý stav stahování</string>
+    <string name="detail_save_failed">GIF se nepodařilo uložit</string>
+    <string name="detail_save_incomplete">Ukládání se nedokončilo</string>
+    <string name="detail_conversion_failed">Konverze GIFu selhala</string>
+    <string name="detail_preview_error">Náhled GIFu se nepodařilo načíst</string>
+    <string name="detail_preview_loaded">Náhled GIFu načten</string>
+    <string name="detail_preview_description">Náhled GIFu</string>
+    <string name="detail_preview_failed">GIF se nepodařilo zobrazit. Soubor může být poškozený; zkus ho stáhnout znovu.</string>
+</resources>

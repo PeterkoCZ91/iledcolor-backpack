@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_search_button">Hledat GIFy</string>
+    <string name="home_categories_button">Kategorie</string>
+    <string name="home_favorites_button">Oblíbené</string>
+    <string name="home_library_button">Moje sbírka</string>
+    <string name="home_convert_button">Video → GIF</string>
+    <string name="home_info_content_description">Informace o aplikaci</string>
+    <string name="home_settings_content_description">Nastavení aplikace</string>
+    <string name="home_info_title">O aplikaci</string>
+    <string name="home_settings_title">Nastavení</string>
+    <string name="home_settings_theme">Režim zobrazení</string>
+    <string name="home_settings_theme_system">Systém</string>
+    <string name="home_settings_theme_light">Světlý</string>
+    <string name="home_settings_theme_dark">Tmavý</string>
+    <string name="home_settings_language">Jazyk aplikace</string>
+    <string name="home_settings_language_system">Podle systému</string>
+    <string name="home_settings_language_czech">Čeština</string>
+    <string name="home_settings_language_english">English</string>
+    <string name="home_interest_group_music">Hudba</string>
+    <string name="home_interest_group_visuals">Vizuál</string>
+    <string name="home_interest_group_fun">Zábava</string>
+    <string name="home_interest_group_nature">Příroda</string>
+    <string name="home_interest_group_symbols">Symboly</string>
+    <string name="home_settings_grid_density">Hustota gridu</string>
+    <string name="home_info_body">GifPack slouží ke stahování GIFů a konverzi videí pro LED batoh (64×64 px).</string>
+    <string name="home_info_ok">OK</string>
+    <string name="home_settings_interests">Moje zájmy</string>
+    <string name="home_settings_interests_hint">GIFy podle tvých zájmů se zobrazí ve vyhledávání</string>
+    <string name="home_search_icon_description">Lupa</string>
+    <string name="home_library_icon_description">Galerie</string>
+    <string name="home_settings_grid_2col">2 sloupce</string>
+    <string name="home_settings_grid_3col">3 sloupce</string>
+    <string name="home_settings_api_keys">API klíče</string>
+    <string name="home_settings_klipy_api_key">Klipy API klíč</string>
+    <string name="home_settings_klipy_api_key_hint">Vlastní klíč z partner.klipy.com; prázdné = klíč zabudovaný při sestavení</string>
+    <string name="home_settings_giphy_api_key">Giphy API klíč</string>
+    <string name="home_settings_giphy_api_key_hint">Vlastní klíč z developers.giphy.com; prázdné = klíč zabudovaný při sestavení</string>
+    <string name="home_backpack_button">Batoh</string>
+    <string name="home_info_version">Verze: %1$s</string>
+    <string name="app_name">GifPack</string>
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="text_banner_title">Scrolling text</string>
+    <string name="text_banner_input_label">Text</string>
+    <string name="text_banner_input_hint">%1$d / %2$d characters</string>
+    <string name="text_banner_preview_title">Preview</string>
+    <string name="text_banner_preview_description">Scrolling text preview</string>
+    <string name="text_banner_empty">Type the text that should scroll across the backpack.</string>
+    <string name="text_banner_rendering">Rendering…</string>
+    <string name="text_banner_info">%1$d frames · %2$.1f s · %3$d kB</string>
+    <string name="text_banner_text_color">Text color</string>
+    <string name="text_banner_background_color">Background color</string>
+    <string name="text_banner_same_colors">Text and background have the same color, the text will be invisible.</string>
+    <string name="text_banner_speed">Speed</string>
+    <string name="text_banner_speed_slow">Slow</string>
+    <string name="text_banner_speed_normal">Medium</string>
+    <string name="text_banner_speed_fast">Fast</string>
+    <string name="text_banner_size">Font size</string>
+    <string name="text_banner_size_small">Small</string>
+    <string name="text_banner_size_medium">Medium</string>
+    <string name="text_banner_size_large">Large</string>
+    <string name="text_banner_bold">Bold font</string>
+    <string name="text_banner_save">Save to library</string>
+    <string name="text_banner_saving">Saving…</string>
+    <string name="text_banner_saved">Saved to library</string>
+    <string name="text_banner_send">Send to backpack</string>
+    <string name="text_banner_open_backpack">Open backpack</string>
+    <string name="text_banner_bluetooth_permission">Bluetooth permission is required to send to the backpack.</string>
+    <string name="text_banner_error_render">The text could not be rendered</string>
+    <string name="text_banner_error_save">Saving to the library failed</string>
+    <string name="text_banner_error_payload">The backpack program could not be prepared</string>
+    <string name="text_banner_error_with_detail">%1$s: %2$s</string>
+    <string name="text_banner_color_white">White</string>
+    <string name="text_banner_color_red">Red</string>
+    <string name="text_banner_color_orange">Orange</string>
+    <string name="text_banner_color_yellow">Yellow</string>
+    <string name="text_banner_color_green">Green</string>
+    <string name="text_banner_color_cyan">Cyan</string>
+    <string name="text_banner_color_blue">Blue</string>
+    <string name="text_banner_color_magenta">Magenta</string>
+    <string name="text_banner_color_black">Black</string>
+</resources>

@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">GifPack</string>
+    <string name="common_close">Zavřít</string>
+    <string name="navigation_home">Domů</string>
+    <string name="navigation_search">Hledat</string>
+    <string name="navigation_categories">Kategorie</string>
+    <string name="navigation_library">Knihovna</string>
+    <string name="incoming_importing">Importuji sdílený GIF…</string>
+    <string name="incoming_import_success">GIF byl importován do knihovny</string>
+    <string name="incoming_import_failed">Import sdíleného GIFu selhal</string>
+    <string name="incoming_import_incomplete">Import se nedokončil</string>
+    <string name="incoming_permission_required">Pro uložení sdíleného GIFu je potřeba povolit přístup k úložišti</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_playback_title">Přehrávání v batohu (experimentální)</string>
+    <string name="editor_playback_experimental_hint">Hodnoty se zapíší do programu při odeslání. Skutečný účinek na batohu zatím není ověřený; výchozí 100/100 odpovídá aplikaci výrobce.</string>
+    <string name="editor_playback_speed">Rychlost přehrávání: %1$d (výchozí %2$d)</string>
+    <string name="editor_playback_light">Jas programu: %1$d (výchozí %2$d)</string>
+    <string name="editor_playback_reset">Obnovit výchozí hodnoty</string>
+    <string name="editor_playback_needs_bluetooth">Pro odeslání s vlastní rychlostí nebo jasem nejdřív povol Bluetooth na obrazovce Batoh.</string>
+    <string name="editor_playback_payload_failed">Program pro batoh se nepodařilo sestavit (GIF musí mít 64×64).</string>
+    <string name="editor_playback_busy">Batoh právě něco nahrává nebo nastavuje. Zkus to za chvíli.</string>
+</resources>
