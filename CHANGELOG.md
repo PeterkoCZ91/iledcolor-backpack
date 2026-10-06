@@ -7,6 +7,7 @@ yet; debug builds are identified by their `versionCode` (currently 51).
 ## [Unreleased]
 
 ### Added
+- CI uploads a debug APK without API keys as a downloadable artifact for every run.
 - The home *Backpack* tile shows the connection state and the device name.
 - Upload failures carry a typed reason (not connected, connection lost, header / chunk / end
   rejected or timed out, insufficient space, MTU too small, invalid GIF, cancelled…) with a

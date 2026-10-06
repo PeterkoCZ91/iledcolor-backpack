@@ -72,6 +72,15 @@ Captured on a phone in English with the tested backpack connected.
 Requirements: a phone with Android 8.0 (API 26) or newer and Bluetooth LE; to build, JDK 17
 and Android SDK Platform 34.
 
+**Without building:** every CI run on `main` publishes a debug APK as the
+`gifpack-debug-<commit>` artifact (open the latest green run under
+[Actions](https://github.com/PeterkoCZ91/iledcolor-backpack/actions/workflows/ci.yml); downloading
+needs a GitHub login, artifacts are kept 30 days). It contains **no API keys** — enter your own
+in **Settings → API keys**. Each CI APK is signed with a throw-away debug key, so uninstall the
+previous one before installing a newer build.
+
+To build it yourself:
+
 ```bash
 git clone https://github.com/PeterkoCZ91/iledcolor-backpack.git
 cd iledcolor-backpack/BatohManager
@@ -176,6 +185,10 @@ import přes výběr souborů a sdílení z galerie, editor (otočení, zrcadlen
 náhled 64 × 64), experimentální rychlost a jas programu, běžící text, převod videa z URL,
 nahrávání s průběhem/zrušením/opakováním, karta zařízení, jas 1–10, displej zap/vyp,
 historie nahrávání a čeština/angličtina.
+
+**Bez sestavování:** každý běh CI na `main` přikládá debug APK jako artefakt
+`gifpack-debug-<commit>` (záložka Actions, nutné přihlášení na GitHub, drží se 30 dní).
+Neobsahuje žádné API klíče — zadej vlastní v **Nastavení → API klíče**.
 
 **Rychlý start:** v `BatohManager/` spusť
 `./gradlew -Dorg.gradle.java.home=<jdk17-path> :app:assembleDebug` a nainstaluj

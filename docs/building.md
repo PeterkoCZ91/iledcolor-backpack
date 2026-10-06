@@ -84,6 +84,10 @@ do not share APKs built with a personal key. Never commit `local.properties`.
 
 ## Installing a debug APK
 
+A prebuilt debug APK without API keys is attached to every CI run on `main` as the
+`gifpack-debug-<commit>` artifact (30-day retention, GitHub login required). It is signed with
+the CI runner's temporary debug key, so it cannot update an APK built elsewhere — uninstall first.
+
 ```bash
 adb devices                                   # exactly one authorised phone
 adb install -r app/build/outputs/apk/debug/app-debug.apk

@@ -28,6 +28,15 @@ jobs:
           :feature:backpack:testDebugUnitTest :feature:search:testDebugUnitTest
           :feature:library:testDebugUnitTest :core:conversion:testDebugUnitTest
           :core:data:testDebugUnitTest :core:storage:testDebugUnitTest
+      # CI has no local.properties, so this APK contains no API keys; users enter their own
+      # Giphy / Klipy keys in Settings. Signed with the runner's throw-away debug key.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gifpack-debug-${{ github.sha }}
+          path: BatohManager/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
 
   python-tools:
     runs-on: ubuntu-latest
