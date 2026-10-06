@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_a11y_untitled">GIF bez názvu</string>
+    <string name="library_a11y_tile">%1$s</string>
+    <string name="library_a11y_tile_with_state">%1$s, %2$s</string>
+    <string name="library_a11y_state_broken">poškozený soubor</string>
+    <string name="library_a11y_state_preview_only">náhled nelze zobrazit, GIF lze odeslat</string>
+    <string name="library_a11y_state_checking">kontroluji soubor</string>
+    <string name="library_a11y_open_detail">otevřít detail</string>
+    <string name="library_a11y_more_actions">další možnosti</string>
+    <string name="library_a11y_remove_broken">odebrat poškozený GIF</string>
+    <string name="library_retry">Zkusit znovu</string>
+    <string name="library_storage_permission_needed">Pro uložení GIFu na tomto Androidu povol přístup k úložišti</string>
+</resources>

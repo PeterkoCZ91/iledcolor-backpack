@@ -60,7 +60,7 @@ The tested unit is a 64×64 RGB backpack that advertises `funCode 0x0044` and `v
 | Data chunking, end frame, ACK flow | [HW] [CAP] | Small and 453 KB GIF uploads, including cancel and retry, completed on hardware. |
 | Programme payload (24 B header, CRC-32C file ID, item type 6) | [HW] [CAP] | 7 of 7 captured payloads are rebuilt byte for byte. Uploads were accepted on hardware. |
 | Cmd 06 status 1 (send data) | [HW] [CAP] | |
-| Cmd 06 status 3 (already present, skip data) | [DER] | Implemented in the app but not yet observed. |
+| Cmd 06 status 3 (already present, skip data) | [HW] | Re-sending an identical programme (same file ID) answered `54 06 00 03 03 00 60`; no chunks were needed. |
 | Cmd 06 status 2 (insufficient space) | [DER] | Implemented in the app but not yet observed. |
 | 0x09 brightness | [HW] | A round trip 7 → 6 → 7 was confirmed by reading the state back with 0x10. |
 | 0x0A screen on/off | [HW] | A round trip on → off → on was confirmed with 0x10. |
@@ -338,7 +338,7 @@ All responses arrive as notifications on **A953**.
 | `0` | **Error** ("please try again"). This is what a frame with a bad checksum gets. [HW] [CAP] | Error |
 | `1` | OK: start sending data chunks. [HW] [CAP] | OK [HW] |
 | `2` | Error: insufficient space. [DER] | Error |
-| `3` | OK, no data needed: the file is already on the device. The upload is complete. [DER] | OK [DER] |
+| `3` | OK, no data needed: the file is already on the device. The upload is complete. [HW] | OK [DER] |
 | `4` | Error. [DER] | Error |
 
 GifPack accepts `1` or `3` as success for settings commands and for the end-of-transfer
@@ -747,8 +747,8 @@ that made the panel reject every upload. They are listed here so nobody repeats 
 ## 12. Open questions
 
 - Whether the panel requires JieLi authentication before it accepts A950 commands.
-- What 0x06 statuses 2, 3 and 4 look like on real hardware. Status 3 ("already present") is
-  handled but has not been observed.
+- What 0x06 statuses 2 and 4 look like on real hardware. Status 3 ("already present") is
+  verified: the device recognises a programme by its file ID (CRC-32C).
 - The maximum programme size. 453 KB has been uploaded successfully. No command reports free space.
 - The meaning of 0x07, of the 0x10 payload bytes p0 and p1, and of the item's stay-time value 4
   for GIF items.

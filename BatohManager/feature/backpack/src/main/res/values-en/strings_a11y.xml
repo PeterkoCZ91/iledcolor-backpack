@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_a11y_speed">Playback speed</string>
+    <string name="editor_a11y_light">Programme brightness</string>
+    <string name="text_banner_open_settings">Open app settings</string>
+    <string name="text_banner_color_selected">selected</string>
+    <string name="text_banner_color_not_selected">not selected</string>
+</resources>

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -153,7 +157,10 @@ fun ConvertScreen(
 
                 is ConvertUiState.Cancelling -> {
                     CircularProgressIndicator()
-                    Text(stringResource(R.string.convert_cancelling))
+                    Text(
+                        stringResource(R.string.convert_cancelling),
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                    )
                 }
 
                 is ConvertUiState.Preview -> {
@@ -226,7 +233,17 @@ private fun IdleContent(
         ),
         keyboardActions = KeyboardActions(onGo = { onConvertClick() }),
         isError = error != null,
-        supportingText = error?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
+        // The error is announced when it appears; the field and the convert button below
+        // are the recovery path.
+        supportingText = error?.let {
+            {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }
+                )
+            }
+        }
     )
 
     Spacer(modifier = Modifier.height(32.dp))
@@ -235,7 +252,7 @@ private fun IdleContent(
         onClick = onConvertClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(80.dp),
+            .heightIn(min = 80.dp),
         shape = RoundedCornerShape(16.dp),
         enabled = url.isNotBlank()
     ) {
@@ -278,7 +295,8 @@ private fun PreviewContent(
         text = stringResource(R.string.convert_saved),
         style = MaterialTheme.typography.titleMedium,
         color = Color(0xFF4CAF50),
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Center,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     )
 
     Spacer(modifier = Modifier.height(24.dp))
@@ -295,7 +313,7 @@ private fun PreviewContent(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(gifUri)
                 .build(),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.convert_preview_description),
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit
         )
@@ -313,7 +331,7 @@ private fun PreviewContent(
         onClick = onNavigateToLibrary,
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp),
+            .heightIn(min = 72.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color(0xFF4CAF50)
@@ -331,7 +349,7 @@ private fun PreviewContent(
         onClick = onReset,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .heightIn(min = 56.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.secondary

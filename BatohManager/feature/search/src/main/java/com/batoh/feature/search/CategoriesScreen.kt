@@ -25,6 +25,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,7 +100,17 @@ fun CategoriesScreen(
                     is CategoriesUiState.Loading -> {
                         ShimmerSkeletonGrid(gridColumns = gridColumns, cornerRadius = 12.dp)
                     }
-                    is CategoriesUiState.Success -> {
+                    is CategoriesUiState.Success -> if (
+                        state.pinnedCategories.isEmpty() && state.monthlyTrendingCategories.isEmpty() &&
+                        state.recentCategories.isEmpty() && state.categories.isEmpty()
+                    ) {
+                        // Nothing to show: announce it and offer the same recovery as the error state.
+                        CategoriesMessage(
+                            message = stringResource(R.string.categories_empty),
+                            isError = false,
+                            onRetry = onRetry
+                        )
+                    } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
                             modifier = Modifier.fillMaxSize(),
@@ -140,7 +159,7 @@ fun CategoriesScreen(
                                     Text(
                                         text = context.getString(R.string.categories_discover),
                                         style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.padding(vertical = 8.dp)
+                                        modifier = Modifier.padding(vertical = 8.dp).semantics { heading() }
                                     )
                                 }
                             }
@@ -161,21 +180,30 @@ fun CategoriesScreen(
                         }
                     }
                     is CategoriesUiState.Error -> {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = state.message,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
-                            )
-                            Button(onClick = onRetry) { Text(context.getString(R.string.categories_retry)) }
-                        }
+                        CategoriesMessage(message = state.message, isError = true, onRetry = onRetry)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CategoriesMessage(message: String, isError: Boolean, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier.padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = message,
+                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                // Announced when it appears so TalkBack users learn why the list is missing.
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+            Button(onClick = onRetry) { Text(stringResource(R.string.categories_retry)) }
         }
     }
 }
@@ -194,16 +222,29 @@ private fun QuickCategorySection(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(vertical = 8.dp).semantics { heading() }
         )
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(categories, key = { it.nameEncoded }) { category ->
                 val normalizedQuery = normalizeQuery(category.nameEncoded)
+                val pinned = pinnedQueries.contains(normalizedQuery)
+                val pinLabel = context.getString(if (pinned) R.string.categories_unpin else R.string.categories_pin)
+                val pinnedState = stringResource(
+                    if (pinned) R.string.categories_pinned_state else R.string.categories_not_pinned_state
+                )
                 InputChip(
-                    selected = pinnedQueries.contains(normalizedQuery),
+                    selected = pinned,
                     onClick = { onCategoryClick(category) },
+                    // The chip's "selected" means pinned; say so, and expose the tiny heart
+                    // icon as a custom action because it is hard to hit with TalkBack.
+                    modifier = Modifier.semantics {
+                        stateDescription = pinnedState
+                        customActions = listOf(CustomAccessibilityAction(pinLabel) {
+                            onTogglePin(category); true
+                        })
+                    },
                     label = { Text(category.localizedDisplayName(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     trailingIcon = {
                         Icon(
@@ -211,9 +252,12 @@ private fun QuickCategorySection(
                             contentDescription = context.getString(
                                 if (pinnedQueries.contains(normalizedQuery)) R.string.categories_unpin else R.string.categories_pin
                             ),
+                            // 4 dp padding inside the click area enlarges the target without
+                            // changing the chip height.
                             modifier = Modifier
-                                .size(16.dp)
                                 .clickable { onTogglePin(category) }
+                                .padding(4.dp)
+                                .size(16.dp)
                         )
                     }
                 )
@@ -242,18 +286,24 @@ fun CategoryItem(
                 .build()
         }
     }
+    val openLabel = stringResource(R.string.categories_open)
+    val pinA11yLabel = stringResource(R.string.categories_pin_a11y, displayName)
+    val pinnedState = stringResource(
+        if (isPinned) R.string.categories_pinned_state else R.string.categories_not_pinned_state
+    )
     Box(modifier = modifier) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick),
+                .clickable(onClickLabel = openLabel, onClick = onClick),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column {
                 if (previewGif != null) {
                     AsyncImage(
                         model = thumbnailRequest,
-                        contentDescription = displayName,
+                        // The name is printed right below; reading it twice adds noise.
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -266,7 +316,8 @@ fun CategoryItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
-                            .background(color = getCategoryColor(category.name)),
+                            .background(color = getCategoryColor(category.name))
+                            .clearAndSetSemantics { },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -286,15 +337,20 @@ fun CategoryItem(
             }
         }
 
-        IconButton(
-            onClick = onTogglePin,
-            modifier = Modifier.align(Alignment.TopEnd)
+        // Toggle semantics: "Pin <name>, switch, pinned / not pinned".
+        IconToggleButton(
+            checked = isPinned,
+            onCheckedChange = { onTogglePin() },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .semantics {
+                    contentDescription = pinA11yLabel
+                    stateDescription = pinnedState
+                }
         ) {
             Icon(
                 imageVector = if (isPinned) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = context.getString(
-                    if (isPinned) R.string.categories_unpin else R.string.categories_pin
-                ),
+                contentDescription = null,
                 tint = if (isPinned) MaterialTheme.colorScheme.primary else Color.White
             )
         }

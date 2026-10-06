@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
 
 sealed interface LibraryUiState {
@@ -52,7 +54,12 @@ class LibraryViewModel @Inject constructor(
     private var pendingDelete: Gif? = null
     fun showMessage(message: String) { _actionMessage.value = message }
 
-    val uiState: StateFlow<LibraryUiState> = getLocalGifsUseCase()
+    // Bumped by retry() to re-subscribe to the library source after a load error.
+    private val reloadTrigger = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val uiState: StateFlow<LibraryUiState> = reloadTrigger
+        .flatMapLatest { getLocalGifsUseCase() }
         .map { result ->
             when (result) {
                 is Result.Loading -> LibraryUiState.Loading
@@ -67,6 +74,9 @@ class LibraryViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = LibraryUiState.Loading
         )
+
+    /** Recovery action for [LibraryUiState.Error]: reload the local library. */
+    fun retry() { reloadTrigger.value++ }
 
     fun deleteGif(gif: Gif) {
         if (pendingDelete != null) return

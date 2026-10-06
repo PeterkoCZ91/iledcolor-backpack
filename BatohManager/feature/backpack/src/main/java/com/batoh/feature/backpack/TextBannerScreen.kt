@@ -1,16 +1,21 @@
 package com.batoh.feature.backpack
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -23,9 +28,13 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -117,7 +126,8 @@ fun TextBannerScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text(stringResource(R.string.text_banner_preview_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.text_banner_preview_title), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() })
             Box(
                 Modifier.fillMaxWidth().heightIn(max = 320.dp).aspectRatio(1f)
                     .background(Color(options.backgroundColor)),
@@ -132,7 +142,8 @@ fun TextBannerScreen(
             }
             when (state.stage) {
                 TextBannerStage.Empty -> Text(stringResource(R.string.text_banner_empty), style = MaterialTheme.typography.bodySmall)
-                TextBannerStage.Rendering -> Text(stringResource(R.string.text_banner_rendering), style = MaterialTheme.typography.bodySmall)
+                TextBannerStage.Rendering -> Text(stringResource(R.string.text_banner_rendering), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 TextBannerStage.Ready -> state.plan?.let { plan ->
                     Text(stringResource(R.string.text_banner_info, plan.frameCount, plan.durationMs / 1000.0,
                         ((state.previewBytes?.size ?: 0) + 1023) / 1024), style = MaterialTheme.typography.bodySmall)
@@ -141,21 +152,27 @@ fun TextBannerScreen(
             }
             state.errorRes?.let { res ->
                 val detail = state.errorDetail
+                // Announced; the retry button above is the recovery action.
                 Text(if (detail != null) stringResource(R.string.text_banner_error_with_detail, stringResource(res), detail)
-                    else stringResource(res), color = MaterialTheme.colorScheme.error)
+                    else stringResource(res), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
             }
 
-            Text(stringResource(R.string.text_banner_text_color), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.text_banner_text_color), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() })
             ColorRow(selected = options.textColor, enabled = !state.saving) { viewModel.update(options.copy(textColor = it)) }
-            Text(stringResource(R.string.text_banner_background_color), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.text_banner_background_color), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() })
             ColorRow(selected = options.backgroundColor, enabled = !state.saving) { viewModel.update(options.copy(backgroundColor = it)) }
             if (options.textColor == options.backgroundColor) {
                 Text(stringResource(R.string.text_banner_same_colors), color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
 
-            Text(stringResource(R.string.text_banner_speed), style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.text_banner_speed), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() })
+            FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((speed, label) in listOf(
                     TextBannerSpeed.Slow to R.string.text_banner_speed_slow,
                     TextBannerSpeed.Normal to R.string.text_banner_speed_normal,
@@ -165,8 +182,9 @@ fun TextBannerScreen(
                         onClick = { viewModel.update(options.copy(speed = speed)) }, label = { Text(stringResource(label)) })
                 }
             }
-            Text(stringResource(R.string.text_banner_size), style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.text_banner_size), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() })
+            FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((size, label) in listOf(
                     TextBannerSize.Small to R.string.text_banner_size_small,
                     TextBannerSize.Medium to R.string.text_banner_size_medium,
@@ -176,13 +194,24 @@ fun TextBannerScreen(
                         onClick = { viewModel.update(options.copy(size = size)) }, label = { Text(stringResource(label)) })
                 }
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // Whole row toggles, so the label is read with the switch and the target is full width.
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                    value = options.bold,
+                    enabled = !state.saving,
+                    role = Role.Switch,
+                    onValueChange = { viewModel.update(options.copy(bold = it)) }
+                ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(stringResource(R.string.text_banner_bold), Modifier.weight(1f))
-                Switch(checked = options.bold, enabled = !state.saving,
-                    onCheckedChange = { viewModel.update(options.copy(bold = it)) })
+                Switch(checked = options.bold, enabled = !state.saving, onCheckedChange = null)
             }
 
-            if (state.savedUri != null) Text(stringResource(R.string.text_banner_saved), color = MaterialTheme.colorScheme.primary)
+            if (state.savedUri != null) {
+                Text(stringResource(R.string.text_banner_saved), color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
             OutlinedButton(onClick = viewModel::save, enabled = outputReady && state.savedUri == null,
                 modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(if (state.saving) R.string.text_banner_saving else R.string.text_banner_save))
@@ -196,7 +225,15 @@ fun TextBannerScreen(
                 modifier = Modifier.fillMaxWidth()
             ) { Text(stringResource(R.string.text_banner_send)) }
             if (permissionDenied) {
-                Text(stringResource(R.string.text_banner_bluetooth_permission), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.text_banner_bluetooth_permission), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+                // Recovery when the system no longer shows the permission dialog.
+                TextButton(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }) { Text(stringResource(R.string.text_banner_open_settings)) }
             }
             if (state.uploadRequested && upload.stage != UploadStage.Idle) {
                 Card(Modifier.fillMaxWidth()) {
@@ -213,7 +250,11 @@ fun TextBannerScreen(
                                 UploadStage.Cancelled -> stringResource(R.string.backpack_upload_cancelled)
                             },
                             color = if (upload.stage == UploadStage.Error) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            // Announce stage changes, but not every percent while sending.
+                            modifier = Modifier.semantics {
+                                if (upload.stage != UploadStage.Sending) liveRegion = LiveRegionMode.Polite
+                            }
                         )
                         upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                         if (activeUpload) {
@@ -237,17 +278,29 @@ fun TextBannerScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ColorRow(selected: Int, enabled: Boolean, onSelect: (Int) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val selectedState = stringResource(R.string.text_banner_color_selected)
+    val notSelectedState = stringResource(R.string.text_banner_color_not_selected)
+    // Each swatch keeps its 40 dp look inside a 48 dp touch target; the former 8 dp gaps
+    // are now part of the targets, so the visual spacing stays the same.
+    FlowRow(Modifier.selectableGroup()) {
         for (color in bannerColors) {
             val label = stringResource(color.label)
             val isSelected = color.argb == selected
             Box(
-                Modifier.size(40.dp).clip(CircleShape).background(Color(color.argb))
-                    .border(if (isSelected) 3.dp else 1.dp,
-                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
-                    .clickable(enabled = enabled, role = Role.RadioButton) { onSelect(color.argb) }
-                    .semantics { contentDescription = label }
-            )
+                Modifier.size(48.dp).clip(CircleShape)
+                    .selectable(selected = isSelected, enabled = enabled, role = Role.RadioButton) { onSelect(color.argb) }
+                    .semantics {
+                        contentDescription = label
+                        stateDescription = if (isSelected) selectedState else notSelectedState
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).background(Color(color.argb))
+                        .border(if (isSelected) 3.dp else 1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
+                )
+            }
         }
     }
 }

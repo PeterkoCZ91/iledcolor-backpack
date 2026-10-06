@@ -48,6 +48,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.key
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun DetailRoute(
@@ -87,6 +94,8 @@ fun DetailScreen(
     val context = LocalContext.current
     var previewError by remember(gifUrl) { mutableStateOf(false) }
     var previewLoaded by remember(gifUrl) { mutableStateOf(false) }
+    // Bumped by the "reload preview" recovery action to recreate the image request.
+    var previewAttempt by remember(gifUrl) { mutableStateOf(0) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -136,6 +145,7 @@ fun DetailScreen(
                     .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
+                key(previewAttempt) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(gifUrl)
@@ -154,13 +164,21 @@ fun DetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
+                }
 
                 if (previewError) {
-                    Text(
-                        stringResource(R.string.detail_preview_failed),
-                        color = Color.White,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            stringResource(R.string.detail_preview_failed),
+                            color = Color.White,
+                            modifier = Modifier.padding(16.dp)
+                                .semantics { liveRegion = LiveRegionMode.Polite }
+                        )
+                        TextButton(onClick = {
+                            previewError = false
+                            previewAttempt++
+                        }) { Text(stringResource(R.string.detail_retry_preview), color = Color.White) }
+                    }
                 }
 
                 // 64×64 minipreview — pixel-exact first frame as the backpack shows it
@@ -197,6 +215,8 @@ fun DetailScreen(
                                 .align(Alignment.BottomCenter)
                                 .background(Color.Black.copy(alpha = 0.6f))
                                 .padding(horizontal = 2.dp)
+                                // Size is already in the mini preview's content description.
+                                .clearAndSetSemantics { }
                         )
                     }
                 }
@@ -233,7 +253,7 @@ private fun DetailActionBar(
                 // recomposition), so the non-local branch must be a plain if/else.
                 Button(
                     onClick = onShareLocal,
-                    modifier = Modifier.fillMaxWidth().height(64.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
@@ -246,7 +266,9 @@ private fun DetailActionBar(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = onSaveClick,
-                        modifier = Modifier.weight(1f).height(60.dp),
+                        // Polite live region: TalkBack announces Saving → Saved.
+                        modifier = Modifier.weight(1f).heightIn(min = 60.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (uiState is DetailUiState.Saved) Color(0xFF4CAF50)
@@ -276,7 +298,7 @@ private fun DetailActionBar(
                     if (mp4Url.isNotBlank()) {
                         Button(
                             onClick = onConvertForBackpackClick,
-                            modifier = Modifier.weight(1f).height(60.dp),
+                            modifier = Modifier.weight(1f).heightIn(min = 60.dp),
                             shape = RoundedCornerShape(14.dp),
                             enabled = controlsEnabled && uiState !is DetailUiState.ConvertedAndSaved,
                             colors = ButtonDefaults.buttonColors(
@@ -308,8 +330,10 @@ private fun DetailActionBar(
             }
 
             if (uiState is DetailUiState.Error) {
+                // The save/convert buttons stay enabled in Error, so they double as retry.
                 Text(uiState.message, color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp))
+                    modifier = Modifier.padding(top = 8.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive })
             }
             if (uiState is DetailUiState.Converting) {
                 Spacer(modifier = Modifier.height(8.dp))

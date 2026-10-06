@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_header_personalized">Pro tebe</string>
+    <string name="search_header_trending">Trendy</string>
+    <string name="search_empty_source">Zadejte hledaný výraz pro %1$s</string>
+    <string name="search_empty_prompt">Zadejte hledaný výraz nebo přepněte zdroj</string>
+    <string name="search_start_typing">Začít hledat</string>
+    <string name="search_clear_query">Smazat hledání</string>
+    <string name="search_square_only_a11y">Jen čtverce</string>
+    <string name="search_history_remove">Odebrat „%1$s“ z historie</string>
+    <string name="search_save_pending">Čeká</string>
+    <string name="search_save_running">Stahuje</string>
+    <string name="search_save_done">Uloženo</string>
+    <string name="search_save_retry">Opakovat</string>
+    <string name="search_save">Uložit</string>
+    <string name="search_save_failed">Stažení selhalo</string>
+    <string name="search_save_a11y">%1$s: %2$s</string>
+    <string name="search_untitled">GIF bez názvu</string>
+    <string name="search_tile_a11y">%1$s, zdroj %2$s</string>
+    <string name="search_open_detail">otevřít detail</string>
+    <string name="categories_empty">Kategorie se nepodařilo zobrazit.</string>
+    <string name="categories_pin_a11y">Připnout %1$s</string>
+    <string name="categories_pinned_state">připnuto</string>
+    <string name="categories_not_pinned_state">nepřipnuto</string>
+    <string name="categories_open">otevřít kategorii</string>
+</resources>

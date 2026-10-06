@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_a11y_untitled">Untitled GIF</string>
+    <string name="library_a11y_tile">%1$s</string>
+    <string name="library_a11y_tile_with_state">%1$s, %2$s</string>
+    <string name="library_a11y_state_broken">damaged file</string>
+    <string name="library_a11y_state_preview_only">preview unavailable, the GIF can still be sent</string>
+    <string name="library_a11y_state_checking">checking the file</string>
+    <string name="library_a11y_open_detail">open detail</string>
+    <string name="library_a11y_more_actions">more options</string>
+    <string name="library_a11y_remove_broken">remove damaged GIF</string>
+    <string name="library_retry">Try again</string>
+    <string name="library_storage_permission_needed">Allow storage access to save GIFs on this Android version</string>
+</resources>

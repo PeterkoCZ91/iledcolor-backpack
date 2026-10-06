@@ -28,6 +28,7 @@ import android.net.Uri
 import com.batoh.core.common.Result
 import com.batoh.core.domain.usecase.GetLocalGifsUseCase
 import com.batoh.core.data.bluetooth.BackpackAdvertisement
+import com.batoh.core.data.bluetooth.UploadFailure
 import com.batoh.core.data.bluetooth.UploadHistoryEntry
 import com.batoh.core.data.bluetooth.UploadOutcome
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -252,7 +253,12 @@ fun BackpackScreen(
                                 )
                             }
                         }
-                        upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        val failure = upload.failure
+                        if (failure != null) {
+                            UploadFailureDetails(failure)
+                        } else {
+                            upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        }
                         if (activeUpload) {
                             if (upload.stage == UploadStage.Sending) {
                                 LinearProgressIndicator(progress = upload.progress.coerceIn(0f, 1f), modifier = Modifier.fillMaxWidth())
@@ -459,20 +465,40 @@ private fun UploadHistorySection(history: List<UploadHistoryEntry>, onClear: () 
     if (history.isEmpty()) {
         Text(stringResource(R.string.backpack_history_empty), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        return
+    } else {
+        UploadHistoryList(history)
     }
+}
+
+/** Typed failure reason with its "what to do" hint, shown on the upload card. */
+@Composable
+private fun UploadFailureDetails(failure: UploadFailure) {
+    val text = failure.text()
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(text.title, *text.args.toTypedArray()), style = MaterialTheme.typography.bodyMedium,
+            color = if (failure == UploadFailure.Cancelled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error)
+        Text(stringResource(R.string.upload_hint_label, stringResource(text.hint)), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun UploadHistoryList(history: List<UploadHistoryEntry>) {
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val format = remember(locale) {
         java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, locale)
     }
     history.forEach { entry ->
         val confirmed = entry.outcome == UploadOutcome.Confirmed || entry.outcome == UploadOutcome.AlreadyPresent
-        val (symbol, label, color) = when (entry.outcome) {
+        val (symbol, outcomeLabel, color) = when (entry.outcome) {
             UploadOutcome.Confirmed -> Triple("✓", stringResource(R.string.backpack_history_confirmed), MaterialTheme.colorScheme.primary)
             UploadOutcome.AlreadyPresent -> Triple("✓", stringResource(R.string.backpack_history_already_present), MaterialTheme.colorScheme.primary)
             UploadOutcome.Failed -> Triple("✕", stringResource(R.string.backpack_history_failed), MaterialTheme.colorScheme.error)
             UploadOutcome.Cancelled -> Triple("–", stringResource(R.string.backpack_history_cancelled), MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // Entries written before failure reasons existed keep the generic outcome label.
+        val reason = entry.failure?.takeIf { entry.outcome == UploadOutcome.Failed }?.text()
+        val label = if (reason != null) stringResource(reason.title, *reason.args.toTypedArray()) else outcomeLabel
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(symbol, color = color, style = MaterialTheme.typography.titleMedium)
             Column(Modifier.weight(1f)) {
@@ -481,6 +507,11 @@ private fun UploadHistorySection(history: List<UploadHistoryEntry>, onClear: () 
                 Text("$label · ${format.format(java.util.Date(entry.timeMillis))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (confirmed) MaterialTheme.colorScheme.onSurfaceVariant else color)
+                if (reason != null) {
+                    Text(stringResource(R.string.upload_hint_label, stringResource(reason.hint)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

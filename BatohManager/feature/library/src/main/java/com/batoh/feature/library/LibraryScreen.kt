@@ -65,6 +65,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.graphics.FilterQuality
 import coil.decode.BitmapFactoryDecoder
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun LibraryRoute(
@@ -88,7 +93,7 @@ fun LibraryRoute(
         val uri = pendingImport
         pendingImport = null
         if (granted && uri != null) viewModel.importGif(android.net.Uri.parse(uri))
-        else viewModel.showMessage("Pro uložení GIFu na tomto Androidu povol přístup k úložišti")
+        else viewModel.showMessage(context.getString(R.string.library_storage_permission_needed))
     }
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -124,7 +129,8 @@ fun LibraryRoute(
         onBack = onBack,
         previewDiagnoses = previewDiagnoses,
         onPreviewFailed = viewModel::onPreviewFailed,
-        onPreviewLoaded = viewModel::onPreviewLoaded
+        onPreviewLoaded = viewModel::onPreviewLoaded,
+        onRetry = viewModel::retry
     )
 }
 
@@ -143,7 +149,8 @@ fun LibraryScreen(
     onBack: () -> Unit,
     previewDiagnoses: Map<String, PreviewDiagnosis> = emptyMap(),
     onPreviewFailed: (Gif) -> Unit = {},
-    onPreviewLoaded: (Gif) -> Unit = {}
+    onPreviewLoaded: (Gif) -> Unit = {},
+    onRetry: () -> Unit = {}
 ) {
     var gifToAction by remember { mutableStateOf<Gif?>(null) }
     var gifToRemove by remember { mutableStateOf<Gif?>(null) }
@@ -259,7 +266,11 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            actionMessage?.let { Text(it, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+            // Polite live region so TalkBack announces import/delete results.
+            actionMessage?.let {
+                Text(it, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite })
+            }
             Box(Modifier.weight(1f)) {
             Crossfade(targetState = uiState, label = "library_state") { state ->
                 when (state) {
@@ -337,7 +348,9 @@ fun LibraryScreen(
                             Text(
                                 text = stringResource(R.string.library_empty),
                                 style = MaterialTheme.typography.titleLarge,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                                    .semantics { liveRegion = LiveRegionMode.Polite }
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(onClick = onImport, enabled = !importing) {
@@ -346,11 +359,20 @@ fun LibraryScreen(
                         }
                     }
                     is LibraryUiState.Error -> {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = state.message,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = onRetry) { Text(stringResource(R.string.library_retry)) }
+                        }
                     }
                 }
             }
@@ -396,6 +418,18 @@ fun GifItem(
     }
     val actionsAllowed = diagnosis.allowsEditAndSend()
     val broken = diagnosis as? PreviewDiagnosis.Broken
+    // TalkBack label: title plus the preview/file state, so broken tiles are not silent.
+    val title = gif.title.ifBlank { stringResource(R.string.library_a11y_untitled) }
+    val stateLabel = when {
+        broken != null -> stringResource(R.string.library_a11y_state_broken)
+        diagnosis == PreviewDiagnosis.PreviewOnly -> stringResource(R.string.library_a11y_state_preview_only)
+        previewFailed -> stringResource(R.string.library_a11y_state_checking)
+        else -> null
+    }
+    val tileDescription = if (stateLabel != null) stringResource(R.string.library_a11y_tile_with_state, title, stateLabel)
+        else stringResource(R.string.library_a11y_tile, title)
+    val clickLabel = stringResource(if (broken != null) R.string.library_a11y_remove_broken else R.string.library_a11y_open_detail)
+    val longClickLabel = stringResource(R.string.library_a11y_more_actions)
 
     Card(
         modifier = modifier,
@@ -412,7 +446,7 @@ fun GifItem(
             )
             AsyncImage(
                 model = thumbnailRequest,
-                contentDescription = gif.title,
+                contentDescription = tileDescription,
                 onLoading = { loadingPreview = true },
                 onError = {
                     loadingPreview = false
@@ -431,6 +465,8 @@ fun GifItem(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .combinedClickable(
+                        onClickLabel = clickLabel,
+                        onLongClickLabel = longClickLabel,
                         onClick = onClick,
                         onLongClick = onLongClick
                     )
@@ -442,7 +478,7 @@ fun GifItem(
                         enabled = !previewFailed || diagnosis == PreviewDiagnosis.PreviewOnly,
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.library_edit_description))
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.library_a11y_tile_with_state, stringResource(R.string.library_edit_description), title))
                     }
                 }
             }
@@ -462,11 +498,15 @@ fun GifItem(
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         maxLines = 4,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        // Already part of the tile's content description.
+                        modifier = Modifier.clearAndSetSemantics { }
                     )
                     if (broken != null && onRemove != null) {
-                        OutlinedButton(onClick = onRemove, modifier = Modifier.padding(top = 4.dp)) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.library_remove_description),
+                        val removeDescription = stringResource(R.string.library_remove_description)
+                        OutlinedButton(onClick = onRemove, modifier = Modifier.padding(top = 4.dp)
+                            .semantics { contentDescription = removeDescription }) {
+                            Icon(Icons.Default.Delete, contentDescription = null,
                                 modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.padding(2.dp))
                             Text(stringResource(R.string.library_remove), color = MaterialTheme.colorScheme.error)
@@ -481,7 +521,7 @@ fun GifItem(
                         enabled = !previewFailed || diagnosis == PreviewDiagnosis.PreviewOnly,
                         modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = stringResource(R.string.library_send_description))
+                        Icon(Icons.Default.Send, contentDescription = stringResource(R.string.library_a11y_tile_with_state, stringResource(R.string.library_send_description), title))
                     }
                 }
             }

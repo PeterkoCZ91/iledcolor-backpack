@@ -6,6 +6,14 @@ yet; debug builds are identified by their `versionCode` (currently 51).
 
 ## [Unreleased]
 
+### Added
+- The home *Backpack* tile shows the connection state and the device name.
+- Upload failures carry a typed reason (not connected, connection lost, header / chunk / end
+  rejected or timed out, insufficient space, MTU too small, invalid GIF, cancelled…) with a
+  "what to do" hint, shown on the upload card and stored in the history.
+- Accessibility pass: content descriptions, section headings, 48 dp touch targets, semantics for
+  toggles, sliders and colour chips, announced error states with a recovery action.
+
 ### Changed
 - The app is published as **GifPack** (repository `iledcolor-backpack`); application id
   `io.github.peterkocz91.gifpack` and deep-link scheme `gifpack://` (Kotlin packages are unchanged).

@@ -13,6 +13,7 @@ import com.batoh.core.data.bluetooth.BackpackCommands
 import com.batoh.core.data.bluetooth.BackpackPayload
 import com.batoh.core.data.bluetooth.BackpackFrame
 import com.batoh.core.data.bluetooth.BluetoothLeManager
+import com.batoh.core.data.bluetooth.UploadFailure
 import com.batoh.core.data.bluetooth.UploadHistory
 import com.batoh.core.data.bluetooth.UploadHistoryEntry
 import com.batoh.core.data.bluetooth.UploadOutcome
@@ -30,7 +31,9 @@ data class UploadState(
     val name: String? = null,
     val uri: String? = null,
     val progress: Float = 0f,
-    val message: String? = null
+    val message: String? = null,
+    /** Typed reason when [stage] is [UploadStage.Error] or [UploadStage.Cancelled]; [message] is its localised title. */
+    val failure: UploadFailure? = null
 )
 
 /** A single owner of panel transactions; navigation never cancels a transfer. */
@@ -46,6 +49,8 @@ class BackpackTransferManager @Inject constructor(
     private val settingsOperation = SingleOperationOwner()
     private var lastRequest: UploadRequest? = null
     private var userCancelledUpload = false
+    /** Set when the link dropped while chunks were being sent, so the cancellation reads as a lost connection. */
+    @Volatile private var connectionLostDuringUpload = false
     private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false)
     private val initialized = MutableStateFlow(false)
     private val settingsBusy = MutableStateFlow(false)
@@ -85,7 +90,8 @@ class BackpackTransferManager @Inject constructor(
                 if (!ready) {
                     settingsOperation.cancel()
                     if (_uploadState.value.stage in setOf(UploadStage.Sending, UploadStage.Finishing)) {
-                        uploadOperation.cancel(CancellationException("Spojení s batohem bylo přerušeno"))
+                        connectionLostDuringUpload = true
+                        uploadOperation.cancel(CancellationException("Backpack connection lost"))
                     }
                 } else operationMutex.withLock {
                     settingsBusy.value = true
@@ -155,9 +161,9 @@ class BackpackTransferManager @Inject constructor(
         historyPreferences.edit().remove(HISTORY_KEY).apply()
     }
 
-    private fun recordUpload(outcome: UploadOutcome) {
+    private fun recordUpload(outcome: UploadOutcome, failure: UploadFailure? = null) {
         val name = _uploadState.value.name ?: localizedString(R.string.backpack_program_name)
-        val history = UploadHistory.add(_uploadHistory.value, UploadHistoryEntry(name, System.currentTimeMillis(), outcome))
+        val history = UploadHistory.add(_uploadHistory.value, UploadHistoryEntry(name, System.currentTimeMillis(), outcome, failure))
         _uploadHistory.value = history
         historyPreferences.edit().putString(HISTORY_KEY, UploadHistory.encode(history)).apply()
     }
@@ -168,19 +174,86 @@ class BackpackTransferManager @Inject constructor(
         if (!uploadOperation.isOccupied) return
         userCancelledUpload = true
         val sending = _uploadState.value.stage in setOf(UploadStage.Sending, UploadStage.Finishing)
-        uploadOperation.cancel(CancellationException("Nahrávání bylo zrušeno"))
+        uploadOperation.cancel(CancellationException("Upload cancelled by the user"))
         // No verified protocol abort exists; reset the connection after partial data.
         if (sending) bluetoothManager.disconnect()
     }
 
-    private fun updateUpload(stage: UploadStage, progress: Float = _uploadState.value.progress, message: String? = null) {
-        _uploadState.value = _uploadState.value.copy(stage = stage, progress = progress, message = message)
+    private fun updateUpload(
+        stage: UploadStage,
+        progress: Float = _uploadState.value.progress,
+        message: String? = null,
+        failure: UploadFailure? = null
+    ) {
+        _uploadState.value = _uploadState.value.copy(stage = stage, progress = progress, message = message, failure = failure)
+    }
+
+    /** Ends the upload with [failure]: UI state, BLE log line and history entry. */
+    private fun failUpload(failure: UploadFailure, cause: Throwable?) {
+        val note = "Upload failed: ${failure.code}" + (cause?.let { " (${it.javaClass.simpleName}: ${it.message})" } ?: "")
+        Log.w("BackpackBLE", note, cause)
+        bluetoothManager.addBleLog(note)
+        val text = failure.text()
+        val cancelled = failure == UploadFailure.Cancelled
+        updateUpload(if (cancelled) UploadStage.Cancelled else UploadStage.Error,
+            message = localizedString(text.title, *text.args.toTypedArray()), failure = failure)
+        recordUpload(if (cancelled) UploadOutcome.Cancelled else UploadOutcome.Failed, failure)
+    }
+
+    /** Reads, validates and (if needed) converts the GIF at [uri] into a programme payload. */
+    private suspend fun gifPayload(uri: Uri): ByteArray {
+        val name = runCatching {
+            application.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        }.getOrNull() ?: uri.lastPathSegment ?: "GIF"
+        _uploadState.value = _uploadState.value.copy(name = name)
+        val gif = (try {
+            application.contentResolver.openInputStream(uri)?.use {
+                val output = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val size = it.read(buffer)
+                    if (size < 0) break
+                    if (output.size().toLong() + size > SafeGifDecoder.MAX_BYTES) throw UploadFailureException(UploadFailure.GifTooLarge)
+                    output.write(buffer, 0, size)
+                }
+                output.toByteArray()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: UploadFailureException) {
+            throw e
+        } catch (e: Exception) {
+            throw UploadFailureException(UploadFailure.GifUnreadable, e)
+        }) ?: throw UploadFailureException(UploadFailure.GifUnreadable)
+        val dimensions = BackpackPayload.gifSize(gif) ?: throw UploadFailureException(UploadFailure.NotAGif)
+        val converted = try {
+            val taskContext = currentCoroutineContext()
+            SafeGifDecoder.validate(gif) { taskContext.ensureActive() }
+            if (dimensions == (64 to 64)) gif else converter.convertGifBytes(gif)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw UploadFailureException(UploadFailure.GifInvalid, e)
+        }
+        return buildPayload { BackpackPayload.fromGif(converted) }
+    }
+
+    private inline fun buildPayload(block: () -> ByteArray): ByteArray = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        throw UploadFailureException(UploadFailure.PayloadInvalid, e)
     }
 
     private fun startUpload(request: UploadRequest) {
         if (uploadOperation.isOccupied || settingsOperation.isOccupied) return
         lastRequest = request
         userCancelledUpload = false
+        connectionLostDuringUpload = false
         transferBusy.value = true
         _uploadState.value = UploadState(UploadStage.Preparing, request.name, request.uri?.toString())
         uploadOperation.launch(scope) {
@@ -188,34 +261,8 @@ class BackpackTransferManager @Inject constructor(
                 val payload = withContext(Dispatchers.IO) {
                     when {
                         request.payload != null -> request.payload
-                        request.test -> BackpackPayload.fromGif(TestPatternGif.render())
-                        else -> {
-                            val uri = requireNotNull(request.uri)
-                            val name = runCatching {
-                                application.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
-                                    if (it.moveToFirst()) it.getString(0) else null
-                                }
-                            }.getOrNull() ?: uri.lastPathSegment ?: "GIF"
-                            _uploadState.value = _uploadState.value.copy(name = name)
-                            val gif = application.contentResolver.openInputStream(uri)?.use {
-                                val output = java.io.ByteArrayOutputStream()
-                                val buffer = ByteArray(8192)
-                                while (true) {
-                                    currentCoroutineContext().ensureActive()
-                                    val size = it.read(buffer)
-                                    if (size < 0) break
-                                    require(output.size().toLong() + size <= SafeGifDecoder.MAX_BYTES) { "GIF je větší než 20 MB" }
-                                    output.write(buffer, 0, size)
-                                }
-                                output.toByteArray()
-                            }
-                                ?: error("GIF nelze načíst")
-                            val taskContext = currentCoroutineContext()
-                            SafeGifDecoder.validate(gif) { taskContext.ensureActive() }
-                            val dimensions = requireNotNull(BackpackPayload.gifSize(gif)) { "Vybraný soubor není GIF" }
-                            val converted = if (dimensions == (64 to 64)) gif else converter.convertGifBytes(gif)
-                            BackpackPayload.fromGif(converted)
-                        }
+                        request.test -> buildPayload { BackpackPayload.fromGif(TestPatternGif.render()) }
+                        else -> gifPayload(requireNotNull(request.uri))
                     }
                 }
                 ensureActive()
@@ -227,9 +274,9 @@ class BackpackTransferManager @Inject constructor(
                 val ready = withTimeoutOrNull(20000) {
                     combine(connectionStatus, initialized) { state, init -> state.startsWith("Ready") && init }.first { it }
                 }
-                check(ready != null) { "Batoh se nepodařilo připojit. Zkus nahrávání znovu." }
+                if (ready == null) throw UploadFailureException(UploadFailure.NotConnected)
                 operationMutex.withLock {
-                    check(connectionStatus.value.startsWith("Ready")) { "Batoh je odpojený" }
+                    if (!connectionStatus.value.startsWith("Ready")) throw UploadFailureException(UploadFailure.ConnectionLost)
                     updateUpload(UploadStage.Sending)
                     try {
                         val completion = doUpload(payload)
@@ -240,19 +287,24 @@ class BackpackTransferManager @Inject constructor(
                         updateUpload(UploadStage.Success, 1f, message)
                         recordUpload(if (completion == UploadCompletion.Uploaded) UploadOutcome.Confirmed else UploadOutcome.AlreadyPresent)
                     } catch (e: Exception) {
+                        // A missing answer after the link already dropped is reported as a lost connection.
+                        val linkGone = !connectionStatus.value.startsWith("Ready")
                         // Keep transaction ownership until the uncertain BLE session is closed.
                         bluetoothManager.disconnect()
-                        throw e
+                        throw if (linkGone && e is UploadFailureException && e.failure.isMissingAnswer()) {
+                            UploadFailureException(UploadFailure.ConnectionLost, e)
+                        } else e
                     }
                 }
             } catch (e: CancellationException) {
-                updateUpload(if (userCancelledUpload) UploadStage.Cancelled else UploadStage.Error,
-                    message = localizedString(if (userCancelledUpload) R.string.backpack_upload_cancelled else R.string.backpack_upload_failed))
-                recordUpload(if (userCancelledUpload) UploadOutcome.Cancelled else UploadOutcome.Failed)
+                failUpload(when {
+                    userCancelledUpload -> UploadFailure.Cancelled
+                    connectionLostDuringUpload -> UploadFailure.ConnectionLost
+                    else -> UploadFailure.Unknown
+                }, e)
                 throw e
             } catch (e: Exception) {
-                updateUpload(UploadStage.Error, message = localizedString(R.string.backpack_upload_failed))
-                recordUpload(UploadOutcome.Failed)
+                failUpload((e as? UploadFailureException)?.failure ?: UploadFailure.Unknown, e)
             } finally {
                 transferBusy.value = false
             }
@@ -394,34 +446,27 @@ class BackpackTransferManager @Inject constructor(
 
     /** Upload the entire programme payload, with its original file ID and length. */
     private suspend fun doUpload(payload: ByteArray): UploadCompletion {
-        require(payload.size >= 24) { "Payload je příliš krátký" }
-        ensureAuth()?.let { error(it) }
+        if (payload.size < 24) throw UploadFailureException(UploadFailure.PayloadInvalid)
+        ensureAuth()?.let { throw UploadFailureException(UploadFailure.AuthFailed, IllegalStateException(it)) }
         // iledcolor 1.0.58 sends only Cmd 06 → chunks → end; Cmd 0D/07 are not part of an upload
         // (re_iledcolor/02_gif_resource_upload.md §4).
         val start = bluetoothManager.sendCommand(BackpackPayload.startFrame(payload))
-            ?: error("Cmd 06: žádná odpověď")
-        when (classifyUploadStart(start)) {
-            UploadStartDecision.AlreadyPresent -> return UploadCompletion.AlreadyPresent
-            UploadStartDecision.SendChunks -> Unit
-            UploadStartDecision.InsufficientSpace -> error("Batoh nemá dostatek volného místa")
-            UploadStartDecision.Rejected -> error("Batoh odmítl upload")
-        }
+        uploadStartFailure(start)?.let { throw UploadFailureException(it) }
+        if (start != null && classifyUploadStart(start) == UploadStartDecision.AlreadyPresent) return UploadCompletion.AlreadyPresent
         val mtu = bluetoothManager.mtu
-        if (BackpackFrame.chunkLength(mtu) < 64) error("MTU $mtu je příliš malé pro upload")
+        if (BackpackFrame.chunkLength(mtu) < 64) throw UploadFailureException(UploadFailure.MtuTooSmall(mtu))
         val packets = BackpackFrame.dataChunks(payload, mtu)
         for ((index, packet) in packets.withIndex()) {
             bluetoothManager.resetAckState()
-            if (!bluetoothManager.writeDataSuspend(packet)) error("Zápis paketu $index selhal")
-            val ack = withTimeoutOrNull(2000) { bluetoothManager.lastAckIndex.first { it == index } }
-            if (ack == null) error("Paket $index: žádná odpověď")
-            if (bluetoothManager.lastAckStatus != 1) error("Batoh odmítl paket $index")
+            val written = bluetoothManager.writeDataSuspend(packet)
+            val acked = written && withTimeoutOrNull(2000) { bluetoothManager.lastAckIndex.first { it == index } } != null
+            chunkFailure(index, packets.size, written, acked, bluetoothManager.lastAckStatus)
+                ?.let { throw UploadFailureException(it) }
             updateUpload(UploadStage.Sending, (index + 1).toFloat() / packets.size)
         }
         updateUpload(UploadStage.Finishing, 1f)
-        requireSuccess(
-            bluetoothManager.sendCommand(BackpackFrame.end(), charUuid = BluetoothLeManager.CHAR_DATA_UUID),
-            "Dokončení uploadu"
-        )
+        endFailure(bluetoothManager.sendCommand(BackpackFrame.end(), charUuid = BluetoothLeManager.CHAR_DATA_UUID))
+            ?.let { throw UploadFailureException(it) }
         return UploadCompletion.Uploaded
     }
 }

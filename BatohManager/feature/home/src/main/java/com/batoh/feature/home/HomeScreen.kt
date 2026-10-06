@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -20,6 +21,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -42,8 +50,10 @@ fun HomeRoute(
     onNavigateToConvert: () -> Unit,
     onNavigateToBackpack: () -> Unit,
     onNavigateToCategories: () -> Unit,
-    onNavigateToTextBanner: () -> Unit = {}
+    onNavigateToTextBanner: () -> Unit = {},
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
+    val backpackStatus by viewModel.backpackStatus.collectAsStateWithLifecycle()
     HomeScreen(
         themeMode = themeMode,
         gridColumns = gridColumns,
@@ -56,7 +66,8 @@ fun HomeRoute(
         onConvertClick = onNavigateToConvert,
         onBackpackClick = onNavigateToBackpack,
         onCategoriesClick = onNavigateToCategories,
-        onTextBannerClick = onNavigateToTextBanner
+        onTextBannerClick = onNavigateToTextBanner,
+        backpackStatus = backpackStatus
     )
 }
 
@@ -74,7 +85,8 @@ fun HomeScreen(
     onConvertClick: () -> Unit,
     onBackpackClick: () -> Unit,
     onCategoriesClick: () -> Unit,
-    onTextBannerClick: () -> Unit = {}
+    onTextBannerClick: () -> Unit = {},
+    backpackStatus: HomeBackpackStatus = HomeBackpackStatus()
 ) {
     var showInfoDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
@@ -401,12 +413,9 @@ fun HomeScreen(
                 )
             }
             item {
-                HomeButton(
-                    text = stringResource(R.string.home_backpack_button),
-                    icon = Icons.Default.Bluetooth,
-                    onClick = onBackpackClick,
-                    containerColor = Color(0xFF00BCD4),
-                    contentColor = Color.White
+                BackpackHomeButton(
+                    status = backpackStatus,
+                    onClick = onBackpackClick
                 )
             }
             item {
@@ -422,19 +431,61 @@ fun HomeScreen(
     }
 }
 
+/** Backpack tile: title, connection state and device name (firmware stays in the accessibility label). */
+@Composable
+fun BackpackHomeButton(
+    status: HomeBackpackStatus,
+    onClick: () -> Unit
+) {
+    val stateText = stringResource(
+        when (status.state) {
+            BackpackLinkState.CONNECTED -> R.string.home_status_connected
+            BackpackLinkState.CONNECTING -> R.string.home_status_connecting
+            BackpackLinkState.NOT_CONNECTED -> R.string.home_status_not_connected
+        }
+    )
+    // Two short lines fit the 120 dp tile; "state · name · FW" wrapped and got truncated.
+    val subtitle = listOfNotNull(stateText, status.deviceName).joinToString("\n")
+
+    val descriptionParts = mutableListOf(stringResource(R.string.home_status_cd_state, stateText))
+    status.deviceName?.let { descriptionParts += stringResource(R.string.home_status_cd_device, it) }
+    status.firmwareVersion?.let { descriptionParts += stringResource(R.string.home_status_cd_firmware, it) }
+
+    HomeButton(
+        text = stringResource(R.string.home_backpack_button),
+        icon = when (status.state) {
+            BackpackLinkState.CONNECTED -> Icons.Default.BluetoothConnected
+            BackpackLinkState.CONNECTING -> Icons.AutoMirrored.Filled.BluetoothSearching
+            BackpackLinkState.NOT_CONNECTED -> Icons.Default.Bluetooth
+        },
+        onClick = onClick,
+        containerColor = Color(0xFF00BCD4),
+        contentColor = Color.White,
+        subtitle = subtitle,
+        accessibilityLabel = descriptionParts.joinToString(", ")
+    )
+}
+
 @Composable
 fun HomeButton(
     text: String,
     icon: ImageVector,
     onClick: () -> Unit,
     containerColor: Color,
-    contentColor: Color
+    contentColor: Color,
+    subtitle: String? = null,
+    accessibilityLabel: String? = null
 ) {
+    val buttonModifier = Modifier
+        .fillMaxWidth()
+        .height(120.dp)
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
+        modifier = if (accessibilityLabel != null) {
+            buttonModifier.semantics { contentDescription = accessibilityLabel }
+        } else {
+            buttonModifier
+        },
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
@@ -442,19 +493,30 @@ fun HomeButton(
         )
     ) {
         Column(
+            // The button's own label replaces the visible texts for screen readers.
+            modifier = if (accessibilityLabel != null) Modifier.clearAndSetSemantics { } else Modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(if (subtitle != null) 36.dp else 48.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (subtitle != null) 4.dp else 8.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleMedium
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

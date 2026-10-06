@@ -49,13 +49,15 @@ firmware 14) with a phone, not only by unit tests.
 | Scrolling text banner | Verified | A 136-frame / 85 KB banner uploaded (backpack confirmed) and scrolls on the panel. |
 | Video URL → GIF | Working | MP4 up to 100 MB, up to 30 frames at 64 × 64. |
 | GIF upload (Cmd 06 → chunks → end) | Verified | Small GIF, 453 KB / 96-frame GIF, cancel and retry. |
-| "Already on backpack" status | Implemented, unit-tested | Not yet observed on hardware. |
+| "Already on backpack" status | Verified | Re-sending an identical GIF returns status 3 and skips the data transfer. |
 | "Not enough space" status | Implemented, unit-tested | Not yet observed on hardware. |
 | Brightness 1–10 | Verified | Round trip 7 → 6 → 7 confirmed by the status query. |
 | Screen on / off | Verified | Round trip confirmed by the status query. |
 | Status query | Verified | Reads screen, brightness, rotation, mirror — not free memory. |
 | Clock sync on connect | Gated, verified | Sent only when the device advertises time support (bit `0x0001`); skipped on the tested backpack. |
 | Device card | Verified | Name, firmware, panel size, colours and features from the advertisement. |
+| Home tile backpack status | Verified on a phone | Connection state and device name; firmware in the accessibility label. |
+| Upload failure reasons | Verified (cancel) | Typed reason plus a "what to do" hint in the upload card and history; other reasons unit-tested. |
 | Upload history | Verified | Last 10 uploads; separates "confirmed by backpack" from failed / cancelled. |
 | Built-in programmes | Count verified, playback unverified | The 0x0D query answers 0 on the tested backpack, so the picker stays hidden. |
 | Panel rotation / mirror | Unverified, gated | Shown only with bit `0x0100`; the tested firmware does not advertise it and ignored the command. |

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upload_error_not_connected">Batoh se nepodařilo připojit.</string>
+    <string name="upload_error_connection_lost">Spojení s batohem se během nahrávání přerušilo.</string>
+    <string name="upload_error_auth_failed">Ověření spojení s batohem selhalo.</string>
+    <string name="upload_error_header_timeout">Batoh neodpověděl na začátek nahrávání.</string>
+    <string name="upload_error_header_rejected">Batoh odmítl začít nahrávání (stav %1$d).</string>
+    <string name="upload_error_insufficient_space">Batoh nemá dost volného místa (stav 2).</string>
+    <string name="upload_error_chunk_write_failed">Telefon nedokázal odeslat paket %1$d z %2$d.</string>
+    <string name="upload_error_chunk_rejected">Batoh odmítl paket %1$d z %2$d (stav %3$d).</string>
+    <string name="upload_error_chunk_timeout">Batoh nepotvrdil paket %1$d z %2$d včas.</string>
+    <string name="upload_error_end_timeout">Batoh nepotvrdil dokončení nahrávání.</string>
+    <string name="upload_error_end_rejected">Batoh odmítl dokončení nahrávání (stav %1$d).</string>
+    <string name="upload_error_mtu_too_small">Vyjednané MTU %1$d je pro nahrávání příliš malé.</string>
+    <string name="upload_error_gif_too_large">GIF je větší než 20 MB.</string>
+    <string name="upload_error_gif_unreadable">Soubor GIF nejde otevřít ani načíst.</string>
+    <string name="upload_error_not_a_gif">Vybraný soubor není GIF.</string>
+    <string name="upload_error_gif_invalid">GIF je poškozený nebo ho nejde převést na 64×64.</string>
+    <string name="upload_error_payload_invalid">Data programu jsou neplatná.</string>
+    <string name="upload_error_cancelled">Nahrávání jsi zrušil(a).</string>
+    <string name="upload_error_unknown">Nahrávání selhalo z neznámého důvodu.</string>
+
+    <string name="upload_hint_reconnect">Zapni batoh, dej telefon blíž a připoj se znovu.</string>
+    <string name="upload_hint_move_closer">Dej telefon blíž k batohu, připoj se znovu a zkus to znovu.</string>
+    <string name="upload_hint_restart_backpack">Odpoj se, vypni a zapni batoh a připoj se znovu.</string>
+    <string name="upload_hint_try_again">Zkus to znovu. Když se to opakuje, odpoj se a připoj znovu.</string>
+    <string name="upload_hint_try_again_restart">Zkus to znovu. Když se to opakuje, vypni a zapni batoh.</string>
+    <string name="upload_hint_free_space">Pošli menší nebo kratší GIF. Místo lze uvolnit volbou „Smazat obsah batohu“, ale ta smaže všechny programy a nejde vrátit.</string>
+    <string name="upload_hint_not_stored">Program nemusí být uložený. Zkus ho poslat znovu.</string>
+    <string name="upload_hint_mtu">Odpoj se a připoj znovu. Když to nepomůže, vypni a zapni Bluetooth v telefonu.</string>
+    <string name="upload_hint_smaller_gif">Zmenši nebo zkrať GIF v editoru a pošli ho znovu.</string>
+    <string name="upload_hint_pick_again">Soubor už nemusí být dostupný. Vyber ho znovu.</string>
+    <string name="upload_hint_pick_gif">Vyber soubor ve formátu GIF.</string>
+    <string name="upload_hint_other_file">Zkus jiný GIF nebo ho znovu ulož v editoru.</string>
+    <string name="upload_hint_recreate">Vytvoř program znovu a pošli ho.</string>
+    <string name="upload_hint_cancelled">Část dat mohla dorazit, program ale není uložený. Pošli ho znovu, až budeš chtít.</string>
+    <string name="upload_hint_check_log">Zkus to znovu. Podrobnosti najdeš v BLE logu.</string>
+    <string name="upload_hint_label">Co dělat: %1$s</string>
+</resources>

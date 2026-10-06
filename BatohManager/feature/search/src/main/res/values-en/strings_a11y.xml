@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_header_personalized">For you</string>
+    <string name="search_header_trending">Trending</string>
+    <string name="search_empty_source">Enter a search term for %1$s</string>
+    <string name="search_empty_prompt">Enter a search term or switch the source</string>
+    <string name="search_start_typing">Start searching</string>
+    <string name="search_clear_query">Clear search</string>
+    <string name="search_square_only_a11y">Squares only</string>
+    <string name="search_history_remove">Remove “%1$s” from history</string>
+    <string name="search_save_pending">Waiting</string>
+    <string name="search_save_running">Downloading</string>
+    <string name="search_save_done">Saved</string>
+    <string name="search_save_retry">Retry</string>
+    <string name="search_save">Save</string>
+    <string name="search_save_failed">Download failed</string>
+    <string name="search_save_a11y">%1$s: %2$s</string>
+    <string name="search_untitled">Untitled GIF</string>
+    <string name="search_tile_a11y">%1$s, source %2$s</string>
+    <string name="search_open_detail">open detail</string>
+    <string name="categories_empty">Categories could not be shown.</string>
+    <string name="categories_pin_a11y">Pin %1$s</string>
+    <string name="categories_pinned_state">pinned</string>
+    <string name="categories_not_pinned_state">not pinned</string>
+    <string name="categories_open">open category</string>
+</resources>

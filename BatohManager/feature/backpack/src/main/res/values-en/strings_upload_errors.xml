@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upload_error_not_connected">Could not connect to the backpack.</string>
+    <string name="upload_error_connection_lost">The connection to the backpack dropped during the upload.</string>
+    <string name="upload_error_auth_failed">Authenticating the connection to the backpack failed.</string>
+    <string name="upload_error_header_timeout">The backpack did not answer the start of the upload.</string>
+    <string name="upload_error_header_rejected">The backpack refused to start the upload (status %1$d).</string>
+    <string name="upload_error_insufficient_space">The backpack does not have enough free space (status 2).</string>
+    <string name="upload_error_chunk_write_failed">The phone could not send packet %1$d of %2$d.</string>
+    <string name="upload_error_chunk_rejected">The backpack rejected packet %1$d of %2$d (status %3$d).</string>
+    <string name="upload_error_chunk_timeout">The backpack did not acknowledge packet %1$d of %2$d in time.</string>
+    <string name="upload_error_end_timeout">The backpack did not confirm the end of the upload.</string>
+    <string name="upload_error_end_rejected">The backpack rejected the end of the upload (status %1$d).</string>
+    <string name="upload_error_mtu_too_small">The negotiated MTU %1$d is too small for uploads.</string>
+    <string name="upload_error_gif_too_large">The GIF is larger than 20 MB.</string>
+    <string name="upload_error_gif_unreadable">The GIF file cannot be opened or read.</string>
+    <string name="upload_error_not_a_gif">The selected file is not a GIF.</string>
+    <string name="upload_error_gif_invalid">The GIF is damaged or cannot be converted to 64×64.</string>
+    <string name="upload_error_payload_invalid">The programme data is invalid.</string>
+    <string name="upload_error_cancelled">You cancelled the upload.</string>
+    <string name="upload_error_unknown">The upload failed for an unknown reason.</string>
+
+    <string name="upload_hint_reconnect">Turn the backpack on, move the phone closer and connect again.</string>
+    <string name="upload_hint_move_closer">Move the phone closer to the backpack, reconnect and try again.</string>
+    <string name="upload_hint_restart_backpack">Disconnect, turn the backpack off and on, and connect again.</string>
+    <string name="upload_hint_try_again">Try again. If it keeps happening, disconnect and connect again.</string>
+    <string name="upload_hint_try_again_restart">Try again. If it keeps happening, turn the backpack off and on.</string>
+    <string name="upload_hint_free_space">Send a smaller or shorter GIF. “Clear backpack contents” frees space, but it deletes every programme and cannot be undone.</string>
+    <string name="upload_hint_not_stored">The programme may not be stored. Try sending it again.</string>
+    <string name="upload_hint_mtu">Disconnect and connect again. If that does not help, turn Bluetooth on the phone off and on.</string>
+    <string name="upload_hint_smaller_gif">Make the GIF smaller or shorter in the editor and send it again.</string>
+    <string name="upload_hint_pick_again">The file may no longer be available. Pick it again.</string>
+    <string name="upload_hint_pick_gif">Pick a file in GIF format.</string>
+    <string name="upload_hint_other_file">Try another GIF or save it again in the editor.</string>
+    <string name="upload_hint_recreate">Create the programme again and send it.</string>
+    <string name="upload_hint_cancelled">Some data may have arrived, but the programme is not stored. Send it again whenever you like.</string>
+    <string name="upload_hint_check_log">Try again. The BLE log has the details.</string>
+    <string name="upload_hint_label">What to do: %1$s</string>
+</resources>

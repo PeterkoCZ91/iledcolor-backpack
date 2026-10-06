@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_not_connected">Not connected</string>
+    <string name="home_status_connecting">Connecting…</string>
+    <string name="home_status_connected">Connected</string>
+    <string name="home_status_cd_state">Backpack, %1$s</string>
+    <string name="home_status_cd_device">device %1$s</string>
+    <string name="home_status_cd_firmware">firmware version %1$d</string>
+</resources>
