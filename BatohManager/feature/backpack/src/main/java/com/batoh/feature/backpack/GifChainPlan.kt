@@ -5,10 +5,10 @@ import com.batoh.core.conversion.ChainLimits
 import com.batoh.core.conversion.GifConcatException
 import kotlin.coroutines.cancellation.CancellationException
 
-/** Položka řetězu; [id] je stabilní klíč (stejný GIF může být v řetězu víckrát). */
+/** Chain item; [id] is a stable key (the same GIF may appear in the chain multiple times). */
 data class ChainItem(val id: Long, val uri: String)
 
-/** Typované chyby spojování; UI je převádí na lokalizovaný text, nikdy nezobrazuje text výjimky. */
+/** Typed merge errors; the UI maps them to localized text and never shows the exception text. */
 sealed class GifChainError {
     object Empty : GifChainError()
     data class SourceUnreadable(val index: Int) : GifChainError()
@@ -20,33 +20,33 @@ sealed class GifChainError {
     object SaveFailed : GifChainError()
     object Generic : GifChainError()
 
-    /** Chyby, které brání uložení i odeslání výsledku. */
+    /** Errors that prevent both saving and sending the result. */
     val isLimit: Boolean get() = this is TooManyFrames || this is TooLarge || this is InputsTooLarge
 }
 
-/** Zdroj se nepodařilo načíst (I/O, chybějící soubor, příliš velký soubor). */
+/** The source failed to load (I/O, missing file, file too large). */
 class ChainSourceException(val index: Int, val tooLarge: Boolean = false, cause: Throwable? = null) :
     Exception("Source $index unavailable", cause)
 
 enum class ChainStatusKind { OK, WARN, BLOCK }
 
-/** Stav výsledku pro UI: počet snímků, velikost a úroveň varování. */
+/** Result state for the UI: frame count, size and warning level. */
 data class ChainStatus(val frames: Int, val bytes: Long, val kind: ChainStatusKind) {
     val sizeKb: Long get() = GifChainPlan.sizeKb(bytes)
     val allowsOutput: Boolean get() = kind != ChainStatusKind.BLOCK
 }
 
-/** Čistá logika obrazovky spojování GIFů (JVM testovatelná). */
+/** Pure logic of the GIF merge screen (JVM-testable). */
 object GifChainPlan {
     const val MIN_ITEMS = 2
     const val MAX_ITEMS = 20
-    /** Součet velikostí zdrojů držených v paměti. */
+    /** Sum of the sizes of the sources held in memory. */
     const val MAX_TOTAL_SOURCE_BYTES = 40L * 1024 * 1024
     const val MAX_PAUSE_MS = 3000
     const val MIN_SPEED_MS = 20
     const val MAX_SPEED_MS = 500
 
-    /** Seznam URI v argumentu trasy: jednotlivá URI jsou enkódovaná a oddělená čárkou. */
+    /** List of URIs in the route argument: each URI is encoded and separated by a comma. */
     fun parseUris(arg: String?): List<String> =
         arg.orEmpty().split(',').filter { it.isNotBlank() }
             .map { java.net.URLDecoder.decode(it, "UTF-8") }
@@ -81,7 +81,7 @@ object GifChainPlan {
         return ChainStatus(frames, bytes, kind)
     }
 
-    /** Převede výjimku na typovanou chybu; zrušení se vždy propaguje dál. */
+    /** Converts an exception to a typed error; cancellation is always propagated. */
     fun errorFor(t: Throwable): GifChainError = when (t) {
         is CancellationException -> throw t
         is GifConcatException.EmptyInput -> GifChainError.Empty

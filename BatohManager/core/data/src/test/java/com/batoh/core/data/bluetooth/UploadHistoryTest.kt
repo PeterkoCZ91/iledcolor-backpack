@@ -6,8 +6,8 @@ import org.junit.Test
 class UploadHistoryTest {
     @Test fun roundTripKeepsNamesWithSpecialCharacters() {
         val history = listOf(
-            UploadHistoryEntry("kočka\tnový\nřádek ✓.gif", 1_759_000_000_000, UploadOutcome.Confirmed),
-            UploadHistoryEntry("Vestavěný program 3", 1_759_000_001_000, UploadOutcome.AlreadyPresent),
+            UploadHistoryEntry("cat\tnew\nline ✓.gif", 1_759_000_000_000, UploadOutcome.Confirmed),
+            UploadHistoryEntry("Built-in program 3", 1_759_000_001_000, UploadOutcome.AlreadyPresent),
             UploadHistoryEntry("a%b+c", 2, UploadOutcome.Failed),
             UploadHistoryEntry("", 3, UploadOutcome.Cancelled),
         )
@@ -47,10 +47,10 @@ class UploadHistoryTest {
     }
 
     @Test fun entriesSavedBeforeReasonsExistedStillDecode() {
-        val old = "1759000000000\tFailed\tko%C4%8Dka.gif\n1759000001000\tConfirmed\tok"
+        val old = "1759000000000\tFailed\tcat.gif\n1759000001000\tConfirmed\tok"
         assertEquals(
             listOf(
-                UploadHistoryEntry("kočka.gif", 1_759_000_000_000, UploadOutcome.Failed, null),
+                UploadHistoryEntry("cat.gif", 1_759_000_000_000, UploadOutcome.Failed, null),
                 UploadHistoryEntry("ok", 1_759_000_001_000, UploadOutcome.Confirmed, null),
             ),
             UploadHistory.decode(old)

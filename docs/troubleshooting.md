@@ -34,7 +34,7 @@ What helps:
 The app always closes the GATT client after a disconnect, so repeated failures should not
 exhaust Android's connection slots.
 
-### "Batoh se nepodařilo připojit" / connection timeout
+### "Batoh se nepodařilo připojit" (English UI: "Could not connect to the backpack") / connection timeout
 
 An upload waits up to 20 s for the backpack to become ready (connected, services found,
 MTU negotiated, session handshake and initial status read). Move closer, make sure the
@@ -62,7 +62,7 @@ negotiate 512–517. Data chunks are `MTU − 25` bytes (487 at MTU 512).
 | --- | --- |
 | `Ready (MTU=…)` | Normal. |
 | `Ready (MTU negotiation failed, using default)` | The phone kept the default MTU of 23 bytes. |
-| Upload fails with "MTU … je příliš malé pro upload" | Chunks would be smaller than 64 bytes, so the app refuses to upload rather than send hundreds of tiny frames. Disconnect, toggle Bluetooth and reconnect. |
+| Upload fails with "MTU … je příliš malé pro upload" (the MTU is too small for upload) | Chunks would be smaller than 64 bytes, so the app refuses to upload rather than send hundreds of tiny frames. Disconnect, toggle Bluetooth and reconnect. |
 
 ## Missing API keys
 

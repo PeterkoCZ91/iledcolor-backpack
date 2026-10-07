@@ -50,11 +50,11 @@ class SearchDownloadsTest {
     @Test fun enqueueErrorIsVisibleAndRetryable() = runBlocking {
         var attempts = 0
         val downloads = SearchDownloads(this,
-            { _, _ -> if (++attempts == 1) Result.Error(Exception("offline"), "Bez připojení") else Result.Success("work") },
+            { _, _ -> if (++attempts == 1) Result.Error(Exception("offline"), "No connection") else Result.Success("work") },
             { flowOf(DownloadStatus.SUCCESS) })
         downloads.save(gif())
         yield()
-        assertEquals("Bez připojení", downloads.states.value[gif().downloadKey()]?.message)
+        assertEquals("No connection", downloads.states.value[gif().downloadKey()]?.message)
         downloads.save(gif())
         yield()
         assertEquals(GifSaveStage.Success, downloads.states.value[gif().downloadKey()]?.stage)

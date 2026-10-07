@@ -15,7 +15,7 @@ sealed class Screen(val route: String) {
     }
     data object GifChain : Screen("gif-chain?gif_uris={gif_uris}") {
         const val ARG_GIF_URIS = "gif_uris"
-        /** Jednotlivá URI se enkódují a spojí čárkou; celek se enkóduje ještě jednou pro trasu. */
+        /** Individual URIs are encoded and joined by a comma; the whole is encoded once more for the route. */
         fun createRoute(uris: List<String>) =
             "gif-chain?gif_uris=${android.net.Uri.encode(uris.joinToString(",") { android.net.Uri.encode(it) })}"
     }

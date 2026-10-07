@@ -122,10 +122,10 @@ class LibraryViewModel @Inject constructor(
             initialValue = LibraryUiState.Loading
         )
 
-    // Výběr GIFů ke spojení (ids v pořadí výběru); přežije zabití procesu, smazané GIFy se odfiltrují.
+    // Selection of GIFs to merge (ids in selection order); survives process death, deleted GIFs are filtered out.
     private val rawSelection: StateFlow<ArrayList<String>> =
         savedStateHandle.getStateFlow(KEY_SELECTION, ArrayList<String>())
-    /** Celá sbírka bez ohledu na hledání (vybraný GIF může být právě odfiltrovaný); null = ještě nenačteno. */
+    /** The whole collection regardless of search (a selected GIF may currently be filtered out); null = not loaded yet. */
     private val allGifs: StateFlow<List<Gif>?> = getLibraryEntriesUseCase()
         .filter { it is Result.Success }
         .map { (it as Result.Success).data.map { entry -> entry.gif } }
@@ -136,7 +136,7 @@ class LibraryViewModel @Inject constructor(
 
     private fun setSelection(ids: List<String>) { savedStateHandle[KEY_SELECTION] = ArrayList(ids) }
 
-    /** Dlouhý klik: zapne výběr s tímto GIFem (už vybraný zůstane). */
+    /** Long press: starts selection with this GIF (an already selected one stays). */
     fun startSelection(gif: Gif) {
         if (gif.id !in selection.value) toggleSelection(gif)
     }
@@ -154,7 +154,7 @@ class LibraryViewModel @Inject constructor(
 
     fun clearSelection() = setSelection(emptyList())
 
-    /** URI vybraných GIFů v pořadí výběru, nebo prázdný seznam, pokud jich je méně než 2. */
+    /** URIs of the selected GIFs in selection order, or an empty list if fewer than 2. */
     fun chainUris(): List<String> {
         val gifs = allGifs.value ?: return emptyList()
         val sel = selection.value

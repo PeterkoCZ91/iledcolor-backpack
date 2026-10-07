@@ -2,20 +2,20 @@ package com.batoh.core.conversion
 
 import java.io.ByteArrayOutputStream
 
-/** Chyby řetězení GIFů; zrušení (výjimka z cancel lambdy) se propaguje beze změny. */
+/** GIF chaining errors; cancellation (exception from the cancel lambda) propagates unchanged. */
 sealed class GifConcatException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class EmptyInput : GifConcatException("Není vybrán žádný GIF")
+    class EmptyInput : GifConcatException("No GIF selected")
     class InvalidSource(val index: Int, cause: Throwable) :
-        GifConcatException("GIF č. ${index + 1} nelze přečíst: ${cause.message}", cause)
-    class TooManyFrames(val limit: Int) : GifConcatException("Řetěz má více než $limit snímků")
-    class TooLarge(val limitBytes: Int) : GifConcatException("Výsledný GIF je větší než 20 MB")
+        GifConcatException("GIF #${index + 1} cannot be read: ${cause.message}", cause)
+    class TooManyFrames(val limit: Int) : GifConcatException("Chain has more than $limit frames")
+    class TooLarge(val limitBytes: Int) : GifConcatException("The resulting GIF is larger than 20 MB")
 }
 
 data class GifConcatOptions(
     val scaleMode: GifScaleMode = GifScaleMode.CenterCrop,
-    /** Pauza mezi GIFy v ms (přidá se k delay posledního snímku každého GIFu kromě posledního). */
+    /** Pause between GIFs in ms (added to the delay of the last frame of each GIF except the last). */
     val pauseBetweenMs: Int = 0,
-    /** Je-li zadáno, každý snímek dostane tento delay v ms (pauzy se přičítají navíc). */
+    /** If set, every frame gets this delay in ms (pauses are added on top). */
     val frameDelayOverrideMs: Int? = null
 )
 
@@ -28,12 +28,12 @@ object GifConcatProcessor {
         items: List<Source>,
         options: GifConcatOptions = GifConcatOptions(),
         checkCancellation: () -> Unit = {},
-        /** Jen pro testy; produkčně vždy [SafeGifDecoder.MAX_BYTES]. */
+        /** Tests only; in production always [SafeGifDecoder.MAX_BYTES]. */
         maxBytes: Int = SafeGifDecoder.MAX_BYTES
     ): GifEditResult {
         if (items.isEmpty()) throw GifConcatException.EmptyInput()
-        require(options.pauseBetweenMs >= 0) { "Pauza nesmí být záporná" }
-        options.frameDelayOverrideMs?.let { require(it >= 0) { "Rychlost nesmí být záporná" } }
+        require(options.pauseBetweenMs >= 0) { "Pause must not be negative" }
+        options.frameDelayOverrideMs?.let { require(it >= 0) { "Speed must not be negative" } }
         val editOptions = GifEditOptions(scaleMode = options.scaleMode)
         val frames = ArrayList<Frame>()
         for ((index, item) in items.withIndex()) {
@@ -69,7 +69,7 @@ object GifConcatProcessor {
         output.write("GIF89a".toByteArray(Charsets.US_ASCII))
         output.short(64)
         output.short(64)
-        output.write(0xe6) // Globální paleta 128 barev jako u GifEditorProcessor.
+        output.write(0xe6) // Global palette of 128 colors, same as GifEditorProcessor.
         output.write(0)
         output.write(0)
         var duration = 0L
@@ -82,7 +82,7 @@ object GifConcatProcessor {
                 output.write("NETSCAPE2.0".toByteArray(Charsets.US_ASCII))
                 output.write(3)
                 output.write(1)
-                output.short(0) // loop navždy
+                output.short(0) // loop forever
                 output.write(0)
             }
             output.write(byteArrayOf(0x21, 0xf9.toByte(), 4, 4)) // disposal 1

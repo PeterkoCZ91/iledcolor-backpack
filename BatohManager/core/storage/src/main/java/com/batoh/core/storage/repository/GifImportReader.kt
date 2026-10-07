@@ -80,7 +80,7 @@ internal object GifImportReader {
     fun read(input: InputStream?, ensureActive: () -> Unit): ByteArray {
         val source = input ?: throw GifImportException(
             GifImportFailure.SourceMissing,
-            "Vybraný GIF nelze načíst"
+            "The selected GIF cannot be read"
         )
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
@@ -95,7 +95,7 @@ internal object GifImportReader {
                 }
                 if (count < 0) break
                 if (output.size().toLong() + count > SafeGifDecoder.MAX_BYTES) {
-                    throw GifImportException(GifImportFailure.TooLarge, "GIF je příliš velký (maximum 20 MB)")
+                    throw GifImportException(GifImportFailure.TooLarge, "GIF is too large (maximum 20 MB)")
                 }
                 output.write(buffer, 0, count)
             }
@@ -120,7 +120,7 @@ internal object GifImportReader {
     } catch (e: IllegalArgumentException) {
         throw GifImportException(
             GifImportFailure.Corrupt,
-            "GIF je poškozený nebo překračuje podporované limity",
+            "GIF is corrupt or exceeds the supported limits",
             e
         )
     }
@@ -133,9 +133,9 @@ internal object GifImportReader {
             else -> GifImportFailure.SourceUnreadable
         }
         val message = when (reason) {
-            GifImportFailure.PermissionRevoked -> "Přístup ke sdílenému GIFu byl odebrán"
-            GifImportFailure.SourceMissing -> "Sdílený GIF už neexistuje"
-            else -> if (opening) "Sdílený GIF nelze otevřít" else "Čtení sdíleného GIFu bylo přerušeno"
+            GifImportFailure.PermissionRevoked -> "Access to the shared GIF was revoked"
+            GifImportFailure.SourceMissing -> "The shared GIF no longer exists"
+            else -> if (opening) "The shared GIF cannot be opened" else "Reading the shared GIF was interrupted"
         }
         return GifImportException(reason, message, error)
     }

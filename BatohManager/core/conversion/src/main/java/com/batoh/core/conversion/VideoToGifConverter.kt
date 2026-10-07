@@ -133,7 +133,7 @@ class VideoToGifConverter @Inject constructor(
                 try {
                     val cropped = centerCropToSquare(frame)
                     val scaled = Bitmap.createScaledBitmap(cropped, TARGET_SIZE, TARGET_SIZE, true)
-                    check(encoder.addFrame(scaled)) { "Snímek videa nelze převést" }
+                    check(encoder.addFrame(scaled)) { "Video frame cannot be converted" }
                     encodedFrames++
                     scaled.recycle()
                     if (cropped !== frame) cropped.recycle()
@@ -146,8 +146,8 @@ class VideoToGifConverter @Inject constructor(
             onProgress((i + 1) * 100 / frameCount)
         }
 
-        require(encodedFrames > 0) { "Video neobsahuje čitelné snímky" }
-        check(encoder.finish()) { "GIF nelze dokončit" }
+        require(encodedFrames > 0) { "Video contains no readable frames" }
+        check(encoder.finish()) { "GIF cannot be finished" }
         return output.toByteArray()
     }
 
@@ -194,4 +194,4 @@ class EmptyVideoResponseException : IOException("Empty response")
 
 /** Video exceeds the download limit or its frames do not fit into memory. */
 class VideoTooLargeException(cause: Throwable? = null) :
-    IllegalArgumentException("Video je příliš velké (maximum 100 MB)", cause)
+    IllegalArgumentException("Video is too large (maximum 100 MB)", cause)

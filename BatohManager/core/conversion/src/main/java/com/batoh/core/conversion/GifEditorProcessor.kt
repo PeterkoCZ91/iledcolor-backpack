@@ -63,7 +63,7 @@ object GifEditorProcessor {
     }
 
     internal fun transformPixels(pixels: IntArray, width: Int, height: Int, options: GifEditOptions): IntArray {
-        require(options.rotationDegrees in listOf(0, 90, 180, 270)) { "Rotace musí být 0°, 90°, 180° nebo 270°" }
+        require(options.rotationDegrees in listOf(0, 90, 180, 270)) { "Rotation must be 0°, 90°, 180° or 270°" }
         val quarterTurn = options.rotationDegrees == 90 || options.rotationDegrees == 270
         val rotatedWidth = if (quarterTurn) height else width
         val rotatedHeight = if (quarterTurn) width else height

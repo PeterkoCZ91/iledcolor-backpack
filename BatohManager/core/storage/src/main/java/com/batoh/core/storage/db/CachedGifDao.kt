@@ -8,7 +8,7 @@ import androidx.room.Transaction
 
 @Dao
 interface CachedGifDao {
-    /** Jen záznamy novější než [minCachedAt] (TTL), v pořadí z odpovědi API. */
+    /** Only entries newer than [minCachedAt] (TTL), in API response order. */
     @Query("SELECT * FROM cached_gifs WHERE `query` = :query AND cachedAt >= :minCachedAt ORDER BY position ASC")
     suspend fun getGifsForQuery(query: String, minCachedAt: Long = 0L): List<CachedGifEntity>
 
@@ -21,7 +21,7 @@ interface CachedGifDao {
     @Query("DELETE FROM cached_gifs WHERE `query` = :query")
     suspend fun clearForQuery(query: String)
 
-    /** Atomicky nahradí obsah dotazu novou odpovědí. */
+    /** Atomically replaces the query's contents with the new response. */
     @Transaction
     suspend fun replaceForQuery(query: String, gifs: List<CachedGifEntity>) {
         clearForQuery(query)

@@ -102,11 +102,11 @@ class GifEditorViewModel @Inject constructor(
                             context.ensureActive()
                             val count = input.read(buffer)
                             if (count < 0) break
-                            require(output.size().toLong() + count <= SafeGifDecoder.MAX_BYTES) { "GIF je větší než 20 MB" }
+                            require(output.size().toLong() + count <= SafeGifDecoder.MAX_BYTES) { "GIF is larger than 20 MB" }
                             output.write(buffer, 0, count)
                         }
                         output.toByteArray()
-                    } ?: error("GIF nelze načíst. Zkus ho znovu importovat.")
+                    } ?: error("GIF cannot be loaded. Try importing it again.")
                     context.ensureActive()
                     loadedSource = bytes
                     GifEditorProcessor.transform(bytes, options) { context.ensureActive() }
@@ -187,13 +187,13 @@ class GifEditorViewModel @Inject constructor(
                         _state.value = _state.value.copy(saving = false, savedUri = uri)
                         if (sendToBackpack) dispatchSend(uri, bytes)
                     }
-                    is Result.Error -> error(saved.message ?: "Kopii se nepodařilo uložit")
-                    is Result.Loading -> error("Ukládání se nedokončilo")
+                    is Result.Error -> error(saved.message ?: "Failed to save the copy")
+                    is Result.Loading -> error("Saving did not finish")
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message ?: "Uložení selhalo")
+                _state.value = _state.value.copy(error = e.message ?: "Saving failed")
             } finally {
                 _state.value = _state.value.copy(saving = false)
             }

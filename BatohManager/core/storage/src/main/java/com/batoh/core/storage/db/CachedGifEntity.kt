@@ -10,7 +10,7 @@ import androidx.room.Index
 )
 data class CachedGifEntity(
     val id: String,
-    val query: String, // Ke kterému vyhledávání patří (složený klíč s id)
+    val query: String, // Which search it belongs to (composite key with id)
     val title: String,
     val thumbnailUrl: String,
     val originalUrl: String,
@@ -19,5 +19,5 @@ data class CachedGifEntity(
     val height: Int,
     val source: String,
     val cachedAt: Long = System.currentTimeMillis(),
-    val position: Int = 0 // pořadí v odpovědi API
+    val position: Int = 0 // position in the API response
 )

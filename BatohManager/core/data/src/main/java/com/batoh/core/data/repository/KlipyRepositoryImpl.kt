@@ -48,7 +48,7 @@ class KlipyRepositoryImpl @Inject constructor(
 
         emit(Result.Loading)
         if (apiKey.isBlank() || apiKey == "MISSING_KEY") {
-            emit(Result.Error(Exception("Chybí Klipy API Klíč.")))
+            emit(Result.Error(Exception("Klipy API key is missing.")))
             return@flow
         }
         try {

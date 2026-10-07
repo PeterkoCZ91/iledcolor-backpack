@@ -2,19 +2,19 @@ package com.batoh.core.data.repository
 
 import com.batoh.core.domain.model.GifCategory
 
-/** Čistá logika uložených kategorií: TTL sdílené s [GifCachePolicy] a výběr emisí. */
+/** Pure logic of stored categories: TTL shared with [GifCachePolicy] and emission selection. */
 object CategoryCachePolicy {
     fun minValidCachedAt(now: Long): Long = GifCachePolicy.minValidCachedAt(now)
 
     fun isFresh(cachedAt: Long, now: Long): Boolean = GifCachePolicy.isFresh(cachedAt, now)
 
-    /** První emitovaný seznam: in-memory vrstva má přednost před uloženým (Room). */
+    /** First emitted list: the in-memory layer takes precedence over the stored one (Room). */
     fun initial(memory: List<GifCategory>?, stored: List<GifCategory>?): List<GifCategory>? =
         memory?.takeIf { it.isNotEmpty() } ?: stored?.takeIf { it.isNotEmpty() }
 
-    /** Loading jen když není co ukázat. */
+    /** Loading only when there is nothing to show. */
     fun shouldEmitLoading(initial: List<GifCategory>?): Boolean = initial == null
 
-    /** Chyba sítě se hlásí jen bez uloženého seznamu (jinak poslední emise zůstane Success). */
+    /** A network error is reported only without a stored list (otherwise the last emission stays Success). */
     fun shouldEmitError(initial: List<GifCategory>?): Boolean = initial == null
 }

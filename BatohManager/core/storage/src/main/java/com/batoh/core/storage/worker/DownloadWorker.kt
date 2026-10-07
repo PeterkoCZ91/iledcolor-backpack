@@ -45,7 +45,7 @@ class DownloadWorker @AssistedInject constructor(
                     return Result.failure()
                 }
                 val body = response.body!!
-                require(body.contentLength() <= SafeGifDecoder.MAX_BYTES) { "GIF je příliš velký" }
+                require(body.contentLength() <= SafeGifDecoder.MAX_BYTES) { "GIF is too large" }
                 body.byteStream().use { input ->
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
@@ -54,7 +54,7 @@ class DownloadWorker @AssistedInject constructor(
                         taskContext.ensureActive()
                         val size = input.read(buffer)
                         if (size < 0) break
-                        require(output.size().toLong() + size <= SafeGifDecoder.MAX_BYTES) { "GIF je příliš velký" }
+                        require(output.size().toLong() + size <= SafeGifDecoder.MAX_BYTES) { "GIF is too large" }
                         output.write(buffer, 0, size)
                     }
                     output.toByteArray()

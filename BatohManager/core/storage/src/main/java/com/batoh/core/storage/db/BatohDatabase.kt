@@ -22,7 +22,7 @@ abstract class BatohDatabase : RoomDatabase() {
     abstract fun cachedCategoryDao(): CachedCategoryDao
 
     companion object {
-        /** SQL musí přesně odpovídat [CachedGifEntity] (exportSchema=false, Room jinak na zařízení spadne). */
+        /** SQL must match [CachedGifEntity] exactly (exportSchema=false, otherwise Room crashes on the device). */
         internal val CACHED_GIFS_V7_SQL: List<String> = listOf(
             "DROP TABLE IF EXISTS `cached_gifs`",
             "CREATE TABLE IF NOT EXISTS `cached_gifs` (" +
@@ -34,14 +34,14 @@ abstract class BatohDatabase : RoomDatabase() {
             "CREATE INDEX IF NOT EXISTS `index_cached_gifs_query` ON `cached_gifs` (`query`)"
         )
 
-        /** v6→v7: jen přestavba cache tabulky; category_preferences a historie zůstanou. */
+        /** v6→v7: only rebuilds the cache table; category_preferences and history are kept. */
         val MIGRATION_6_7: Migration = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 CACHED_GIFS_V7_SQL.forEach { db.execSQL(it) }
             }
         }
 
-        /** SQL musí přesně odpovídat [CachedCategoryEntity]. */
+        /** SQL must match [CachedCategoryEntity] exactly. */
         internal val CACHED_CATEGORIES_V8_SQL: List<String> = listOf(
             "CREATE TABLE IF NOT EXISTS `cached_categories` (" +
                 "`nameEncoded` TEXT NOT NULL, `name` TEXT NOT NULL, `position` INTEGER NOT NULL, " +
@@ -52,7 +52,7 @@ abstract class BatohDatabase : RoomDatabase() {
                 "`cachedAt` INTEGER NOT NULL, PRIMARY KEY(`nameEncoded`))"
         )
 
-        /** v7→v8: jen nová tabulka kategorií, ostatní tabulky nedotčené. */
+        /** v7→v8: only a new categories table, other tables untouched. */
         val MIGRATION_7_8: Migration = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 CACHED_CATEGORIES_V8_SQL.forEach { db.execSQL(it) }

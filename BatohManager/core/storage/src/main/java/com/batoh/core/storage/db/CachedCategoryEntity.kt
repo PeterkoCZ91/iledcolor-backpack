@@ -2,7 +2,7 @@ package com.batoh.core.storage.db
 
 import androidx.room.Entity
 
-/** Uložený seznam kategorií Giphy (včetně základních polí náhledového GIFu). */
+/** Stored list of Giphy categories (including basic fields of the preview GIF). */
 @Entity(
     tableName = "cached_categories",
     primaryKeys = ["nameEncoded"]
@@ -10,7 +10,7 @@ import androidx.room.Entity
 data class CachedCategoryEntity(
     val nameEncoded: String,
     val name: String,
-    val position: Int, // pořadí v odpovědi API
+    val position: Int, // position in the API response
     val previewId: String,
     val previewTitle: String,
     val previewThumbnailUrl: String,

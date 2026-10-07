@@ -3,11 +3,11 @@ package com.batoh.core.data.repository
 import com.batoh.core.domain.model.GifFilter
 import com.batoh.core.domain.model.GifType
 
-/** Čistá logika cache vyhledávání/trendů: klíče a TTL. */
+/** Pure logic of the search/trending cache: keys and TTL. */
 object GifCachePolicy {
     const val TTL_MS: Long = 7L * 24 * 60 * 60 * 1000
 
-    /** Nejstarší ještě platný čas uložení. */
+    /** Oldest still-valid storage time. */
     fun minValidCachedAt(now: Long): Long = now - TTL_MS
 
     fun isFresh(cachedAt: Long, now: Long): Boolean = cachedAt >= minValidCachedAt(now)
@@ -26,7 +26,7 @@ object GifCachePolicy {
     fun giphyTrendingKey(filter: GifFilter): String =
         "giphy_trending_${filterPart(filter, true)}"
 
-    // Klipy typ GIF/STICKER nepoužívá, takže ho do klíče nedáváme.
+    // Klipy does not use the GIF/STICKER type, so we do not put it in the key.
     fun klipySearchKey(query: String, filter: GifFilter): String =
         "klipy_search_${filterPart(filter, false)}_${normalize(query)}"
 

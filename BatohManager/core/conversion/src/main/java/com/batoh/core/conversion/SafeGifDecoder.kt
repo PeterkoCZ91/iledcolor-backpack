@@ -29,14 +29,14 @@ object SafeGifDecoder {
         checkCancellation: () -> Unit,
         onFrame: (pixels: IntArray, width: Int, height: Int, delayCs: Int) -> Unit
     ): GifInfo {
-        require(bytes.size in 13..MAX_INPUT_BYTES) { "GIF je prázdný nebo větší než 20 MB" }
+        require(bytes.size in 13..MAX_INPUT_BYTES) { "GIF is empty or larger than 20 MB" }
         val input = Reader(bytes)
         val signature = String(input.take(6), Charsets.US_ASCII)
-        require(signature == "GIF87a" || signature == "GIF89a") { "Soubor není GIF" }
+        require(signature == "GIF87a" || signature == "GIF89a") { "The file is not a GIF" }
         val width = input.short()
         val height = input.short()
         require(width in 1..4096 && height in 1..4096 && width.toLong() * height <= MAX_CANVAS_PIXELS) {
-            "GIF má příliš velké rozměry (nejvýše 4 miliony pixelů)"
+            "GIF dimensions are too large (at most 4 million pixels)"
         }
         val packed = input.byte()
         val backgroundIndex = input.byte()
@@ -55,45 +55,45 @@ object SafeGifDecoder {
             checkCancellation()
             when (input.byte()) {
                 0x3b -> {
-                    require(frameCount > 0) { "GIF neobsahuje žádný snímek" }
+                    require(frameCount > 0) { "GIF contains no frames" }
                     return GifInfo(width, height, frameCount, duration, loops)
                 }
                 0x21 -> when (input.byte()) {
                     0xf9 -> {
-                        require(input.byte() == 4) { "Neplatný řídicí blok GIFu" }
+                        require(input.byte() == 4) { "Invalid GIF control block" }
                         val flags = input.byte()
                         disposal = (flags ushr 2) and 7
-                        require(disposal <= 3) { "Nepodporovaný způsob skládání snímků GIFu" }
+                        require(disposal <= 3) { "Unsupported GIF frame disposal method" }
                         delay = input.short()
                         val index = input.byte()
                         transparent = if (flags and 1 != 0) index else -1
-                        require(input.byte() == 0) { "Neukončený řídicí blok GIFu" }
+                        require(input.byte() == 0) { "Unterminated GIF control block" }
                     }
                     0xff -> {
                         val application = String(input.take(input.byte()), Charsets.US_ASCII)
                         val extension = input.blocks()
                         if (application == "NETSCAPE2.0" || application == "ANIMEXTS1.0") {
-                            require(extension.size >= 3 && extension[0].toInt() == 1) { "Neplatná smyčka GIFu" }
+                            require(extension.size >= 3 && extension[0].toInt() == 1) { "Invalid GIF loop" }
                             loops = (extension[1].toInt() and 255) or ((extension[2].toInt() and 255) shl 8)
                         }
                     }
-                    0x01 -> throw IllegalArgumentException("GIF s textovými snímky není podporovaný")
+                    0x01 -> throw IllegalArgumentException("GIF with text frames is not supported")
                     else -> input.blocks()
                 }
                 0x2c -> {
-                    require(++frameCount <= MAX_FRAMES) { "GIF má více než 600 snímků" }
+                    require(++frameCount <= MAX_FRAMES) { "GIF has more than 600 frames" }
                     val left = input.short()
                     val top = input.short()
                     val frameWidth = input.short()
                     val frameHeight = input.short()
                     require(frameWidth > 0 && frameHeight > 0 && left + frameWidth <= width && top + frameHeight <= height) {
-                        "Snímek GIFu přesahuje plátno"
+                        "GIF frame exceeds the canvas"
                     }
                     decodedPixels += frameWidth.toLong() * frameHeight
-                    require(decodedPixels <= MAX_DECODED_PIXELS) { "GIF obsahuje příliš mnoho obrazových dat" }
+                    require(decodedPixels <= MAX_DECODED_PIXELS) { "GIF contains too much image data" }
                     val frameFlags = input.byte()
                     val palette = if (frameFlags and 0x80 != 0) input.palette(1 shl ((frameFlags and 7) + 1))
-                        else requireNotNull(globalPalette) { "GIF nemá paletu barev" }
+                        else requireNotNull(globalPalette) { "GIF has no color palette" }
                     val minCodeSize = input.byte()
                     val indices = decodeLzw(input.blocks(), minCodeSize, frameWidth * frameHeight, checkCancellation)
                     if (frameCount == 1 && transparent >= 0) canvas.fill(0)
@@ -103,7 +103,7 @@ object SafeGifDecoder {
                         for (x in 0 until frameWidth) {
                             val index = indices[sourceOffset++].toInt() and 255
                             if (index != transparent) {
-                                require(index < palette.size) { "GIF odkazuje na neexistující barvu" }
+                                require(index < palette.size) { "GIF references a nonexistent color" }
                                 canvas[(top + y) * width + left + x] = palette[index]
                             }
                         }
@@ -128,13 +128,13 @@ object SafeGifDecoder {
                     disposal = 0
                     transparent = -1
                 }
-                else -> throw IllegalArgumentException("Poškozený nebo neukončený GIF")
+                else -> throw IllegalArgumentException("Corrupt or unterminated GIF")
             }
         }
     }
 
     private fun decodeLzw(data: ByteArray, minimum: Int, count: Int, checkCancellation: () -> Unit): ByteArray {
-        require(minimum in 2..8) { "Neplatná velikost LZW kódu" }
+        require(minimum in 2..8) { "Invalid LZW code size" }
         val clear = 1 shl minimum
         val end = clear + 1
         val prefix = IntArray(4096)
@@ -150,7 +150,7 @@ object SafeGifDecoder {
         var first = 0
         while (true) {
             if (outputOffset and 4095 == 0) checkCancellation()
-            require(bitOffset.toLong() + size <= data.size.toLong() * 8) { "Neukončená LZW data GIFu" }
+            require(bitOffset.toLong() + size <= data.size.toLong() * 8) { "Unterminated GIF LZW data" }
             var code = 0
             repeat(size) { bit ->
                 code = code or (((data[(bitOffset + bit) / 8].toInt() ushr ((bitOffset + bit) % 8)) and 1) shl bit)
@@ -163,10 +163,10 @@ object SafeGifDecoder {
                 continue
             }
             if (code == end) {
-                require(outputOffset == count) { "GIF má neúplný snímek" }
+                require(outputOffset == count) { "GIF has an incomplete frame" }
                 return output
             }
-            require(code < next || (code == next && old >= 0 && next < 4096)) { "Poškozený LZW slovník GIFu" }
+            require(code < next || (code == next && old >= 0 && next < 4096)) { "Corrupt GIF LZW dictionary" }
             val incoming = code
             var stackSize = 0
             if (code == next) {
@@ -174,13 +174,13 @@ object SafeGifDecoder {
                 code = old
             }
             while (code >= clear) {
-                require(code < next && code != clear && code != end && stackSize < 4096) { "Poškozený LZW řetězec GIFu" }
+                require(code < next && code != clear && code != end && stackSize < 4096) { "Corrupt GIF LZW chain" }
                 stack[stackSize++] = suffix[code]
                 code = prefix[code]
             }
             first = code
             stack[stackSize++] = first.toByte()
-            require(outputOffset + stackSize <= count) { "GIF má příliš dlouhý snímek" }
+            require(outputOffset + stackSize <= count) { "GIF has a frame that is too long" }
             while (stackSize > 0) output[outputOffset++] = stack[--stackSize]
             if (old >= 0 && next < 4096) {
                 prefix[next] = old
@@ -195,12 +195,12 @@ object SafeGifDecoder {
     private class Reader(private val bytes: ByteArray) {
         private var position = 0
         fun byte(): Int {
-            require(position < bytes.size) { "GIF je neúplný" }
+            require(position < bytes.size) { "GIF is incomplete" }
             return bytes[position++].toInt() and 255
         }
         fun short(): Int = byte() or (byte() shl 8)
         fun take(count: Int): ByteArray {
-            require(count >= 0 && position.toLong() + count <= bytes.size) { "GIF je neúplný" }
+            require(count >= 0 && position.toLong() + count <= bytes.size) { "GIF is incomplete" }
             return bytes.copyOfRange(position, position + count).also { position += count }
         }
         fun palette(count: Int): IntArray = IntArray(count) { 0xff000000.toInt() or (byte() shl 16) or (byte() shl 8) or byte() }

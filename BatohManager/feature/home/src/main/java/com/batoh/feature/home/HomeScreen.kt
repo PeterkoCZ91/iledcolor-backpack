@@ -532,6 +532,6 @@ private fun getAppVersion(context: Context): String {
         }
         "$versionName ($versionCode)"
     } catch (e: PackageManager.NameNotFoundException) {
-        "Neznámá"
+        "Unknown"
     }
 }

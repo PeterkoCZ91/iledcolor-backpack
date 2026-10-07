@@ -16,7 +16,7 @@ class ChainLimitsTest {
     @Test fun warnAboveFramesOrBytes() {
         assertEquals(ChainLevel.WARN, level(97, 1))
         assertEquals(ChainLevel.WARN, level(1, 453 * 1024L + 1))
-        assertEquals(true, ChainLimits.assess(97, 1).message!!.contains("neověřeno na hardwaru"))
+        assertEquals(true, ChainLimits.assess(97, 1).message!!.contains("not verified on hardware"))
     }
 
     @Test fun blockAboveHardLimits() {

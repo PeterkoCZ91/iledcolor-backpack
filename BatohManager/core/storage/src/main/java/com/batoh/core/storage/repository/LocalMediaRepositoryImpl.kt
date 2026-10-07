@@ -166,16 +166,16 @@ class LocalMediaRepositoryImpl @Inject constructor(
             val filename = "${title}_64x64_${System.currentTimeMillis()}.gif"
             val uri = mediaStoreHelper.saveImage(filename, "image/gif", ByteArrayInputStream(bytes))
             if (uri != null) Result.Success(uri)
-            else Result.Error(Exception("Nepodařilo se uložit GIF"))
+            else Result.Error(Exception("Failed to save GIF"))
         } catch (e: Exception) {
-            Result.Error(e, "Uložení selhalo: ${e.message}")
+            Result.Error(e, "Saving failed: ${e.message}")
         }
     }
 
     override suspend fun importGif(uri: Uri): Result<Uri> {
         val prepared = try {
             withContext(Dispatchers.IO) {
-                require(uri.scheme == "content") { "GIF vyber z galerie nebo souborů" }
+                require(uri.scheme == "content") { "Select the GIF from the gallery or files" }
                 val coroutine = kotlinx.coroutines.currentCoroutineContext()
                 // Open inside read() so a revoked grant / missing source is classified, not thrown raw
                 val bytes = GifImportReader.read({ context.contentResolver.openInputStream(uri) }) { coroutine.ensureActive() }
@@ -192,7 +192,7 @@ class LocalMediaRepositoryImpl @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            return Result.Error(e, "Import GIFu selhal: ${e.message ?: "soubor nelze načíst"}")
+            return Result.Error(e, "GIF import failed: ${e.message ?: "file cannot be read"}")
         }
         val (bytes, name) = prepared
         // Cancellation before anything is stored: nothing pending exists yet, just stop.
@@ -202,10 +202,10 @@ class LocalMediaRepositoryImpl @Inject constructor(
         return commitIgnoringCancellation {
             try {
                 val copied = mediaStoreHelper.saveImage(name, "image/gif", ByteArrayInputStream(bytes))
-                    ?: error("GIF se nepodařilo uložit do knihovny")
+                    ?: error("Failed to save GIF to the library")
                 Result.Success(copied)
             } catch (e: Exception) {
-                Result.Error(e, "Import GIFu selhal: ${e.message ?: "soubor nelze načíst"}")
+                Result.Error(e, "GIF import failed: ${e.message ?: "file cannot be read"}")
             }
         }
     }
@@ -244,13 +244,13 @@ class LocalMediaRepositoryImpl @Inject constructor(
                     if (deleted > 0) {
                         Result.Success(Unit)
                     } else {
-                        Result.Error(Exception("GIF nenalezen v zařízení"))
+                        Result.Error(Exception("GIF not found on the device"))
                     }
                 } else {
-                    Result.Error(Exception("Neplatné ID GIFu"))
+                    Result.Error(Exception("Invalid GIF ID"))
                 }
             } catch (e: Exception) {
-                Result.Error(e, "Smazání se nezdařilo: ${e.message}")
+                Result.Error(e, "Deletion failed: ${e.message}")
             }
         }
     }

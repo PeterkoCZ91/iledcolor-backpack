@@ -37,7 +37,7 @@ class GiphyRepositoryImpl @Inject constructor(
         get() = (prefs.getString(UiPreferences.PREF_GIPHY_KEY, "") ?: "").ifBlank { BuildConfig.GIPHY_API_KEY }
 
     private companion object {
-        // Poslední úspěšný seznam kategorií drží proces v paměti (bez Room).
+        // The process keeps the last successful category list in memory (without Room).
         @Volatile var lastCategories: List<GifCategory>? = null
     }
 
@@ -157,7 +157,7 @@ class GiphyRepositoryImpl @Inject constructor(
             }
             emit(Result.Success(categories))
         } catch (e: Exception) {
-            // Offline: raději poslední známý seznam než chyba (už byl emitnut výše).
+            // Offline: prefer the last known list over an error (already emitted above).
             if (CategoryCachePolicy.shouldEmitError(lastKnown)) emit(Result.Error(e))
         }
     }.flowOn(Dispatchers.IO)

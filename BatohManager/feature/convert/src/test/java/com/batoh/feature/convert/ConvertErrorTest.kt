@@ -34,7 +34,7 @@ class ConvertErrorTest {
 
     @Test fun decoderMessageIsNotTooLarge() = assertEquals(
         ConvertError.Unreadable,
-        classifyConvertError(IllegalArgumentException("GIF má příliš velké rozměry (nejvýše 4 miliony pixelů)"))
+        classifyConvertError(IllegalArgumentException("GIF dimensions are too large (at most 4 million pixels)"))
     )
 
     @Test fun plainIoWithHttpLikeTextIsNetwork() =
@@ -48,8 +48,8 @@ class ConvertErrorTest {
     )
 
     @Test fun unreadable() {
-        assertEquals(ConvertError.Unreadable, classifyConvertError(IllegalArgumentException("Video neobsahuje čitelné snímky")))
-        assertEquals(ConvertError.Unreadable, classifyConvertError(IllegalStateException("GIF nelze dokončit")))
+        assertEquals(ConvertError.Unreadable, classifyConvertError(IllegalArgumentException("Video contains no readable frames")))
+        assertEquals(ConvertError.Unreadable, classifyConvertError(IllegalStateException("GIF cannot be finished")))
         assertEquals(ConvertError.Unreadable, classifyConvertError(RuntimeException("setDataSource failed: status = 0x80000000")))
     }
 

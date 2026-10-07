@@ -33,8 +33,8 @@ internal class SearchDownloads(
                     onWorkQueued(key, result.data)
                     follow(key, result.data)
                 }
-                is Result.Error -> error(result.message ?: "Stažení GIFu se nezdařilo")
-                Result.Loading -> error("Stažení GIFu nebylo zahájeno")
+                is Result.Error -> error(result.message ?: "GIF download failed")
+                Result.Loading -> error("GIF download was not started")
             }
         }
     }
@@ -46,7 +46,7 @@ internal class SearchDownloads(
             try { work() }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                _states.update { it + (key to GifSaveState(GifSaveStage.Error, e.message ?: "Stažení GIFu se nezdařilo")) }
+                _states.update { it + (key to GifSaveState(GifSaveStage.Error, e.message ?: "GIF download failed")) }
             }
         }
         jobs[key] = job
@@ -59,7 +59,7 @@ internal class SearchDownloads(
                 DownloadStatus.PENDING, DownloadStatus.UNKNOWN -> GifSaveState(GifSaveStage.Pending)
                 DownloadStatus.RUNNING -> GifSaveState(GifSaveStage.Running)
                 DownloadStatus.SUCCESS -> GifSaveState(GifSaveStage.Success)
-                DownloadStatus.FAILED -> GifSaveState(GifSaveStage.Error, "Stažení GIFu se nezdařilo. Klepni pro opakování.")
+                DownloadStatus.FAILED -> GifSaveState(GifSaveStage.Error, "GIF download failed. Tap to retry.")
             }
             _states.update { it + (key to state) }
         }.first { it == DownloadStatus.SUCCESS || it == DownloadStatus.FAILED }

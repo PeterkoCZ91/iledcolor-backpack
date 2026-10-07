@@ -174,7 +174,7 @@ class SearchViewModel @Inject constructor(
             }
             flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "GIFy se nepodařilo načíst"))
+                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
             }.collect { result ->
                 if (!requests.accepts(token)) return@collect
                 when (result) {
@@ -193,9 +193,9 @@ class SearchViewModel @Inject constructor(
                     is Result.Error -> {
                         failedPageOffset = nextOffset
                         failedKlipyOffset = nextKlipyOffset
-                        requests.failPage(token, result.message ?: "Další GIFy se nepodařilo načíst")
+                        requests.failPage(token, result.message ?: "Failed to load more GIFs")
                         _uiState.value = state.copy(gifs = accumulatedGifs, isLoadingMore = false,
-                            loadMoreError = result.message ?: "Další GIFy se nepodařilo načíst")
+                            loadMoreError = result.message ?: "Failed to load more GIFs")
                     }
                 }
             }
@@ -240,7 +240,7 @@ class SearchViewModel @Inject constructor(
             var didSaveHistory = false
             flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "GIFy se nepodařilo načíst"))
+                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
             }.collect { result ->
                 if (!requests.accepts(token)) return@collect
                 when (result) {
@@ -273,7 +273,7 @@ class SearchViewModel @Inject constructor(
                     is Result.Error -> {
                         // Only show error if we have NO data (even from cache)
                         if (accumulatedGifs.isEmpty()) {
-                            _uiState.value = SearchUiState.Error(result.message ?: "Neznamá chyba")
+                            _uiState.value = SearchUiState.Error(result.message ?: "Unknown error")
                         }
                     }
                 }
@@ -311,7 +311,7 @@ class SearchViewModel @Inject constructor(
                     }
                     flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "GIFy se nepodařilo načíst"))
+                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
             }.collect { result ->
                         if (result is Result.Success) gifs = result.data
                     }

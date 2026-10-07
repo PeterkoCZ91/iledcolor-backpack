@@ -5,7 +5,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GifConcatProcessorTest {
-    /** Jednobarevné snímky dané velikosti; delays v setinách sekundy. */
+    /** Single-color frames of the given size; delays in hundredths of a second. */
     private fun gif(width: Int, height: Int, delays: List<Int>, shade: Int = 1): ByteArray {
         val out = ByteArrayOutputStream()
         out.write("GIF89a".toByteArray())
@@ -82,7 +82,7 @@ class GifConcatProcessorTest {
     @Test
     fun rejectsMoreThan600Frames() {
         val big = gif(64, 64, List(300) { 1 })
-        GifConcatProcessor.concat(src(big, big)) // přesně 600 projde
+        GifConcatProcessor.concat(src(big, big)) // exactly 600 passes
         assertThrows(GifConcatException.TooManyFrames::class.java) { GifConcatProcessor.concat(src(big, big, gif(64, 64, listOf(1)))) }
     }
 

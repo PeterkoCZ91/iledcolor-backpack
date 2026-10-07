@@ -112,7 +112,7 @@ class BackpackTransferManager @Inject constructor(
                         }
                         queryBuiltInCount()
                         refreshState()
-                        if (adv == null || adv.syncsTimeOnConnect) requireSuccess(clock, "Nastavení času")
+                        if (adv == null || adv.syncsTimeOnConnect) requireSuccess(clock, "Setting time")
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -312,14 +312,14 @@ class BackpackTransferManager @Inject constructor(
         }
     }
 
-    fun setBrightness(level: Int) = settings(BackpackCommands.brightness(level), "Nastavení jasu") { it.copy(brightness = level) }
-    fun setScreen(on: Boolean) = settings(BackpackCommands.screen(on), "Nastavení displeje") { it.copy(screenOn = on) }
+    fun setBrightness(level: Int) = settings(BackpackCommands.brightness(level), "Setting brightness") { it.copy(brightness = level) }
+    fun setScreen(on: Boolean) = settings(BackpackCommands.screen(on), "Setting display") { it.copy(screenOn = on) }
     fun setRotation(index: Int, mirror: Boolean) {
         if (advertisement.value?.supportsRotation != true) return
-        settings(BackpackCommands.rotate(index, mirror), "Otočení displeje") { it.copy(rotationIndex = index, mirror = mirror) }
+        settings(BackpackCommands.rotate(index, mirror), "Rotating display") { it.copy(rotationIndex = index, mirror = mirror) }
     }
-    fun clearPrograms() = settings(BackpackCommands.clearPrograms(), "Smazání programů") { it }
-    fun refreshPanelState() = settings(null, "Načtení stavu") { it }
+    fun clearPrograms() = settings(BackpackCommands.clearPrograms(), "Clearing programs") { it }
+    fun refreshPanelState() = settings(null, "Loading state") { it }
 
     @Volatile private var lastRcspResponse: ByteArray? = null
 
@@ -392,15 +392,15 @@ class BackpackTransferManager @Inject constructor(
     }
 
     private suspend fun refreshState() {
-        val response = bluetoothManager.sendCommand(BackpackCommands.queryState()) ?: error("Dotaz na stav: žádná odpověď")
-        _panelState.value = BackpackCommands.parseState(response) ?: error("Neplatná odpověď na dotaz na stav")
+        val response = bluetoothManager.sendCommand(BackpackCommands.queryState()) ?: error("State query: no response")
+        _panelState.value = BackpackCommands.parseState(response) ?: error("Invalid response to state query")
     }
     private fun localizedString(id: Int, vararg args: Any): String =
         ContextCompat.getContextForLanguage(application).getString(id, *args)
     private fun requireSuccess(response: ByteArray?, label: String) {
-        requireNotNull(response) { "$label: žádná odpověď" }
+        requireNotNull(response) { "$label: no response" }
         val status = if (response.size >= 7) response[4].toInt() and 0xFF else -1
-        check(status == 1 || status == 3) { "$label: zařízení odmítlo příkaz (stav $status)" }
+        check(status == 1 || status == 3) { "$label: device rejected the command (status $status)" }
     }
     private companion object {
         const val HISTORY_KEY = "entries"

@@ -16,7 +16,7 @@ The home screen has tiles for **Search GIFs**, **Categories**, **My Collection**
 | Setting | Effect |
 | --- | --- |
 | Display mode | System, light or dark theme. |
-| App language | **System default**, **Čeština** or **English**. On Android 13+ the choice also shows in the system's per-app language settings. It persists across restarts. |
+| App language | **System default**, **Čeština** (Czech) or **English**. On Android 13+ the choice also shows in the system's per-app language settings. It persists across restarts. |
 | Grid density | Number of columns in result grids. |
 | My interests | Tags used to suggest GIFs in search. |
 | API keys | Optional personal **Giphy** and **Klipy** keys. Empty uses the key built into the app, if any. See [API keys](../README.md#api-keys) and the [screenshot](images/api-keys.png). |

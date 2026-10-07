@@ -34,7 +34,7 @@ data class GifChainUiState(
     val items: List<ChainItem> = emptyList(),
     val scaleMode: GifScaleMode = GifScaleMode.Fit,
     val pauseMs: Int = 0,
-    /** Null = zachovat původní prodlevy snímků. */
+    /** Null = keep the original frame delays. */
     val speedOverrideMs: Int? = null,
     val stage: ChainStage = ChainStage.Idle,
     val previewBytes: ByteArray? = null,
@@ -96,7 +96,7 @@ class GifChainViewModel @Inject constructor(
         schedule()
     }
 
-    /** Spustí překódování s odstupem; novější změna starší běh zruší. */
+    /** Starts re-encoding after a debounce; a newer change cancels the older run. */
     private fun schedule() {
         renderJob?.cancel()
         val current = _state.value
@@ -172,7 +172,7 @@ class GifChainViewModel @Inject constructor(
         return bytes
     }
 
-    /** Uloží výsledek do sbírky; s [sendToBackpack] pak vyvolá odeslání uloženého GIFu. */
+    /** Saves the result to the collection; with [sendToBackpack] it then triggers sending the saved GIF. */
     fun save(sendToBackpack: Boolean) {
         val current = _state.value
         if (!current.canSave || saveJob?.isCompleted == false) return

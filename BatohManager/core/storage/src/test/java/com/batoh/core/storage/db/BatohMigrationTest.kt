@@ -40,7 +40,7 @@ class BatohMigrationTest {
             val expected = when (it.type) {
                 String::class.java -> "TEXT"
                 Int::class.javaPrimitiveType, Long::class.javaPrimitiveType -> "INTEGER"
-                else -> error("neočekávaný typ ${it.name}")
+                else -> error("unexpected type ${it.name}")
             }
             assertEquals(it.name, expected, cols[it.name])
         }
@@ -85,16 +85,16 @@ class BatohMigration7To8Test {
             val expected = when (it.type) {
                 String::class.java -> "TEXT"
                 Int::class.javaPrimitiveType, Long::class.javaPrimitiveType -> "INTEGER"
-                else -> error("neočekávaný typ ${it.name}")
+                else -> error("unexpected type ${it.name}")
             }
             assertEquals(it.name, expected, cols[it.name])
         }
-        // Pořadí sloupců = pořadí polí entity.
+        // Column order = entity field order.
         assertEquals(fields.map { it.name }, Regex("`(\\w+)` (?:TEXT|INTEGER) NOT NULL")
             .findAll(createSql).map { it.groupValues[1] }.toList())
         assertTrue(createSql.endsWith("PRIMARY KEY(`nameEncoded`))"))
         assertTrue(!createSql.contains("INDEX"))
-        // Room anotace nejsou za běhu; PK/indexy hlídá zdroj entity.
+        // Room annotations are not available at runtime; PK/indexes are guarded by the entity source.
         val src = java.io.File("src/main/java/com/batoh/core/storage/db/CachedCategoryEntity.kt").readText()
         assertTrue(src.contains("tableName = \"cached_categories\""))
         assertTrue(src.contains("primaryKeys = [\"nameEncoded\"]"))

@@ -42,7 +42,7 @@ class MediaStoreHelper @Inject constructor(
                 } else {
                     @Suppress("DEPRECATION")
                     val directory = java.io.File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "GifPack")
-                    if (!directory.exists() && !directory.mkdirs()) throw IOException("Nelze vytvořit složku GifPack")
+                    if (!directory.exists() && !directory.mkdirs()) throw IOException("Cannot create GifPack folder")
                     @Suppress("DEPRECATION")
                     put(MediaStore.Images.Media.DATA, java.io.File(directory, filename).absolutePath)
                 }
@@ -68,7 +68,7 @@ class MediaStoreHelper @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw MediaStoreWriteException("Uložení do MediaStore selhalo").also { it.addSuppressed(e) }
+            throw MediaStoreWriteException("Saving to MediaStore failed").also { it.addSuppressed(e) }
         }
     }
 }
