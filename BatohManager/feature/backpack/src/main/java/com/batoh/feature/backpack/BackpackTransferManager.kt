@@ -8,10 +8,13 @@ import android.provider.OpenableColumns
 import android.util.Log
 import com.batoh.core.conversion.VideoToGifConverter
 import com.batoh.core.conversion.SafeGifDecoder
+import com.batoh.core.conversion.EffectTestGif
 import com.batoh.core.conversion.TestPatternGif
 import com.batoh.core.data.bluetooth.BackpackCommands
 import com.batoh.core.data.bluetooth.BackpackInfoFormatter
+import com.batoh.core.data.bluetooth.BackpackPasswordStatus
 import com.batoh.core.data.bluetooth.BackpackPayload
+import com.batoh.core.data.bluetooth.BackpackPlaylist
 import com.batoh.core.data.bluetooth.BackpackFrame
 import com.batoh.core.data.bluetooth.BluetoothLeManager
 import com.batoh.core.data.bluetooth.UploadFailure
@@ -52,7 +55,7 @@ class BackpackTransferManager @Inject constructor(
     private var userCancelledUpload = false
     /** Set when the link dropped while chunks were being sent, so the cancellation reads as a lost connection. */
     @Volatile private var connectionLostDuringUpload = false
-    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false)
+    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false, val effect: Int? = null, val playlist: Boolean = false)
     private val initialized = MutableStateFlow(false)
     private val settingsBusy = MutableStateFlow(false)
     private val transferBusy = MutableStateFlow(false)
@@ -147,6 +150,13 @@ class BackpackTransferManager @Inject constructor(
     fun uploadPayload(payload: ByteArray, name: String? = null) =
         startUpload(UploadRequest(name ?: localizedString(R.string.backpack_program_name), null, payload.copyOf()))
     fun sendTestImage() = startUpload(UploadRequest(localizedString(R.string.backpack_test_image_name), null, test = true))
+    /** Experimental: one upload of the asymmetric [EffectTestGif] with programme item effect code [effect]. */
+    fun sendEffectTest(effect: Int) =
+        startUpload(UploadRequest(localizedString(R.string.backpack_effect_test_name, effect), null, test = true, effect = effect))
+
+    /** Experimental: announces two [EffectTestGif] programmes (digits 1 and 2) as a playlist via Cmd 0x03 / 0x08. */
+    fun sendPlaylistTest() =
+        startUpload(UploadRequest(localizedString(R.string.backpack_playlist_test_name), null, playlist = true))
 
     /** Plays built-in firmware programme [id] (1-based, ≤ [builtInCount]) via a type-5 item; nothing is stored. */
     fun playBuiltIn(id: Int) {
@@ -259,12 +269,16 @@ class BackpackTransferManager @Inject constructor(
         _uploadState.value = UploadState(UploadStage.Preparing, request.name, request.uri?.toString())
         uploadOperation.launch(scope) {
             try {
-                val payload = withContext(Dispatchers.IO) {
-                    when {
+                val payloads = withContext(Dispatchers.IO) {
+                    if (request.playlist) return@withContext listOf(1, 2).map { digit ->
+                        buildPayload { BackpackPayload.fromGif(EffectTestGif.render(digit)) }
+                    }
+                    listOf(when {
                         request.payload != null -> request.payload
+                        request.effect != null -> buildPayload { BackpackPayload.fromGif(EffectTestGif.render(request.effect), effect = request.effect) }
                         request.test -> buildPayload { BackpackPayload.fromGif(TestPatternGif.render()) }
                         else -> gifPayload(requireNotNull(request.uri))
-                    }
+                    })
                 }
                 ensureActive()
                 updateUpload(UploadStage.Connecting)
@@ -280,7 +294,7 @@ class BackpackTransferManager @Inject constructor(
                     if (!connectionStatus.value.startsWith("Ready")) throw UploadFailureException(UploadFailure.ConnectionLost)
                     updateUpload(UploadStage.Sending)
                     try {
-                        val completion = doUpload(payload)
+                        val completion = if (request.playlist) doPlaylist(payloads) else doUpload(payloads.single())
                         val message = when (completion) {
                             UploadCompletion.Uploaded -> localizedString(R.string.backpack_upload_success)
                             UploadCompletion.AlreadyPresent -> localizedString(R.string.backpack_upload_already_present)
@@ -347,6 +361,32 @@ class BackpackTransferManager @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 bluetoothManager.addBleLog("Backpack info failed: ${e.javaClass.simpleName}")
+            } finally {
+                settingsBusy.value = false
+            }
+        }
+    }
+
+    /**
+     * Read-only diagnostics: sends one Cmd 0x0F status query (six zero bytes, never a password
+     * or a Cmd 0x0E write) and logs the raw reply plus its decoded meaning.
+     */
+    fun queryPasswordStatus() {
+        if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
+        settingsBusy.value = true
+        settingsOperation.launch(scope) {
+            try {
+                operationMutex.withLock {
+                    bluetoothManager.addBleLog("--- Password status ---")
+                    BackpackPasswordStatus.format(
+                        bluetoothManager.sendCommand(BackpackPasswordStatus.queryFrame())
+                    ).forEach { bluetoothManager.addBleLog(it) }
+                    bluetoothManager.addBleLog("--- end ---")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                bluetoothManager.addBleLog("Password status failed: ${e.javaClass.simpleName}")
             } finally {
                 settingsBusy.value = false
             }
@@ -487,6 +527,36 @@ class BackpackTransferManager @Inject constructor(
         val start = bluetoothManager.sendCommand(BackpackPayload.startFrame(payload))
         uploadStartFailure(start)?.let { throw UploadFailureException(it) }
         if (start != null && classifyUploadStart(start) == UploadStartDecision.AlreadyPresent) return UploadCompletion.AlreadyPresent
+        sendDataAndEnd(payload)
+        return UploadCompletion.Uploaded
+    }
+
+    /**
+     * Experimental playlist: Cmd 0x03 announces each programme (ACK 1 = send data, 3 = already stored,
+     * anything else aborts), then Cmd 0x08 closes the list. No Cmd 0x02 or other writing command is sent.
+     */
+    private suspend fun doPlaylist(payloads: List<ByteArray>): UploadCompletion {
+        if (payloads.any { it.size < 24 }) throw UploadFailureException(UploadFailure.PayloadInvalid)
+        ensureAuth()?.let { throw UploadFailureException(UploadFailure.AuthFailed, IllegalStateException(it)) }
+        for ((index, payload) in payloads.withIndex()) {
+            val ack = bluetoothManager.sendCommand(BackpackPlaylist.itemFrame(index, payloads.size, payload))
+                ?: throw UploadFailureException(UploadFailure.HeaderTimeout)
+            when (val status = ackStatus(ack)) {
+                1 -> sendDataAndEnd(payload)
+                3 -> bluetoothManager.addBleLog("Playlist item ${index + 1}: already stored, data skipped")
+                2 -> throw UploadFailureException(UploadFailure.InsufficientSpace)
+                else -> throw UploadFailureException(UploadFailure.HeaderRejected(status))
+            }
+        }
+        val done = bluetoothManager.sendCommand(BackpackPlaylist.endFrame())
+            ?: throw UploadFailureException(UploadFailure.EndTimeout)
+        val status = ackStatus(done)
+        if (status != 1) throw UploadFailureException(UploadFailure.EndRejected(status))
+        return UploadCompletion.Uploaded
+    }
+
+    /** Sends all data chunks of [payload] on A952 followed by the `54 01` end frame, waiting for ACK/echo. */
+    private suspend fun sendDataAndEnd(payload: ByteArray) {
         val mtu = bluetoothManager.mtu
         if (BackpackFrame.chunkLength(mtu) < 64) throw UploadFailureException(UploadFailure.MtuTooSmall(mtu))
         val packets = BackpackFrame.dataChunks(payload, mtu)
@@ -501,6 +571,5 @@ class BackpackTransferManager @Inject constructor(
         updateUpload(UploadStage.Finishing, 1f)
         endFailure(bluetoothManager.sendCommand(BackpackFrame.end(), charUuid = BluetoothLeManager.CHAR_DATA_UUID))
             ?.let { throw UploadFailureException(it) }
-        return UploadCompletion.Uploaded
     }
 }

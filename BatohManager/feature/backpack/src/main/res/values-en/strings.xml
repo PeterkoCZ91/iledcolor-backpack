@@ -77,6 +77,11 @@
     <string name="editor_send">Send to backpack</string>
     <string name="backpack_program_name">Program</string>
     <string name="backpack_info_action">Backpack info</string>
+    <string name="backpack_password_status_action">Password status</string>
+    <string name="backpack_playlist_test_action">Playlist test</string>
+    <string name="backpack_playlist_test_name">Playlist test</string>
+    <string name="backpack_effect_test_title">Effect test (experimental)</string>
+    <string name="backpack_effect_test_name">Effect test %1$d</string>
     <string name="backpack_test_image_name">Test image</string>
     <string name="backpack_builtin_name">Built-in program %1$d</string>
     <string name="backpack_builtin_title">Built-in programs</string>

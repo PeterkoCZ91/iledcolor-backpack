@@ -40,7 +40,8 @@ the CI artifact is built without API keys.
   app now skips the command there. Confirm the behaviour on a device that does.
 - **Backpack password** (`funCode` bit `0x0040`). Query, verify and set are known in outline.
   Must be designed carefully — a mistake can lock the user out of their own device.
-- **Effects** for uploaded programmes (an effect byte exists next to speed and brightness).
+- **Effects** for uploaded programmes: tested on the panel and found to be ignored for GIF items (codes 0, 1, 2, 6; see [device capabilities](device-capabilities.md#73-programme-effect-byte-on-a-gif-item)), so there is nothing to add to the editor.
+- **Several programmes in turn.** Confirmed on the panel with the diagnostic *Playlist test*: two programmes sent with `0x03` headers and a closing `0x08` alternate (see [BLE protocol §10.13](ble-protocol.md)). A user-facing *Send as playlist* action (pick several GIFs in the collection, send each as its own programme) is the next step, as an alternative to joining the frames into one GIF.
 
 ## Library and UX ideas
 

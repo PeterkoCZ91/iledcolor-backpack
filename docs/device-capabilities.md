@@ -125,7 +125,7 @@ These values were read from the advertisement of the backpack used during develo
 | Colour type | 3 | RGB888 |
 | versionCode | 14 | ≥ 6 (brightness) and ≥ 13 (extended effects); < 30 |
 | funCode | `0x0044` | `0x0004` GIF file + `0x0040` password. **No** time (`0x0001`) and **no** rotation (`0x0100`). |
-| customerId | parsed as `0x0401` (1025) | Meaning unconfirmed. This field could be offset by one byte on this unit. |
+| customerId | parsed as `0x0401` (1025) | The manufacturer's app shows the same value, 1025, as "Serial number" in its *Device information* screen [HW], so the parsing is correct (the field is a customer / model code, not a unique device serial). The same screen shows screen size 64*64, colour type 3 and firmware version 14, matching the advertisement. |
 
 ### 7.1 Command status on the tested unit
 
@@ -141,7 +141,8 @@ These values were read from the advertisement of the backpack used during develo
 | 0x0D built-in count | Answers 0 (GifPack query and captured manufacturer session) | [HW] |
 | Item type 5 (built-in programme) | Not testable (count is 0) | [DER] |
 | 0x02 clear all programmes | Never sent (destructive) | [DER] |
-| 0x0E / 0x0F password | Not implemented; funCode says it is supported | [DER] |
+| 0x0F password state query (six zero bytes) | Answers `54 0F 00 03 03 00 69`: `r = 3`, "no password set", on a unit that has never had one (the manufacturer's app sets and clears passwords on this unit normally) | **[HW]**, read-only diagnostic *Password status* |
+| 0x0E set / change / clear password | Not implemented in GifPack | [DER] |
 | 0x04 music rhythm, 0x11 linkage | Not implemented | [DER] |
 | JieLi authentication on AE00 | Completes on every connection | **[HW]** |
 
@@ -155,6 +156,32 @@ answers [HW]:
 | `0x10` state | 16-byte frame, 10-byte payload `00 00 01 04 00 00 00 00 0E 00` | `p2` = screen on, `p3` = brightness code (level = 11 − `p3`, here 7), `p4` = rotation / mirror (0). `p8` = `0x0E` = 14 equals the advertised versionCode, so it is probably the firmware version [DER]. All other bytes were 0. |
 | `0x0D` built-in count | 8-byte variant `54 0D 00 04 00 00 00 65` | Count 0. |
 | RCSP "target info" | 70-byte answer on AE02 | Not interpreted; it embeds device addresses, so it is not reproduced here. |
+
+### 7.3 Programme effect byte on a GIF item
+
+Tested with the diagnostic "Effect test" buttons: one small asymmetric 64 × 64 test GIF (red / blue
+halves, an arrow, a big digit with the effect code, and a green marker that moves right inside
+the GIF) was uploaded as a type 6 item with a different effect byte each time [HW]:
+
+| Effect byte | Meaning in the manufacturer's text table | Observed on the tested unit |
+|---|---|---|
+| 0 | static | Picture shows; only the GIF's own animation (the marker) moves. |
+| 1 | move left | Picture identical to effect 0 (no visible change). |
+| 2 | move right | New programme shown (digit 2); picture stays still, only the GIF's own marker moves. |
+| 6 | scroll | New programme shown (digit 6); picture stays still, same as effect 2. |
+| 3, 4, 5, 7–10 | other text effects | Not tested. |
+
+Conclusion: for a GIF item (type 6) the firmware **ignores the effect byte** for the tested
+codes, so GifPack keeps sending effect 0. The table in §9.5 belongs to text items. Two more
+observations from the same test:
+
+- The panel switches to and shows the **newest** uploaded programme, and does not alternate
+  with the earlier ones. Uploads made with the single `0x06` sequence therefore behave like a
+  replace. The manufacturer's app can play several programmes in turn, so a multi-programme
+  sequence exists; it probably uses `0x03` (playlist item) and `0x08` (end of playlist), which
+  GifPack does not send yet. [DER]
+- Changing only the effect byte changes the file ID (CRC), so each test was accepted as a new
+  programme (no status 3).
 
 Other units may advertise different capabilities. If you have one, the `ADV` line in the app's
 BLE log shows its values. Reports of other funCode and versionCode combinations would help

@@ -72,7 +72,8 @@ The tested unit is a 64×64 RGB backpack that advertises `funCode 0x0044` and `v
 | 0x02 clear all programmes | [DER] | Implemented in the app but never sent to hardware (it is destructive). |
 | 0x0E / 0x0F password | [DER] | Not implemented in the app. |
 | 0x04 music rhythm, 0x11 linkage | [DER] | Not implemented in the app. |
-| 0x03 / 0x07 / 0x08 | [CAP] for 0x07, otherwise [DER] | Not needed for uploads. See §10.13. |
+| 0x03 / 0x08 | [HW] | Several programmes in turn (playlist). See §10.13. |
+| 0x07 | [CAP] | Not needed for uploads. See §10.13. |
 
 ---
 
@@ -524,11 +525,11 @@ unless stated otherwise. Payload sizes are given in bytes. The examples include 
 | 0x00 | Data chunk (A952) | §6.2 | 11-byte chunk ACK | [HW] [CAP] |
 | 0x01 | End of transfer (A952) | `01` | Echo | [HW] [CAP] |
 | 0x02 | Clear all programmes | `00` | ACK | [DER] |
-| 0x03 | Playlist item header | like 0x06 | like 0x06 | [DER] |
+| 0x03 | Playlist item header | N, i, fileId, length, playCount | like 0x06 | [HW] |
 | 0x04 | Music rhythm (A952, no ACK) | `00 01` / `01 style mags×48` | none | [DER] |
 | 0x06 | Upload header | file ID, size, `00 00 00` | ACK; status 1 means send data | [HW] [CAP] |
 | 0x07 | Unknown, seen before uploads | `00 00 nn 00 00 00 00` | status 0 | [CAP] |
-| 0x08 | End of playlist | `01` | ACK | [DER] |
+| 0x08 | End of playlist | `01` | ACK | [HW] |
 | 0x09 | Brightness | `11−level` + 8 × `00` | ACK | [HW] |
 | 0x0A | Screen on/off | `on` + 8 × `00` | ACK | [HW] |
 | 0x0B | Rotation and mirror | `rot \| mirror<<4` | ACK | [HW] partial / [DER] |
@@ -676,7 +677,9 @@ set probably refuses other commands until it is unlocked; this is not confirmed.
 Reply: `54 0E 00 03 r cs16`. `r = 1` means success. `r = 2` or `3` means the old password was
 wrong.
 
-GifPack does not implement either password command. They are listed here for completeness.
+[HW] On the tested unit, with no password set, the query `54 0F 00 08 00 00 00 00 00 00 00 6B` was answered with `54 0F 00 03 03 00 69` (`r = 3`, no password), twice in a row. GifPack only implements this read-only query (diagnostics → *Password status*); it implements no password-changing command.
+
+GifPack does not implement either password-changing command. They are listed here for completeness.
 Be careful: setting a password you then lose may lock you out of the panel.
 
 ### 10.11 0x04: music rhythm [DER]
@@ -704,13 +707,25 @@ The manufacturer app uses this for paired displays, for example left and right "
 
 ### 10.13 Notes on 0x03, 0x07 and 0x08
 
-- **0x03: playlist item header [DER].** The manufacturer's playlist feature uploads each entry
-  with opcode 0x03 instead of 0x06. The payload is similar: an index/count byte pair, the file
-  ID, the length and a few flag bytes. Each entry is followed by the usual chunks and end frame.
-  The exact meaning of the first bytes is not confirmed.
-- **0x08: end of playlist [DER].** `54 08 00 03 01 00 60` closes a 0x03 sequence. Sending it
-  without a preceding playlist does not make sense, and might change the play state.
-  GifPack no longer sends it.
+- **0x03: playlist item header [HW].** Several programmes that the panel plays in turn are sent
+  as a playlist. Each programme is announced with `0x03` instead of `0x06`; the data chunks and
+  the end frame `54 01 00 03 01 00 59` (on A952) are exactly as for `0x06`. Frame (20 bytes,
+  payload 14):
+
+  ```
+  54 03 00 10 | N i | fileId(4) | length(4) | playCount 00 | 00 00 | cs16
+  ```
+
+  `N` is the number of programmes, `i` the zero-based index, `fileId` and `length` are the same
+  values that the `0x06` header would carry for that programme, and `playCount` was `01`
+  (probably "how many times to play it", not varied). The ACK is `54 03 00 03 ST 00 cs`, with the
+  same status meaning as for `0x06` (1 = send the data, 3 = already present, 2 = no space).
+  Confirmed on the tested unit with two programmes (`N = 2`, `i = 0` and `i = 1`, accepted with
+  status 1): the panel then alternates between them. The order `N i` comes from the manufacturer
+  app's code; the opposite order was not needed.
+- **0x08: end of playlist [HW].** `54 08 00 03 01 00 60` after the last programme; the unit
+  answers with the same seven bytes (status 1). It is sent once, after all programmes.
+  GifPack's diagnostic *Playlist test* sends exactly this sequence.
 - **0x07: unknown [CAP].** The captured manufacturer traffic sometimes contains
   `54 07 00 09 00 00 nn 00 00 00 00 cs16` right before an upload (`nn` increases between uploads).
   The device always replies `54 07 00 03 00 00 5E` (status 0), and the app ignores the reply. At

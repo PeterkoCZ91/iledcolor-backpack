@@ -77,6 +77,11 @@
     <string name="editor_send">Odeslat do batohu</string>
     <string name="backpack_program_name">Program</string>
     <string name="backpack_info_action">Info o batohu</string>
+    <string name="backpack_password_status_action">Stav hesla</string>
+    <string name="backpack_playlist_test_action">Test playlistu</string>
+    <string name="backpack_playlist_test_name">Test playlistu</string>
+    <string name="backpack_effect_test_title">Test efektu (experimentální)</string>
+    <string name="backpack_effect_test_name">Test efektu %1$d</string>
     <string name="backpack_test_image_name">Testovací obrázek</string>
     <string name="backpack_builtin_name">Vestavěný program %1$d</string>
     <string name="backpack_builtin_title">Vestavěné programy</string>

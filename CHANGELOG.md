@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 55).
+yet; debug builds are identified by their `versionCode` (currently 57).
 
 ## [Unreleased]
 
@@ -35,6 +35,8 @@ yet; debug builds are identified by their `versionCode` (currently 55).
   decoded advertisement and the already received RCSP answer, printed raw). It sends no write command.
 - Product categories are stored in the database, so the list also shows offline after a restart.
 - Request logging in debug builds masks API keys and logs request lines only.
+- Experimental *Playlist test* and read-only *Password status* diagnostics. The playlist test confirmed that several programmes (`0x03` headers + `0x08`) alternate on the panel; the password query answered "no password set".
+- Experimental *Effect test* diagnostic (buttons 0, 1, 2, 3, 5, 6, 7) that uploads a labelled test GIF with a chosen effect byte. On the tested backpack the byte has no visible effect on GIF items; results in `docs/device-capabilities.md`.
 
 ### Changed
 - The app is published as **GifPack** (repository `iledcolor-backpack`); application id

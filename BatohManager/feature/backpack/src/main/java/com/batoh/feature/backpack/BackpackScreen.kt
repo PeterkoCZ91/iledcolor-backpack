@@ -77,6 +77,9 @@ class BackpackViewModel @Inject constructor(
     fun uploadPayload(payload: ByteArray) = transfers.uploadPayload(payload)
     fun sendTestImage() = transfers.sendTestImage()
     fun dumpBackpackInfo() = transfers.dumpBackpackInfo()
+    fun queryPasswordStatus() = transfers.queryPasswordStatus()
+    fun sendEffectTest(effect: Int) = transfers.sendEffectTest(effect)
+    fun sendPlaylistTest() = transfers.sendPlaylistTest()
     fun autoConnectAndUpload() = transfers.autoConnectAndUpload()
     fun setBrightness(level: Int) = transfers.setBrightness(level)
     fun setScreen(on: Boolean) = transfers.setScreen(on)
@@ -368,6 +371,17 @@ fun BackpackScreen(
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_test_upload)) }
                     OutlinedButton(onClick = viewModel::dumpBackpackInfo, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_info_action)) }
+                    OutlinedButton(onClick = viewModel::queryPasswordStatus, enabled = controlsEnabled,
+                        modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_password_status_action)) }
+                    OutlinedButton(onClick = viewModel::sendPlaylistTest, enabled = controlsEnabled,
+                        modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_playlist_test_action)) }
+                }
+                Text(stringResource(R.string.backpack_effect_test_title), style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf(0, 1, 2, 3, 5, 6, 7).forEach { code ->
+                        OutlinedButton(onClick = { viewModel.sendEffectTest(code) }, enabled = controlsEnabled,
+                            contentPadding = PaddingValues(0.dp), modifier = Modifier.weight(1f)) { Text(code.toString()) }
+                    }
                 }
                 Card(modifier = Modifier.fillMaxWidth().height(240.dp)) {
                     val scrollState = rememberScrollState()
