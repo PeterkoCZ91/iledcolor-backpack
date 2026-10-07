@@ -77,6 +77,7 @@ Not required for local development or debug testing.
 
 ## Done recently
 
+- **Send as a sequence:** several GIFs from the collection, each sent as its own programme; the backpack plays them in turn (two programmes, 181 KB, checked on the panel). Maximum number of programmes and total capacity still unknown.
 - Join GIFs into one programme (multi-select in the collection, order, pause, preview, size warning): a 33-frame / 95 KB result was saved and confirmed by the backpack on the second phone. Panel output not yet checked by eye.
 - Collection: search (case- and accent-insensitive), remembered sort order, rename of own GIFs, count / size summary.
 - Privacy notice, optional release signing from environment variables and a tag-triggered release workflow that publishes nothing without the owner's secrets.

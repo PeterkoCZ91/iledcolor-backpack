@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chain_mode_title">Režim</string>
+    <string name="chain_mode_merge">Spojit do jednoho GIFu</string>
+    <string name="chain_mode_sequence">Odeslat jako sekvenci</string>
+    <string name="chain_seq_hint">Každý GIF se do batohu uloží jako samostatný program a přehrávají se v tomto pořadí. Pauza a vlastní rychlost se u sekvence nepoužijí. GIFy se přeškálují na 64×64 stejně jako při samostatném odeslání.</string>
+    <string name="chain_seq_need_two">Pro sekvenci vyber alespoň 2 GIFy.</string>
+    <string name="chain_seq_preparing">Připravuji programy…</string>
+    <string name="chain_seq_cancel">Zrušit přípravu</string>
+    <string name="chain_seq_cancelled">Příprava sekvence byla zrušena.</string>
+    <string name="chain_seq_retry">Připravit znovu</string>
+    <string name="chain_seq_warn_size">Součet nad 453 KB: neověřeno na batohu. Nahrávání může selhat.</string>
+    <string name="chain_seq_block">Sekvence překračuje limit aplikace, nelze ji odeslat.</string>
+    <string name="chain_seq_send">Odeslat jako sekvenci</string>
+    <string name="backpack_sequence_success">Sekvence je v batohu</string>
+    <plurals name="chain_seq_info">
+        <item quantity="one">%1$d program, součet velikostí %2$d KB</item>
+        <item quantity="few">%1$d programy, součet velikostí %2$d KB</item>
+        <item quantity="many">%1$d programů, součet velikostí %2$d KB</item>
+        <item quantity="other">%1$d programů, součet velikostí %2$d KB</item>
+    </plurals>
+    <plurals name="chain_seq_warn_count">
+        <item quantity="one">Více než %1$d program: neověřeno na batohu (maximum není známé).</item>
+        <item quantity="few">Více než %1$d programy: neověřeno na batohu (maximum není známé).</item>
+        <item quantity="many">Více než %1$d programů: neověřeno na batohu (maximum není známé).</item>
+        <item quantity="other">Více než %1$d programů: neověřeno na batohu (maximum není známé).</item>
+    </plurals>
+    <plurals name="backpack_sequence_name">
+        <item quantity="one">Sekvence (%1$d program)</item>
+        <item quantity="few">Sekvence (%1$d programy)</item>
+        <item quantity="many">Sekvence (%1$d programů)</item>
+        <item quantity="other">Sekvence (%1$d programů)</item>
+    </plurals>
+</resources>

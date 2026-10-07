@@ -43,6 +43,7 @@ and the wire format in the [BLE protocol](docs/ble-protocol.md) reference.
 | GIF search | Giphy (GIFs and stickers), Klipy, a pixel-art mode, curated categories with pinned / trending / recent lists, content-rating and aspect filters | Working; needs API keys ([below](#api-keys)) |
 | Download to library | Background download (WorkManager) with visible pending / running / done / error state and retry; files are validated before saving | Working |
 | My collection | Local library in `Pictures/GifPack`; import with the system picker or by sharing a GIF to the app (`ACTION_SEND`); delete; 64 × 64 panel preview | Working, verified on a phone |
+| Join GIFs / sequence | Select several GIFs in the collection, then join their frames into one GIF or send each as its own programme so the backpack plays them in turn | **Verified** on the backpack (2 programmes); limits above 453 KB / 8 programmes unknown |
 | Detail | Animated preview, pixel-exact 64 × 64 panel preview, save, share, convert, send, edit | Working |
 | Editor | Rotate 90° / 180° / 270°, flip horizontally / vertically, fit or crop to square, animated 64 × 64 preview, save as a copy or send | Working |
 | Programme speed and brightness | Two sliders (0–255, default 100) written into the uploaded programme | **Experimental** — effect on the panel not verified |

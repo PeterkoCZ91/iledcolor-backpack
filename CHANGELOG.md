@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 57).
+yet; debug builds are identified by their `versionCode` (currently 61).
 
 ## [Unreleased]
 
@@ -26,6 +26,7 @@ yet; debug builds are identified by their `versionCode` (currently 57).
 
 - Unit tests for the domain module, NeuQuant, `GifCachePolicy`, `ConvertError`, `MtuNegotiation` and `PendingRenameStore` (see test run for counts).
 - About-screen screenshot (`docs/images/about.png`) and Settings → API keys screenshot (`docs/images/api-keys.png`).
+- **Send as a sequence:** on the join screen, a second mode sends every selected GIF as its own programme (`0x03` playlist headers and a closing `0x08`), so the backpack plays them in turn. Verified on the backpack with two programmes.
 - **Join GIFs:** long-press a GIF in the collection to select several, order them, set the pause
   between them, Fit / Crop and an optional frame delay, preview the result, then save it to the
   collection or send it to the backpack. Sizes above 96 frames / 453 KB (the largest upload

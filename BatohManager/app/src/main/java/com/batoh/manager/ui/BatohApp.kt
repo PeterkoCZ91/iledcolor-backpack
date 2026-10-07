@@ -234,7 +234,8 @@ fun BatohApp(
                     com.batoh.feature.backpack.GifChainScreen(
                         gifUris = entry.arguments?.getString(Screen.GifChain.ARG_GIF_URIS),
                         onBack = { navController.popBackStack() },
-                        onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) }
+                        onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
+                        onSequenceStaged = { navController.navigate(Screen.Backpack.createRoute()) }
                     )
                 }
                 composable(Screen.Categories.route) {

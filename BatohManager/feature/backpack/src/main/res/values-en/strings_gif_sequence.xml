@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chain_mode_title">Mode</string>
+    <string name="chain_mode_merge">Join into one GIF</string>
+    <string name="chain_mode_sequence">Send as sequence</string>
+    <string name="chain_seq_hint">Each GIF is stored on the backpack as a separate programme and they play in this order. Pause and custom speed do not apply to a sequence. GIFs are scaled to 64×64 exactly as when sent individually.</string>
+    <string name="chain_seq_need_two">Select at least 2 GIFs for a sequence.</string>
+    <string name="chain_seq_preparing">Preparing programmes…</string>
+    <string name="chain_seq_cancel">Cancel preparation</string>
+    <string name="chain_seq_cancelled">Sequence preparation was cancelled.</string>
+    <string name="chain_seq_retry">Prepare again</string>
+    <string name="chain_seq_warn_size">Total over 453 KB: not verified on the backpack. The upload may fail.</string>
+    <string name="chain_seq_block">The sequence exceeds the app limit and cannot be sent.</string>
+    <string name="chain_seq_send">Send as sequence</string>
+    <string name="backpack_sequence_success">Sequence is on the backpack</string>
+    <plurals name="chain_seq_info">
+        <item quantity="one">%1$d programme, total size %2$d KB</item>
+        <item quantity="other">%1$d programmes, total size %2$d KB</item>
+    </plurals>
+    <plurals name="chain_seq_warn_count">
+        <item quantity="one">More than %1$d programme: not verified on the backpack (the maximum is unknown).</item>
+        <item quantity="other">More than %1$d programmes: not verified on the backpack (the maximum is unknown).</item>
+    </plurals>
+    <plurals name="backpack_sequence_name">
+        <item quantity="one">Sequence (%1$d programme)</item>
+        <item quantity="other">Sequence (%1$d programmes)</item>
+    </plurals>
+</resources>

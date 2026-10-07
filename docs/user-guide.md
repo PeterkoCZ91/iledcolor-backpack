@@ -56,7 +56,16 @@ Your collection is the `Pictures/GifPack` folder on the phone, so its GIFs also 
 the system gallery.
 
 - Tap a GIF to open it, the **pencil** to edit it, or the **arrow** to send it to the
-  backpack. Long press for **Share**, **Edit for backpack** and **Delete**.
+  backpack. The **⋮** button on a tile opens **Share**, **Rename**, **Edit for backpack** and
+  **Delete**.
+- **Long press** a GIF to start selecting several; tap more tiles to add or remove them, then
+  **Join (N)**. On the next screen put the GIFs in order and choose one of two modes:
+  - **Join into one GIF**: the frames are chained into a single GIF (with an optional pause
+    and Fit / Crop). Preview, frame count and size estimate are shown.
+  - **Send as a sequence**: every GIF becomes its own programme and the backpack plays them in
+    turn. The screen shows the number of programmes and the total size. Only 453 KB in total
+    has been confirmed on hardware; above that, and above 8 programmes, a warning is shown
+    because the backpack's real limit is unknown.
 - **Import GIF** opens the Android picker. The app saves its own copy, so the original can
   live anywhere (including cloud providers) and later be moved or deleted.
 - **Share to the app**: in a gallery or file manager choose *Share → GifPack* on a

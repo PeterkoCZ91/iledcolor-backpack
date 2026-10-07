@@ -37,7 +37,9 @@ data class UploadState(
     val progress: Float = 0f,
     val message: String? = null,
     /** Typed reason when [stage] is [UploadStage.Error] or [UploadStage.Cancelled]; [message] is its localised title. */
-    val failure: UploadFailure? = null
+    val failure: UploadFailure? = null,
+    /** True for a multi-programme sequence upload (changes the success wording). */
+    val isSequence: Boolean = false
 )
 
 /** A single owner of panel transactions; navigation never cancels a transfer. */
@@ -55,7 +57,10 @@ class BackpackTransferManager @Inject constructor(
     private var userCancelledUpload = false
     /** Set when the link dropped while chunks were being sent, so the cancellation reads as a lost connection. */
     @Volatile private var connectionLostDuringUpload = false
-    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false, val effect: Int? = null, val playlist: Boolean = false)
+    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false, val effect: Int? = null, val playlist: Boolean = false, val sequence: List<ByteArray>? = null)
+    /** A user-built programme sequence waiting for the backpack screen to grant permissions and start it. */
+    private var stagedSequence: StagedSequence? = null
+    private class StagedSequence(val payloads: List<ByteArray>, val stagedAtMs: Long)
     private val initialized = MutableStateFlow(false)
     private val settingsBusy = MutableStateFlow(false)
     private val transferBusy = MutableStateFlow(false)
@@ -158,6 +163,25 @@ class BackpackTransferManager @Inject constructor(
     fun sendPlaylistTest() =
         startUpload(UploadRequest(localizedString(R.string.backpack_playlist_test_name), null, playlist = true))
 
+    /**
+     * Stages a user-built sequence (one prepared payload per programme, in playing order). The upload starts
+     * through [startStagedSequence] once the backpack screen has its Bluetooth permissions.
+     */
+    fun stageSequence(payloads: List<ByteArray>) {
+        require(payloads.size in 2..GifSequencePlan.MAX_PROGRAMMES) { "Invalid sequence length: ${payloads.size}" }
+        stagedSequence = StagedSequence(payloads.map { it.copyOf() }, System.currentTimeMillis())
+    }
+
+    /** Starts the staged sequence, if there is a fresh one; returns whether an upload was started. */
+    fun startStagedSequence(): Boolean {
+        val staged = stagedSequence ?: return false
+        stagedSequence = null
+        if (System.currentTimeMillis() - staged.stagedAtMs > STAGED_SEQUENCE_TTL_MS) return false
+        startUpload(UploadRequest(quantityString(R.plurals.backpack_sequence_name, staged.payloads.size), null,
+            sequence = staged.payloads))
+        return true
+    }
+
     /** Plays built-in firmware programme [id] (1-based, ≤ [builtInCount]) via a type-5 item; nothing is stored. */
     fun playBuiltIn(id: Int) {
         val count = _builtInCount.value ?: return
@@ -211,6 +235,25 @@ class BackpackTransferManager @Inject constructor(
         recordUpload(if (cancelled) UploadOutcome.Cancelled else UploadOutcome.Failed, failure)
     }
 
+    /**
+     * Validates [gif] and scales it to 64x64 exactly like a single upload, then wraps it into a programme
+     * payload. Throws [UploadFailureException] with a typed failure.
+     */
+    internal suspend fun prepareProgramme(gif: ByteArray): PreparedProgramme {
+        val dimensions = BackpackPayload.gifSize(gif) ?: throw UploadFailureException(UploadFailure.NotAGif)
+        var frames = 0
+        val converted = try {
+            val taskContext = currentCoroutineContext()
+            frames = SafeGifDecoder.validate(gif) { taskContext.ensureActive() }.frameCount
+            if (dimensions == (64 to 64)) gif else converter.convertGifBytes(gif)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw UploadFailureException(UploadFailure.GifInvalid, e)
+        }
+        return PreparedProgramme(buildPayload { BackpackPayload.fromGif(converted) }, frames)
+    }
+
     /** Reads, validates and (if needed) converts the GIF at [uri] into a programme payload. */
     private suspend fun gifPayload(uri: Uri): ByteArray {
         val name = runCatching {
@@ -239,17 +282,7 @@ class BackpackTransferManager @Inject constructor(
         } catch (e: Exception) {
             throw UploadFailureException(UploadFailure.GifUnreadable, e)
         }) ?: throw UploadFailureException(UploadFailure.GifUnreadable)
-        val dimensions = BackpackPayload.gifSize(gif) ?: throw UploadFailureException(UploadFailure.NotAGif)
-        val converted = try {
-            val taskContext = currentCoroutineContext()
-            SafeGifDecoder.validate(gif) { taskContext.ensureActive() }
-            if (dimensions == (64 to 64)) gif else converter.convertGifBytes(gif)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            throw UploadFailureException(UploadFailure.GifInvalid, e)
-        }
-        return buildPayload { BackpackPayload.fromGif(converted) }
+        return prepareProgramme(gif).payload
     }
 
     private inline fun buildPayload(block: () -> ByteArray): ByteArray = try {
@@ -266,10 +299,11 @@ class BackpackTransferManager @Inject constructor(
         userCancelledUpload = false
         connectionLostDuringUpload = false
         transferBusy.value = true
-        _uploadState.value = UploadState(UploadStage.Preparing, request.name, request.uri?.toString())
+        _uploadState.value = UploadState(UploadStage.Preparing, request.name, request.uri?.toString(), isSequence = request.sequence != null)
         uploadOperation.launch(scope) {
             try {
                 val payloads = withContext(Dispatchers.IO) {
+                    request.sequence?.let { return@withContext it }
                     if (request.playlist) return@withContext listOf(1, 2).map { digit ->
                         buildPayload { BackpackPayload.fromGif(EffectTestGif.render(digit)) }
                     }
@@ -294,9 +328,10 @@ class BackpackTransferManager @Inject constructor(
                     if (!connectionStatus.value.startsWith("Ready")) throw UploadFailureException(UploadFailure.ConnectionLost)
                     updateUpload(UploadStage.Sending)
                     try {
-                        val completion = if (request.playlist) doPlaylist(payloads) else doUpload(payloads.single())
+                        val completion = if (request.playlist || request.sequence != null) doPlaylist(payloads) else doUpload(payloads.single())
                         val message = when (completion) {
-                            UploadCompletion.Uploaded -> localizedString(R.string.backpack_upload_success)
+                            // A sequence shows its success text once, as the stage line; no extra message.
+                            UploadCompletion.Uploaded -> if (request.sequence != null) null else localizedString(R.string.backpack_upload_success)
                             UploadCompletion.AlreadyPresent -> localizedString(R.string.backpack_upload_already_present)
                         }
                         updateUpload(UploadStage.Success, 1f, message)
@@ -435,6 +470,8 @@ class BackpackTransferManager @Inject constructor(
         val response = bluetoothManager.sendCommand(BackpackCommands.queryState()) ?: error("State query: no response")
         _panelState.value = BackpackCommands.parseState(response) ?: error("Invalid response to state query")
     }
+    private fun quantityString(id: Int, quantity: Int): String =
+        ContextCompat.getContextForLanguage(application).resources.getQuantityString(id, quantity, quantity)
     private fun localizedString(id: Int, vararg args: Any): String =
         ContextCompat.getContextForLanguage(application).getString(id, *args)
     private fun requireSuccess(response: ByteArray?, label: String) {
@@ -444,6 +481,8 @@ class BackpackTransferManager @Inject constructor(
     }
     private companion object {
         const val HISTORY_KEY = "entries"
+        /** A staged sequence not started within this time is dropped (e.g. permissions were never granted). */
+        const val STAGED_SEQUENCE_TTL_MS = 120_000L
         val activeStages = setOf(UploadStage.Preparing, UploadStage.Connecting, UploadStage.Sending, UploadStage.Finishing)
     }
     private suspend fun ensureAuth(): String? {
@@ -542,7 +581,7 @@ class BackpackTransferManager @Inject constructor(
             val ack = bluetoothManager.sendCommand(BackpackPlaylist.itemFrame(index, payloads.size, payload))
                 ?: throw UploadFailureException(UploadFailure.HeaderTimeout)
             when (val status = ackStatus(ack)) {
-                1 -> sendDataAndEnd(payload)
+                1 -> sendDataAndEnd(payload, index, payloads.size)
                 3 -> bluetoothManager.addBleLog("Playlist item ${index + 1}: already stored, data skipped")
                 2 -> throw UploadFailureException(UploadFailure.InsufficientSpace)
                 else -> throw UploadFailureException(UploadFailure.HeaderRejected(status))
@@ -556,7 +595,7 @@ class BackpackTransferManager @Inject constructor(
     }
 
     /** Sends all data chunks of [payload] on A952 followed by the `54 01` end frame, waiting for ACK/echo. */
-    private suspend fun sendDataAndEnd(payload: ByteArray) {
+    private suspend fun sendDataAndEnd(payload: ByteArray, itemIndex: Int = 0, itemCount: Int = 1) {
         val mtu = bluetoothManager.mtu
         if (BackpackFrame.chunkLength(mtu) < 64) throw UploadFailureException(UploadFailure.MtuTooSmall(mtu))
         val packets = BackpackFrame.dataChunks(payload, mtu)
@@ -566,9 +605,9 @@ class BackpackTransferManager @Inject constructor(
             val acked = written && withTimeoutOrNull(2000) { bluetoothManager.lastAckIndex.first { it == index } } != null
             chunkFailure(index, packets.size, written, acked, bluetoothManager.lastAckStatus)
                 ?.let { throw UploadFailureException(it) }
-            updateUpload(UploadStage.Sending, (index + 1).toFloat() / packets.size)
+            updateUpload(UploadStage.Sending, (itemIndex + (index + 1).toFloat() / packets.size) / itemCount)
         }
-        updateUpload(UploadStage.Finishing, 1f)
+        updateUpload(UploadStage.Finishing, (itemIndex + 1).toFloat() / itemCount)
         endFailure(bluetoothManager.sendCommand(BackpackFrame.end(), charUuid = BluetoothLeManager.CHAR_DATA_UUID))
             ?.let { throw UploadFailureException(it) }
     }

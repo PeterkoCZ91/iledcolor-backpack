@@ -62,6 +62,7 @@ class BackpackViewModel @Inject constructor(
     private var pendingGifUri = savedStateHandle.get<String>(Screen.Backpack.ARG_GIF_URI)
 
     fun onPermissionsGranted(): Boolean {
+        if (transfers.startStagedSequence()) return true
         val uri = pendingGifUri ?: return false
         pendingGifUri = null
         savedStateHandle.remove<String>(Screen.Backpack.ARG_GIF_URI)
@@ -248,7 +249,8 @@ fun BackpackScreen(
                                         UploadStage.Connecting -> stringResource(R.string.backpack_connecting)
                                         UploadStage.Sending -> stringResource(R.string.backpack_upload_progress, (upload.progress.coerceIn(0f, 1f) * 100).toInt())
                                         UploadStage.Finishing -> stringResource(R.string.backpack_upload_finishing)
-                                        UploadStage.Success -> stringResource(R.string.backpack_upload_success)
+                                        UploadStage.Success -> stringResource(
+                                            if (upload.isSequence) R.string.backpack_sequence_success else R.string.backpack_upload_success)
                                         UploadStage.Error -> stringResource(R.string.backpack_upload_failed)
                                         UploadStage.Cancelled -> stringResource(R.string.backpack_upload_cancelled)
                                     },

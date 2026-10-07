@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -58,6 +59,7 @@ fun GifChainScreen(
     gifUris: String?,
     onBack: () -> Unit,
     onSendToBackpack: (String) -> Unit,
+    onSequenceStaged: () -> Unit,
     viewModel: GifChainViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,6 +67,9 @@ fun GifChainScreen(
     val sendCallback by rememberUpdatedState(onSendToBackpack)
     LaunchedEffect(gifUris) { viewModel.load(gifUris) }
     LaunchedEffect(viewModel) { viewModel.sendEvents.collect { sendCallback(it) } }
+    val sequenceCallback by rememberUpdatedState(onSequenceStaged)
+    LaunchedEffect(viewModel) { viewModel.sequenceEvents.collect { sequenceCallback() } }
+    val sequence = state.mode == ChainMode.Sequence
     val controlsEnabled = !state.saving
     val preview = remember(state.previewBytes, context) {
         state.previewBytes?.let { bytes ->
@@ -104,12 +109,94 @@ fun GifChainScreen(
                 )
             }
             if (!GifChainPlan.canRender(state.items.size)) {
-                Text(stringResource(R.string.chain_need_two), color = MaterialTheme.colorScheme.error,
+                Text(stringResource(if (sequence) R.string.chain_seq_need_two else R.string.chain_need_two), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
 
             Text(stringResource(R.string.chain_settings_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
+            Text(stringResource(R.string.chain_mode_title), style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    ChainMode.Merge to R.string.chain_mode_merge,
+                    ChainMode.Sequence to R.string.chain_mode_sequence
+                ).forEach { (mode, label) ->
+                    FilterChip(
+                        selected = state.mode == mode,
+                        enabled = controlsEnabled,
+                        onClick = { viewModel.setMode(mode) },
+                        label = { Text(stringResource(label)) },
+                        modifier = Modifier.heightIn(min = 48.dp).semantics { role = Role.RadioButton }
+                    )
+                }
+            }
+            if (sequence) {
+                Text(stringResource(R.string.chain_seq_hint), style = MaterialTheme.typography.bodyMedium)
+            } else MergeSettings(state, viewModel, controlsEnabled)
+            if (!sequence) MergePreviewAndActions(state, viewModel, preview)
+            else SequenceActions(state, viewModel)
+        }
+    }
+}
+
+@Composable
+private fun SequenceActions(state: GifChainUiState, viewModel: GifChainViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (state.stage) {
+            ChainStage.Rendering -> {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator()
+                    Text(stringResource(R.string.chain_seq_preparing),
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                }
+                OutlinedButton(onClick = viewModel::cancel, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.chain_seq_cancel))
+                }
+            }
+            ChainStage.Cancelled -> {
+                Text(stringResource(R.string.chain_seq_cancelled),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                OutlinedButton(onClick = viewModel::retry, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.chain_seq_retry))
+                }
+            }
+            ChainStage.Error -> OutlinedButton(onClick = viewModel::retry, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.chain_seq_retry))
+            }
+            else -> Unit
+        }
+        state.error?.let {
+            Text(it.message(), color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+        }
+        state.sequenceStatus?.let { status ->
+            Text(pluralStringResource(R.plurals.chain_seq_info, status.programmes, status.programmes, status.sizeKb),
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            if (status.overVerifiedBytes) {
+                Text(stringResource(R.string.chain_seq_warn_size), color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
+            if (status.overVerifiedCount) {
+                Text(pluralStringResource(R.plurals.chain_seq_warn_count, GifSequencePlan.WARN_PROGRAMMES, GifSequencePlan.WARN_PROGRAMMES),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
+            if (status.kind == ChainStatusKind.BLOCK) {
+                Text(stringResource(R.string.chain_seq_block), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
+        }
+        Button(
+            onClick = viewModel::sendSequence,
+            enabled = state.canSendSequence,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) { Text(stringResource(R.string.chain_seq_send)) }
+    }
+}
+
+@Composable
+private fun MergeSettings(state: GifChainUiState, viewModel: GifChainViewModel, controlsEnabled: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.chain_scale_title), style = MaterialTheme.typography.labelLarge)
             Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
@@ -167,7 +254,12 @@ fun GifChainScreen(
                     }
                 )
             }
+    }
+}
 
+@Composable
+private fun MergePreviewAndActions(state: GifChainUiState, viewModel: GifChainViewModel, preview: ImageRequest?) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.chain_preview_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
             Box(Modifier.fillMaxWidth().heightIn(max = 320.dp).aspectRatio(1f).background(Color.Black),
@@ -228,7 +320,6 @@ fun GifChainScreen(
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 ) { Text(stringResource(R.string.chain_send)) }
             }
-        }
     }
 }
 
