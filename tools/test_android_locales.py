@@ -9,12 +9,12 @@ ANDROID_ROOT = REPO_ROOT / "BatohManager"
 
 class AndroidLocaleResourceTests(unittest.TestCase):
     def test_every_default_string_has_an_english_translation(self):
-        default_files = sorted(ANDROID_ROOT.glob("**/src/main/res/values/strings.xml"))
+        default_files = sorted(ANDROID_ROOT.glob("**/src/main/res/values/strings*.xml"))
         self.assertTrue(default_files, "No Android string resource files were found")
 
         for default_file in default_files:
             with self.subTest(module=default_file.relative_to(ANDROID_ROOT)):
-                english_file = default_file.parent.parent / "values-en" / "strings.xml"
+                english_file = default_file.parent.parent / "values-en" / default_file.name
                 self.assertTrue(english_file.is_file(), f"Missing {english_file}")
 
                 default_names = self._string_names(default_file)

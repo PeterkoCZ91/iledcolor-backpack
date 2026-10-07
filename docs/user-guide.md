@@ -19,7 +19,7 @@ The home screen has tiles for **Search GIFs**, **Categories**, **My Collection**
 | App language | **System default**, **Čeština** or **English**. On Android 13+ the choice also shows in the system's per-app language settings. It persists across restarts. |
 | Grid density | Number of columns in result grids. |
 | My interests | Tags used to suggest GIFs in search. |
-| API keys | Optional personal **Giphy** and **Klipy** keys. Empty uses the key built into the app, if any. See [API keys](../README.md#api-keys). |
+| API keys | Optional personal **Giphy** and **Klipy** keys. Empty uses the key built into the app, if any. See [API keys](../README.md#api-keys) and the [screenshot](images/api-keys.png). |
 
 ## Search and categories
 
@@ -110,7 +110,8 @@ has not yet been verified on the panel*.
 Paste a link to an **MP4** file and tap **Convert & Save**. The app downloads it (up to
 100 MB), samples up to 30 frames, centre-crops them to 64 × 64 and saves the GIF to the
 collection. Progress is shown for both phases and the download can be cancelled. Use only
-videos you have the right to use.
+videos you have the right to use. This flow is implemented but has not yet been verified in
+the public GitHub build, so treat it as experimental for now.
 
 ## Backpack
 

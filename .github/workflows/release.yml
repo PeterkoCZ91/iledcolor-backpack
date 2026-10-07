@@ -1,0 +1,103 @@
+name: Release
+
+# Builds a signed release APK for a version tag (v*) and attaches it to a GitHub Release.
+# Needs five repository secrets (see docs/releasing.md). Without them the job only prints a
+# notice and publishes nothing. No API keys are compiled in: users enter their own in Settings.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: BatohManager
+    env:
+      HAS_SIGNING: ${{ secrets.GIFPACK_KEYSTORE_BASE64 != '' && secrets.GIFPACK_KEYSTORE_PASSWORD != '' && secrets.GIFPACK_KEY_ALIAS != '' && secrets.GIFPACK_KEY_PASSWORD != '' && secrets.GIFPACK_KEYSTORE_SHA256 != '' }}
+    steps:
+      - name: Check signing secrets
+        working-directory: .
+        run: |
+          if [ "$HAS_SIGNING" != "true" ]; then
+            echo "::notice title=Release skipped::Signing secrets are not configured (see docs/releasing.md). Nothing was built or published."
+          fi
+
+      - uses: actions/checkout@v4
+        if: env.HAS_SIGNING == 'true'
+
+      - uses: actions/setup-java@v4
+        if: env.HAS_SIGNING == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.HAS_SIGNING == 'true'
+
+      - name: Unit tests
+        if: env.HAS_SIGNING == 'true'
+        run: >
+          ./gradlew --console=plain
+          :app:testDebugUnitTest
+          :feature:backpack:testDebugUnitTest :feature:search:testDebugUnitTest
+          :feature:library:testDebugUnitTest :core:conversion:testDebugUnitTest
+          :core:data:testDebugUnitTest :core:storage:testDebugUnitTest
+
+      - name: Decode keystore
+        if: env.HAS_SIGNING == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GIFPACK_KEYSTORE_BASE64 }}
+          KEYSTORE_SHA256: ${{ secrets.GIFPACK_KEYSTORE_SHA256 }}
+        run: |
+          keystore="$RUNNER_TEMP/gifpack-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          echo "$KEYSTORE_SHA256  $keystore" | sha256sum --check --quiet
+          echo "GIFPACK_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: env.HAS_SIGNING == 'true'
+        env:
+          GIFPACK_KEYSTORE_PASSWORD: ${{ secrets.GIFPACK_KEYSTORE_PASSWORD }}
+          GIFPACK_KEY_ALIAS: ${{ secrets.GIFPACK_KEY_ALIAS }}
+          GIFPACK_KEY_PASSWORD: ${{ secrets.GIFPACK_KEY_PASSWORD }}
+        run: ./gradlew --console=plain :app:assembleRelease
+
+      - name: Verify signature and rename
+        if: env.HAS_SIGNING == 'true'
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -f "$apk" || { echo "::error::Signed APK not found (was the release left unsigned?)"; exit 1; }
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$apksigner" verify "$apk"
+          # Print only the certificate digest, not the certificate's subject name.
+          "$apksigner" verify --print-certs "$apk" | grep -i "SHA-256 digest"
+          out="$RUNNER_TEMP/GifPack-${GITHUB_REF_NAME}.apk"
+          cp "$apk" "$out"
+          sha256sum "$out" | sed "s|$RUNNER_TEMP/||" > "$out.sha256"
+          echo "RELEASE_APK=$out" >> "$GITHUB_ENV"
+
+      - name: Remove keystore
+        if: always() && env.HAS_SIGNING == 'true'
+        working-directory: .
+        run: rm -f "$RUNNER_TEMP/gifpack-release.jks"
+
+      - name: Publish GitHub Release
+        if: env.HAS_SIGNING == 'true'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$RELEASE_APK" "$RELEASE_APK.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "GifPack $GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag

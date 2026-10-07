@@ -47,7 +47,7 @@ and the wire format in the [BLE protocol](docs/ble-protocol.md) reference.
 | Editor | Rotate 90° / 180° / 270°, flip horizontally / vertically, fit or crop to square, animated 64 × 64 preview, save as a copy or send | Working |
 | Programme speed and brightness | Two sliders (0–255, default 100) written into the uploaded programme | **Experimental** — effect on the panel not verified |
 | Scrolling text | Renders text (up to 60 characters, 9 colours, 3 sizes, 3 speeds, bold) into a looping 64 × 64 GIF to save or send | **New** — not yet verified on the panel |
-| Video → GIF | Downloads an MP4 from a URL (up to 100 MB) and converts it to a 64 × 64 GIF (up to 30 frames) | Working |
+| Video → GIF | Downloads an MP4 from a URL (up to 100 MB) and converts it to a 64 × 64 GIF (up to 30 frames) | Experimental; the URL flow and the converter test passed on a phone |
 | Backpack upload | Scan / connect, upload with progress, cancel and retry; distinguishes "uploaded", "already on backpack", "not enough space" and "rejected" | **Verified** (small GIF and a 453 KB, 96-frame GIF) |
 | Backpack controls | Device card, brightness 1–10, screen on/off, status refresh, upload history (last 10), diagnostics log | Brightness and screen **verified**; others working |
 | Built-in programmes | Plays a programme stored in firmware (count from the device) | Hidden when the device reports 0 — **unverified** |
@@ -65,7 +65,12 @@ capacity, which is unknown. Every upload is 64 × 64; other sizes are converted 
 | :---: | :---: | :---: |
 | <img src="docs/images/home.png" width="240" alt="Home screen"> | <img src="docs/images/scrolling-text.png" width="240" alt="Scrolling text generator with preview"> | <img src="docs/images/backpack.png" width="240" alt="Backpack screen with device card, brightness and display switch"> |
 
-Captured on a phone in English with the tested backpack connected.
+| About | Settings → API keys |
+| :---: | :---: |
+| <img src="docs/images/about.png" width="240" alt="About dialog with app description and version"> | <img src="docs/images/api-keys.png" width="240" alt="Settings screen with empty Klipy and Giphy API key fields"> |
+
+Captured on a phone in English with the tested backpack connected. The API key fields are
+empty: public builds do not include keys, you enter your own.
 
 ## Quick start
 
@@ -158,9 +163,13 @@ from it — do not distribute builds with your personal key.
 | [Testing](docs/testing.md) | Unit tests, Python tests, the ADB smoke harness |
 | [Troubleshooting](docs/troubleshooting.md) | Permissions, GATT 133, MTU, keys, rejected uploads |
 | [Roadmap](docs/roadmap.md) | Planned verification and features |
+| [Privacy](docs/privacy.md) | Network requests, stored data and permissions |
+| [Releasing](docs/releasing.md) | Signed release builds and the tag workflow |
 
 Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow
-[SECURITY.md](SECURITY.md). GifPack is released under the [MIT License](LICENSE).
+[SECURITY.md](SECURITY.md). **Privacy:** no account, analytics or tracking; search text goes
+to Giphy / Klipy only when you search — see [PRIVACY.md](PRIVACY.md).
+GifPack is released under the [MIT License](LICENSE).
 It is an independent project and is not affiliated with the backpack's manufacturer.
 
 ---
@@ -205,5 +214,8 @@ Bluetooth adresu batohu — před sdílením ji odstraň.
 **Omezení:** testován jeden model a firmware; kapacita batohu není známá (největší
 potvrzený upload 453 KB); limity 20 MiB / 600 snímků jsou limity aplikace, ne batohu;
 nahrávání neběží jako služba na pozadí.
+
+**Soukromí:** žádný účet, analytika ani sledování; hledaný text jde do Giphy / Klipy jen
+při vyhledávání — viz [PRIVACY.md](PRIVACY.md) (anglicky).
 
 Licence: [MIT](LICENSE).

@@ -72,8 +72,16 @@ def has_upload_progress(labels):
     return any(label.startswith("Odesílání:") for label in labels)
 
 
+SHARED_IMPORT_ERRORS = (
+    "Import sdíleného GIFu selhal",
+    "GIF je poškozený nebo překračuje podporované limity.",
+    "The GIF is damaged or exceeds the supported limits.",
+)
+
+
 def has_shared_import_error(labels):
-    return "Import sdíleného GIFu selhal" in labels
+    """Return whether a shared-import failure message (typed, localized) is visible."""
+    return any(message in labels for message in SHARED_IMPORT_ERRORS)
 
 
 def backpack_panel_state(labels):
@@ -115,6 +123,7 @@ class Smoke:
         self.dump_path = f"/sdcard/batoh-smoke-{int(time.time())}.xml"
         self.log_since = None
         self.fixture_uris = []
+        self.current_step = "initializing"
 
     def adb(self, *args, timeout=30):
         result = subprocess.run(self.base + list(args), capture_output=True, text=True, timeout=timeout)
@@ -124,6 +133,7 @@ class Smoke:
         return result.stdout
 
     def record(self, name, status="passed", detail=None):
+        self.current_step = name
         entry = {"name": name, "status": status}
         if detail:
             entry["detail"] = detail
@@ -142,7 +152,22 @@ class Smoke:
         return [node.get(key, "") for node in tree.iter("node")
                 if node.get("package") == PACKAGE for key in ("text", "content-desc")]
 
+    @staticmethod
+    def matches_label(node, label):
+        description = node.get("content-desc", "")
+        return (node.get("text") == label or description == label
+                or description.startswith(label + ","))
+
+    @staticmethod
+    def localized_label(labels, czech, english):
+        # Controls with a state suffix ("Batoh, Nepřipojeno, …") match like matches_label does.
+        for label in (czech, english):
+            if label in labels or any(item.startswith(label + ",") for item in labels):
+                return label
+        raise RuntimeError("Expected localized control is missing")
+
     def wait(self, predicate, description, timeout=20):
+        self.current_step = description
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
@@ -155,18 +180,23 @@ class Smoke:
         raise RuntimeError(f"UI timeout: {description} (unlock phone and handle permission dialogs manually)")
 
     def see(self, label, timeout=20):
-        return self.wait(lambda tree: label in self.labels(tree), label, timeout)
+        return self.wait(
+            lambda tree: any(node.get("package") == PACKAGE and self.matches_label(node, label)
+                             for node in tree.iter("node")),
+            label,
+            timeout,
+        )
 
     def click(self, label):
         # Always query fresh bounds from a node belonging to this app.
         tree = self.wait(
             lambda tree: any(self.clickable_node(tree, node) is not None for node in tree.iter("node")
-                             if node.get("package") == PACKAGE and label in (node.get("text"), node.get("content-desc"))),
+                             if node.get("package") == PACKAGE and self.matches_label(node, label)),
             "enabled control: " + label,
         )
-        matches = [node for node in tree.iter("node") if node.get("package") == PACKAGE
-                   and label in (node.get("text"), node.get("content-desc"))]
-        for node in matches:
+        matching_nodes = [node for node in tree.iter("node") if node.get("package") == PACKAGE
+                          and self.matches_label(node, label)]
+        for node in matching_nodes:
             if self.tap_node(tree, node):
                 return
         raise RuntimeError(f"No enabled app control: {label}")
@@ -196,7 +226,7 @@ class Smoke:
         tree = self.see(title)
         parents = {child: parent for parent in tree.iter() for child in parent}
         title_node = next(node for node in tree.iter("node") if node.get("package") == PACKAGE
-                          and title in (node.get("text"), node.get("content-desc")))
+                          and self.matches_label(node, title))
         node = title_node
         while node in parents:
             candidates = [child for child in node.iter("node") if child.get("package") == PACKAGE
@@ -269,17 +299,29 @@ class Smoke:
             self.see(title)
             self.click(title)
             if kind != "malformed":
-                self.see("Náhled GIFu načten")
-                if DETAIL_ERROR in self.labels(self.tree()):
+                self.wait(lambda tree: any(label in self.labels(tree) for label in
+                                           ("Náhled GIFu načten", "GIF preview loaded")),
+                          "valid GIF preview loaded")
+                if any(label in self.labels(self.tree()) for label in
+                       (DETAIL_ERROR, "Could not display the GIF. The file may be damaged; try downloading it again.")):
                     raise RuntimeError("Valid fixture failed to decode")
                 self.record("valid 64x64 GIF detail decode completes")
             else:
-                self.see(DETAIL_ERROR)
-                self.see("Náhled GIFu se nepodařilo načíst")
-                self.record("malformed GIF detail shows friendly decode error")
+                # Broken library items open the removal dialog with the reason (since v50). The harness
+                # only checks the text and presses Cancel; it never confirms a deletion.
+                self.wait(lambda tree: any(label in self.labels(tree) for label in
+                                           ("Odebrat GIF z knihovny?", "Remove GIF from the library?")),
+                          "malformed GIF removal dialog")
+                self.wait(lambda tree: any(label in self.labels(tree) for label in
+                                           ("GIF je poškozený nebo používá nepodporované funkce.",
+                                            "The GIF is damaged or uses unsupported features.")),
+                          "malformed GIF friendly reason")
+                self.click(self.localized_label(self.labels(self.tree()), "Zrušit", "Cancel"))
+                self.record("malformed GIF shows friendly reason and removal is cancelled")
             self.crash_check()
             self.back()
-            self.see("Moje sbírka")
+            self.wait(lambda tree: any(label in self.labels(tree) for label in ("Moje sbírka", "My Collection")),
+                      "collection after GIF detail")
         self.record("fixture gallery/detail navigation remains responsive")
 
     def cleanup_fixtures(self):
@@ -408,18 +450,29 @@ class Smoke:
         # Start from a known disconnected session; never clear data or uninstall.
         self.adb("shell", "am", "force-stop", PACKAGE)
         self.adb("shell", "am", "start", "-n", PACKAGE + "/" + ACTIVITY)
-        self.see("Informace o aplikaci")
+        labels = self.labels(self.tree())
+        about = self.localized_label(labels, "Informace o aplikaci", "About the app")
+        settings = self.localized_label(labels, "Nastavení aplikace", "App settings")
+        library = self.localized_label(labels, "Knihovna", "Collection")
+        home = self.localized_label(labels, "Domů", "Home")
+        backpack = self.localized_label(labels, "Batoh", "Backpack")
+        library_screen = self.localized_label(labels, "Moje sbírka", "My Collection")
+        language = "cs" if about == "Informace o aplikaci" else "en"
+        # The picker button lives on the backpack screen, not on Home: choose its text by language.
+        backpack_picker = "Vybrat GIF z knihovny" if language == "cs" else "Choose a GIF from your library"
+
+        self.see(about)
         self.record("home screen opens")
-        self.click("Informace o aplikaci")
-        self.see("Verze: " + version)
+        self.click(about)
+        self.see(("Verze: " if language == "cs" else "Version: ") + version)
         self.record("displayed version matches installed APK", detail=version)
         self.click("OK")
-        self.click("Nastavení aplikace")
-        self.see("Nastavení")
+        self.click(settings)
+        self.see("Nastavení" if language == "cs" else "Settings")
         self.record("settings dialog opens")
         self.back()
-        self.click("Knihovna")
-        self.see("Moje sbírka")
+        self.click(library)
+        self.see(library_screen)
         self.record("library opens")
         if seeded:
             self.fixture_checks(seeded)
@@ -429,21 +482,22 @@ class Smoke:
             self.upload_fixture(next(title for title, kind in seeded if kind == "valid"))
         if cancel_upload:
             self.cancel_and_retry_upload(next(title for title, kind in seeded if kind == "cancel"))
-        self.click("Domů")
-        self.click("Batoh")
-        self.see("LED batoh")
-        tree = self.see("Vybrat GIF z knihovny")
+        self.click(home)
+        self.click(backpack)
+        self.see("LED batoh" if language == "cs" else "LED Backpack")
+        tree = self.see(backpack_picker)
         labels = self.labels(tree)
         if any(re.search(r"rotac|zrcadl|Hardcoded MAC|Target:", label, re.I) for label in labels):
             raise RuntimeError("Removed experimental controls remain visible")
-        if "Skrýt diagnostiku" in labels:
+        if any(label in labels for label in ("Skrýt diagnostiku", "Hide diagnostics")):
             raise RuntimeError("Diagnostics are expanded by default")
         self.record("backpack UI has library picker and collapsed diagnostics")
-        self.click("Vybrat GIF z knihovny")
-        self.see("Klepnutím na obrázek ho nahraješ do batohu.")
+        self.click(backpack_picker)
+        self.see("Klepnutím na obrázek ho nahraješ do batohu." if language == "cs"
+                 else "Tap a GIF to upload it to your backpack.")
         self.record("picker opens app library (not external phone picker)")
         self.back()
-        self.see("LED batoh")
+        self.see("LED batoh" if language == "cs" else "LED Backpack")
         self.record("picker cancels without selecting or uploading")
         if hardware:
             if "Batoh připojen" not in self.labels(self.tree()):
@@ -628,6 +682,7 @@ def main():
         # Keep reports useful for grouping failures without persisting raw messages.
         report["error"] = "Smoke run failed"
         report["error_type"] = type(error).__name__
+        report["last_step"] = getattr(smoke, "current_step", "unknown")
         print(report["error"], file=sys.stderr)
         try:
             smoke.crash_check()

@@ -132,7 +132,7 @@ These values were read from the advertisement of the backpack used during develo
 | Command | Result on the tested unit | Status |
 |---|---|---|
 | Upload (0x06 → chunks → 0x01), GIF item type 6 | Small and 453 KB GIFs uploaded; cancel and retry work | **[HW]** |
-| 0x06 status 3 "already present" | Not observed yet | [DER] |
+| 0x06 status 3 "already present" | Observed on re-sending an identical test image: no chunks sent, reported as already on the backpack | **[HW]** |
 | 0x09 brightness | 7 → 6 → 7 confirmed by read-back | **[HW]** |
 | 0x0A screen on/off | on → off → on confirmed by read-back | **[HW]** |
 | 0x10 state query | Answers (screen and brightness fields correct) despite versionCode < 30 | **[HW]** |
@@ -144,6 +144,17 @@ These values were read from the advertisement of the backpack used during develo
 | 0x0E / 0x0F password | Not implemented; funCode says it is supported | [DER] |
 | 0x04 music rhythm, 0x11 linkage | Not implemented | [DER] |
 | JieLi authentication on AE00 | Completes on every connection | **[HW]** |
+
+### 7.2 Raw answers read with the "Backpack info" diagnostic action
+
+The read-only diagnostic action sends only the `0x10` and `0x0D` queries and prints the raw
+answers [HW]:
+
+| Query | Answer on the tested unit | Notes |
+|---|---|---|
+| `0x10` state | 16-byte frame, 10-byte payload `00 00 01 04 00 00 00 00 0E 00` | `p2` = screen on, `p3` = brightness code (level = 11 − `p3`, here 7), `p4` = rotation / mirror (0). `p8` = `0x0E` = 14 equals the advertised versionCode, so it is probably the firmware version [DER]. All other bytes were 0. |
+| `0x0D` built-in count | 8-byte variant `54 0D 00 04 00 00 00 65` | Count 0. |
+| RCSP "target info" | 70-byte answer on AE02 | Not interpreted; it embeds device addresses, so it is not reproduced here. |
 
 Other units may advertise different capabilities. If you have one, the `ADV` line in the app's
 BLE log shows its values. Reports of other funCode and versionCode combinations would help

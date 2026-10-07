@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 51).
+yet; debug builds are identified by their `versionCode` (currently 55).
 
 ## [Unreleased]
 
@@ -15,6 +15,27 @@ yet; debug builds are identified by their `versionCode` (currently 51).
 - Accessibility pass: content descriptions, section headings, 48 dp touch targets, semantics for
   toggles, sliders and colour chips, announced error states with a recovery action.
 
+- Privacy notice (`PRIVACY.md`) and a technical data-flow page (`docs/privacy.md`) covering
+  every network request, local store and permission.
+- Optional release signing: `assembleRelease` is signed when the `GIFPACK_KEYSTORE_PATH`,
+  `GIFPACK_KEYSTORE_PASSWORD`, `GIFPACK_KEY_ALIAS` and `GIFPACK_KEY_PASSWORD` environment
+  variables are set, unsigned otherwise. A tag-triggered `Release` workflow (`v*`) runs the
+  unit tests and attaches a signed APK without API keys to a GitHub Release — only when the
+  signing secrets are configured; otherwise it skips with a notice. Owner setup in
+  `docs/releasing.md`.
+
+- Unit tests for the domain module, NeuQuant, `GifCachePolicy`, `ConvertError`, `MtuNegotiation` and `PendingRenameStore` (see test run for counts).
+- About-screen screenshot (`docs/images/about.png`) and Settings → API keys screenshot (`docs/images/api-keys.png`).
+- **Join GIFs:** long-press a GIF in the collection to select several, order them, set the pause
+  between them, Fit / Crop and an optional frame delay, preview the result, then save it to the
+  collection or send it to the backpack. Sizes above 96 frames / 453 KB (the largest upload
+  confirmed on hardware) show a warning; above 600 frames / 20 MiB the result is blocked. The
+  previous long-press menu (share, rename, delete) moved to the ⋮ button on each tile.
+- Read-only **Backpack info** diagnostic action (state query `0x10`, built-in count `0x0D`,
+  decoded advertisement and the already received RCSP answer, printed raw). It sends no write command.
+- Product categories are stored in the database, so the list also shows offline after a restart.
+- Request logging in debug builds masks API keys and logs request lines only.
+
 ### Changed
 - The app is published as **GifPack** (repository `iledcolor-backpack`); application id
   `io.github.peterkocz91.gifpack` and deep-link scheme `gifpack://` (Kotlin packages are unchanged).
@@ -22,10 +43,15 @@ yet; debug builds are identified by their `versionCode` (currently 51).
   instead of falling back to a built-in device address.
 
 ### Fixed
+- Review fixes: the import queue no longer stalls on a failed item; MediaStore pending/publish is checked; a GATT race was removed; `CancellationException` is no longer swallowed in `fetchGifs`; the MTU falls back to 23; the name limit is counted in UTF-8 bytes; a rename survives process death; import after a killed process is idempotent; the legacy permission dialog no longer loops; Video → GIF errors are typed and localized.
+- GIF cache: the key includes the filter (composite key), ordering is kept, entries expire after 7 days and categories are served from memory when offline.
 - The backpack screen no longer crashes on a fresh install (an early return inside the device
   card's `Column` corrupted the Compose slot table when no advertisement was cached yet).
 
 ### Security
+- API keys typed in Settings are excluded from Android backup and device transfer; the unused
+  `READ_MEDIA_VIDEO` permission was removed; nearby devices' scan results are logged only in
+  debuggable builds.
 - The `gifpack://backpack` deep link is no longer `BROWSABLE`, and its `auto_test` upload hook
   works only in debuggable builds.
 - API keys are read from `local.properties` / environment, never from tracked files; a Giphy key

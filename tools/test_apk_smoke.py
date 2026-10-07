@@ -34,6 +34,25 @@ class SmokeHarnessTests(unittest.TestCase):
         resolved = apk_smoke.Smoke.clickable_node(tree, leaf)
         self.assertEqual("[10,20][110,80]", resolved.get("bounds"))
 
+    def test_see_matches_accessibility_description_with_state_suffix(self):
+        tree = ET.fromstring(
+            '<hierarchy><node package="io.github.peterkocz91.gifpack" '
+            'content-desc="Batoh, Nepřipojeno" /></hierarchy>'
+        )
+        smoke = apk_smoke.Smoke()
+        smoke.wait = lambda predicate, description, timeout=20: tree if predicate(tree) else None
+        self.assertIs(tree, smoke.see("Batoh"))
+
+    def test_picker_labels_choose_current_czech_or_english_text(self):
+        self.assertEqual("Collection", apk_smoke.Smoke.localized_label(["Collection"], "Knihovna", "Collection"))
+        self.assertEqual("Knihovna", apk_smoke.Smoke.localized_label(["Knihovna"], "Knihovna", "Collection"))
+
+    def test_picker_label_accepts_state_suffix_of_home_tile(self):
+        labels = ["Batoh, Nepřipojeno, zařízení example, firmware verze 14", "Knihovna"]
+        self.assertEqual("Batoh", apk_smoke.Smoke.localized_label(labels, "Batoh", "Backpack"))
+        with self.assertRaises(RuntimeError):
+            apk_smoke.Smoke.localized_label(["Batohy"], "Batoh", "Backpack")
+
     def test_clickable_parent_must_belong_to_app_and_be_enabled(self):
         for package, enabled in (("com.android.systemui", "true"),
                                  ("io.github.peterkocz91.gifpack", "false")):
@@ -52,6 +71,8 @@ class SmokeHarnessTests(unittest.TestCase):
 
     def test_shared_import_error_detection_matches_current_ui_copy(self):
         self.assertTrue(apk_smoke.has_shared_import_error(["Import sdíleného GIFu selhal", "Zavřít"]))
+        self.assertTrue(apk_smoke.has_shared_import_error(["GIF je poškozený nebo překračuje podporované limity.", "Zavřít"]))
+        self.assertTrue(apk_smoke.has_shared_import_error(["The GIF is damaged or exceeds the supported limits."]))
         self.assertFalse(apk_smoke.has_shared_import_error(["GIF byl importován do knihovny"]))
 
     def test_panel_state_detection_accepts_czech_and_english_ui(self):

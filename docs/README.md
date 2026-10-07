@@ -31,6 +31,13 @@ device captures do not belong here.
    them.
 4. [Roadmap](roadmap.md) — remaining hardware verification and planned features.
 
+### I want to know what happens with my data or publish a release
+
+1. [Privacy](privacy.md) — every network request, local store and permission; the
+   plain-language notice is [PRIVACY.md](../PRIVACY.md).
+2. [Releasing](releasing.md) — optional release signing, the tag-triggered release
+   workflow and the owner's one-time keystore setup.
+
 ## Feature maturity
 
 "Verified" means confirmed on the tested backpack (iledcolor 64 × 64, `funCode 0x0044`,
@@ -47,7 +54,8 @@ firmware 14) with a phone, not only by unit tests.
 | Editor: rotation, flips, fit / crop | Working, unit-tested | Physical colours and playback on the panel not audited. |
 | Editor: programme speed and brightness | Experimental | Bytes are written into the payload; effect on the panel not verified. |
 | Scrolling text banner | Verified | A 136-frame / 85 KB banner uploaded (backpack confirmed) and scrolls on the panel. |
-| Video URL → GIF | Working | MP4 up to 100 MB, up to 30 frames at 64 × 64. |
+| Join GIFs (multi-select, order, pause, preview) | Verified upload; experimental above 96 frames / 453 KB | A 33-frame / 95 KB result was confirmed by the backpack. Larger results show a warning because only 453 KB / 96 frames is confirmed; above 600 frames / 20 MiB it is blocked. |
+| Video URL → GIF | Experimental; verified on a phone | MP4 up to 100 MB, up to 30 frames at 64 × 64. The https URL → download → convert → preview → save flow and the on-device converter test passed; http URLs are refused. |
 | GIF upload (Cmd 06 → chunks → end) | Verified | Small GIF, 453 KB / 96-frame GIF, cancel and retry. |
 | "Already on backpack" status | Verified | Re-sending an identical GIF returns status 3 and skips the data transfer. |
 | "Not enough space" status | Implemented, unit-tested | Not yet observed on hardware. |

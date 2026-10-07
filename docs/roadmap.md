@@ -8,16 +8,28 @@ than guessed.
 
 Status words follow the [feature-maturity table](README.md#feature-maturity).
 
+## Before making the repository public again
+
+The GitHub repository is currently private. Finish these tasks before asking to reopen it:
+
+| Order | Task | Done when |
+| --- | --- | --- |
+| 1 | **Verify Video → GIF on Android.** *Half done.* The local-MP4 instrumentation test (`:app:connectedDebugAndroidTest`) passed on a device. The URL (https) → download → preview → save-to-collection flow was checked by hand on a second phone. | Remaining: the owner confirms the URL flow; until then the feature stays marked experimental. Remove only the test GIF created by any further run. |
+| 2 | **Finish first-run/API-key guidance and app-info screenshots.** *Done.* About (`docs/images/about.png`) and Settings → API keys (`docs/images/api-keys.png`, both key fields empty) are captured and linked from the README and user guide. | Done: About text and version match the current build (v53 at capture time). |
+| 3 | **Public-repository preflight.** Many existing source and documentation changes are still uncommitted. | Review every changed/untracked path, confirm `local.properties`, personal APKs, private captures and `PAMET_PROJEKTU.md` are excluded, run the documented tests/lint/build, and scan the final diff for secrets and identifying paths. Preserve the current private-history branch; never publish it. |
+| 4 | **Reopen the repository.** | Only after the preceding items are complete and the owner explicitly asks, switch the GitHub repository to public. Then verify README, CI and Actions logs are safe to expose. |
+
 ## Next steps
 
 | Order | Work | Status and definition of done |
 | --- | --- | --- |
-| 1 | **Import robustness on Android.** Import after the URI grant is revoked, and after the process is killed mid-import. | Copy-with-cancellation and the share queue are unit-tested; valid and malformed `ACTION_SEND` and cleanup are verified on a phone. Done when both Android cases are tested on a device. |
-| 2 | **First-connection resilience.** One transient GATT 133 was seen on a first connection; the retry succeeded. | No confirmed cause. Record each occurrence; add a bounded automatic retry only if it recurs. |
+| 1 | **Import robustness on Android.** Import after the URI grant is revoked, and after the process is killed mid-import. | Implemented and unit-tested: revoked/missing sources map to clear messages, partial MediaStore items are removed (with a pending/publish check), a failed item no longer blocks the import queue, the share queue is restored from `SavedStateHandle` after process death (an unreadable URI asks the user to share again) and a repeated import after a killed process is idempotent. Done when both cases are checked on a device. |
+| 2 | **First-connection resilience.** A transient GATT 133 was seen on a first connection; a manual retry succeeded. | One bounded automatic retry (status 133 / 62, only while connecting, 800 ms, cancelled by *Disconnect*) is implemented and unit-tested. Done when an occurrence is observed being retried on a device. |
 | 3 | **Verify remaining backpack answers and visuals.** The "not enough space" status; physical image of edited GIFs. | Clock, status query, brightness, screen on/off and the "already on backpack" status (3) are verified. Rotation is hidden because the tested firmware does not advertise it (`funCode 0x0044`). Done when the statuses are observed and the panel output is checked by eye. |
 | 4 | **Verify the new features on the panel.** Programme speed / brightness bytes and built-in programmes on a device that reports them. | The scrolling-text banner is verified (upload confirmed and it scrolls on the panel). Speed / brightness remain experimental; the tested unit reports 0 built-in programmes. |
 | 5 | **Error states and accessibility.** Each screen's error state, TalkBack, large fonts and touch targets. | Code pass done on all screens (descriptions, headings, 48 dp targets, toggle/slider semantics, announced errors with a recovery action). A manual TalkBack and large-font pass on a phone is still to do. |
-| 6 | **Measure capacity safely.** Find the practical upload limit step by step, watching the panel, without using "clear all" as cleanup. | Largest confirmed upload: 453 KB / 96 frames. |
+| 6 | **Collection name safety.** Case-insensitive name collisions, rollback of a legacy-path rename, and cancellation after the file is saved in `importGif`. | **In progress** — not done yet. (Rename already survives process death and name length is limited in UTF-8 bytes; see below.) |
+| 7 | **Measure capacity safely.** Find the practical upload limit step by step, watching the panel, without using "clear all" as cleanup. | Largest confirmed upload: 453 KB / 96 frames. |
 
 ## Protocol features not yet used
 
@@ -31,29 +43,50 @@ Status words follow the [feature-maturity table](README.md#feature-maturity).
 
 Not known bugs or blockers:
 
-- Search, rename, sort and an overview of edited copies in the collection.
+- An overview of edited copies in the collection (search, sort, rename and a count / size summary are done).
 - Category filtering, if pinned / trending / recent prove insufficient in daily use.
 - Continue uploads while the phone is locked — needs a foreground service with a visible
   notification; only if users need it.
 
 ## Before a public release
 
-Not required for local development or debug testing:
+Not required for local development or debug testing.
 
-- **Privacy notes** describing which requests and files go to third parties (Giphy, Klipy,
-  video URLs) and how API keys are stored; a privacy policy and data-safety answers for the
-  chosen distribution channel.
-- **Release build**: a separate release variant, a safe signing setup and key custody, a
-  target-API review and the channel's requirements.
+**Prepared:**
+
+- **Privacy notes.** [PRIVACY.md](../PRIVACY.md) is a plain-language notice usable as a
+  store privacy policy; [privacy](privacy.md) lists every request (Giphy, Klipy, media URLs,
+  user video URLs), local store, permission and a data-safety draft. Audit result: no
+  analytics, crash reporting or own backend.
+- **Release signing.** The release build is signed only when the `GIFPACK_KEYSTORE_*` /
+  `GIFPACK_KEY_*` environment variables are set and stays unsigned otherwise; the
+  `Release` workflow builds, tests and publishes a signed, keyless APK for `v*` tags only when
+  the repository secrets exist. See [releasing](releasing.md).
+
+**Owner decisions and remaining work:**
+
+- Generate the release keystore, back it up and add the five repository secrets
+  ([releasing](releasing.md#one-time-setup-repository-owner)); then tag the first release.
+- Choose the distribution channel (GitHub Releases, F-Droid, Google Play) and fill in its
+  data-safety form from the draft; confirm the privacy notice's contact route.
+- Target-API review and the channel's other requirements; decide on code shrinking.
 
 ## Done recently
 
+- Join GIFs into one programme (multi-select in the collection, order, pause, preview, size warning): a 33-frame / 95 KB result was saved and confirmed by the backpack on the second phone. Panel output not yet checked by eye.
+- Collection: search (case- and accent-insensitive), remembered sort order, rename of own GIFs, count / size summary.
+- Privacy notice, optional release signing from environment variables and a tag-triggered release workflow that publishes nothing without the owner's secrets.
 - Scrolling-text banner, verified on the panel.
 - Library items whose file is broken show the reason and offer *Remove*.
 - Screenshots in the README; the repository was published with a clean history and CI.
 - First connection without a remembered backpack finds the first one advertising nearby.
 - "Already on backpack" status verified; the home tile shows the backpack's connection state and name.
 - Upload failures show a typed reason with a hint, in the upload card and in the history.
+- Clean install, first connection without a stored address and a test-image upload confirmed by the backpack, checked on a second phone (2026-10-07).
+- Video → GIF instrumentation test passed on a device; the URL (https) → download → preview → save-to-collection flow was verified by hand on a second phone (still experimental until the owner confirms).
+- Review fixes: import queue no longer stalls, MediaStore pending/publish check, GATT race, `CancellationException` handled in `fetchGifs`, MTU falls back to 23, name limit counted in UTF-8 bytes, rename survives process death, idempotent import after process kill, legacy permission dialog no longer loops, typed localized Video → GIF errors.
+- GIF cache: key includes the filter (composite key), ordering kept, 7-day TTL, categories served from memory offline.
+- New unit tests for the domain module, NeuQuant, `GifCachePolicy`, `ConvertError`, `MtuNegotiation` and `PendingRenameStore` (see test run for counts).
 
 ## What is still unknown about the backpack
 

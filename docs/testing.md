@@ -22,18 +22,21 @@ Run from `BatohManager/` with the JVM settings from [building](building.md):
 
 | Module | Test classes | What they cover |
 | --- | --- | --- |
-| `app` | `IncomingImportQueueTest` | Share intent replay on rotation, FIFO of further shares, no replay of a finished import after restore. |
-| `core:conversion` | `GifEditorProcessorTest`, `LzwEncoderTest`, `TextBannerLayoutTest`, `HttpAwaitTest` | Rotation / flip / fit / crop pixel mapping, LZW code-width boundaries (pixel regressions), banner frame plan and seamless loop, cancellable HTTP. |
-| `core:data` | `BackpackProtocolTest`, `BackpackAdvertisementTest`, `BuiltInProgramTest`, `PendingCommandResponseTest`, `UploadHistoryTest` | Frame building and checksums against captured frames, payload layout and CRC-32C, advertisement parsing, built-in count and type-5 payload, response matching, history encoding. |
-| `core:storage` | `GifFileInspectorTest`, `GifImportReaderTest`, `CancellableStreamCopyTest` | Damaged-file classification, bounded / cancellable import reads, exact block copy and cancellation mid-write. |
+| `app` | `IncomingImportQueueTest`, `IncomingImportQueuePersistenceTest`, `IncomingImportControllerTest` | Share replay/FIFO, persistence across process recreation, revoked or missing URI grants, typed import failures, safe resume of queued shares, a failed item not stalling the queue. |
+| `core:conversion` | `GifEditorProcessorTest`, `LzwEncoderTest`, `NeuQuantTest`, `TextBannerLayoutTest`, `HttpAwaitTest` | Rotation / flip / fit / crop pixel mapping, LZW code-width boundaries (pixel regressions), NeuQuant colour quantization, banner frame plan and seamless loop, cancellable HTTP. |
+| `app` instrumentation | `VideoToGifInstrumentedTest` | Converts a generated local MP4 using Android's media decoder, then checks the GIF dimensions, animation frames and progress. Must run on an Android device; it has passed on-device. |
+| `core:data` | `BackpackProtocolTest`, `BackpackAdvertisementTest`, `BuiltInProgramTest`, `GattRetryPolicyTest`, `MtuNegotiationTest`, `PendingCommandResponseTest`, `UploadHistoryTest`, `GifCachePolicyTest` | Frame building and checksums against captured frames, payload layout and CRC-32C, advertisement parsing, built-in count and type-5 payload, bounded GATT retry decisions, MTU negotiation with fallback to 23, response matching, history encoding, GIF cache key (with filter), ordering and 7-day TTL. |
+| `core:storage` | `GifFileInspectorTest`, `GifImportReaderTest`, `GifImportSourceFailureTest`, `GifPackLocationTest`, `CancellableStreamCopyTest`, `PendingItemWriteTest` | Damaged-file classification, bounded/cancellable reads, revoked or failing providers, collection-path checks, exact block copy, and cleanup of partial MediaStore writes (pending/publish check). |
 | `feature:backpack` | `BackpackUploadProtocolTest`, `EditorPlaybackOptionsTest`, `SingleOperationOwnerTest` | Cmd 06 status classification, playback byte offsets and defaults, one-operation-at-a-time ownership. |
-| `feature:library` | `BackpackPreviewScalerTest`, `PreviewDiagnosisTest` | 64 × 64 sampling identical to the converter, preview failure diagnosis. |
+| `feature:home` | `HomeBackpackStatusTest` | Device connection state and display-name presentation for the home tile. |
+| `core:domain` | `CatalogDataTest`, `UseCasesTest` | Catalog data and use-case behaviour. |
+| `feature:convert` | `ConvertErrorTest` | Typed, localized Video → GIF error mapping. |
+| `feature:library` | `BackpackPreviewScalerTest`, `PreviewDiagnosisTest`, `GifDisplayNameTest`, `LibraryToolsTest`, `PendingRenameStoreTest` | 64 × 64 preview sampling, preview failure diagnosis, safe rename validation (name limit in UTF-8 bytes), case/diacritic-insensitive filtering, stable sorting and collection summaries, a pending rename surviving process death. |
 | `feature:search` | `SearchDownloadsTest`, `SearchRequestOwnerTest` | Download state mapping, stale paging and request ownership. |
 
-`core:common`, `core:domain`, `core:network`, `core:ui`, `feature:home`, `feature:detail`
-and `feature:convert` have no unit tests yet. There are no instrumented (`androidTest`)
-tests; on-device behaviour is covered by the smoke harness below. Android lint runs with
-`:app:lintDebug`.
+`core:common`, `core:network`, `core:ui` and `feature:detail` have no unit tests yet. The
+video conversion instrumentation test has passed on a device; exact test counts: see test run. Other on-device behaviour is covered by the
+smoke harness below. Android lint runs with `:app:lintDebug`.
 
 ## Python tests
 
