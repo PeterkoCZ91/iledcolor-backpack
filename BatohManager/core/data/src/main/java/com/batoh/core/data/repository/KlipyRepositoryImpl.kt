@@ -39,7 +39,8 @@ class KlipyRepositoryImpl @Inject constructor(
 
     override fun searchGifs(query: String, filter: GifFilter, offset: String?, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == null) {
-            val cached = cachedGifDao.getGifsForQuery("klipy_$query")
+            val cacheKey = GifCachePolicy.klipySearchKey(query, filter)
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
             }
@@ -62,8 +63,7 @@ class KlipyRepositoryImpl @Inject constructor(
             val gifs = response.results.map { it.toDomain() }.smartFilterAndRank(filter)
 
             if (offset == null && gifs.isNotEmpty()) {
-                cachedGifDao.clearForQuery("klipy_$query")
-                cachedGifDao.insertAll(gifs.map { it.toCachedEntity("klipy_$query") })
+                saveToCache(GifCachePolicy.klipySearchKey(query, filter), gifs)
             }
 
             emit(Result.Success(gifs))
@@ -74,7 +74,8 @@ class KlipyRepositoryImpl @Inject constructor(
 
     override fun getTrendingGifs(filter: GifFilter, offset: String?, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == null) {
-            val cached = cachedGifDao.getGifsForQuery("klipy_trending")
+            val cacheKey = GifCachePolicy.klipyTrendingKey(filter)
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
             }
@@ -92,8 +93,7 @@ class KlipyRepositoryImpl @Inject constructor(
             val gifs = response.results.map { it.toDomain() }.smartFilterAndRank(filter)
 
             if (offset == null && gifs.isNotEmpty()) {
-                cachedGifDao.clearForQuery("klipy_trending")
-                cachedGifDao.insertAll(gifs.map { it.toCachedEntity("klipy_trending") })
+                saveToCache(GifCachePolicy.klipyTrendingKey(filter), gifs)
             }
 
             emit(Result.Success(gifs))
@@ -102,4 +102,9 @@ class KlipyRepositoryImpl @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
+    private suspend fun saveToCache(key: String, gifs: List<Gif>) {
+        val now = System.currentTimeMillis()
+        cachedGifDao.replaceForQuery(key, gifs.mapIndexed { i, g -> g.toCachedEntity(key, i, now) })
+        cachedGifDao.deleteOlderThan(GifCachePolicy.minValidCachedAt(now))
+    }
 }

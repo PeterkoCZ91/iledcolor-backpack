@@ -45,8 +45,12 @@ object NetworkModule {
             .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .apply {
                 if (com.batoh.core.network.BuildConfig.DEBUG) {
-                    addInterceptor(okhttp3.logging.HttpLoggingInterceptor().apply {
-                        level = okhttp3.logging.HttpLoggingInterceptor.Level.BODY
+                    // Request lines only, with key-like query parameters masked: debug builds are
+                    // also published by CI, and users enter their own API keys.
+                    addInterceptor(okhttp3.logging.HttpLoggingInterceptor { message ->
+                        android.util.Log.d("OkHttp", maskApiKeys(message))
+                    }.apply {
+                        level = okhttp3.logging.HttpLoggingInterceptor.Level.BASIC
                     })
                 }
             }

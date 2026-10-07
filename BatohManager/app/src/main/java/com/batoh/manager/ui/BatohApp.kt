@@ -216,10 +216,25 @@ fun BatohApp(
                         gridColumns = gridColumns,
                         onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
                         onEditGif = { uri -> navController.navigate(Screen.GifEditor.createRoute(uri)) },
+                        onChainGifs = { uris -> navController.navigate(Screen.GifChain.createRoute(uris)) },
                         onNavigateToDetail = { url ->
                             navController.navigate(Screen.Detail.createRoute(url))
                         },
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(
+                    route = Screen.GifChain.route,
+                    arguments = listOf(navArgument(Screen.GifChain.ARG_GIF_URIS) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    })
+                ) { entry ->
+                    com.batoh.feature.backpack.GifChainScreen(
+                        gifUris = entry.arguments?.getString(Screen.GifChain.ARG_GIF_URIS),
+                        onBack = { navController.popBackStack() },
+                        onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) }
                     )
                 }
                 composable(Screen.Categories.route) {

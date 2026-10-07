@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chain_title">Spojit GIFy</string>
+    <string name="chain_items_title">Pořadí GIFů</string>
+    <string name="chain_item_label">GIF %1$d</string>
+    <string name="chain_item_thumb_description">Náhled GIFu na pozici %1$d</string>
+    <string name="chain_move_up">Posunout GIF %1$d nahoru</string>
+    <string name="chain_move_down">Posunout GIF %1$d dolů</string>
+    <string name="chain_remove">Odebrat GIF %1$d ze spojení</string>
+    <string name="chain_need_two">Pro spojení vyber alespoň 2 GIFy.</string>
+    <string name="chain_settings_title">Nastavení</string>
+    <string name="chain_scale_title">Přizpůsobení</string>
+    <string name="chain_scale_fit">Vložit celý</string>
+    <string name="chain_scale_crop">Oříznout</string>
+    <string name="chain_pause_label">Pauza mezi GIFy: %1$d ms</string>
+    <string name="chain_pause_description">Pauza mezi GIFy v milisekundách</string>
+    <string name="chain_speed_toggle">Vlastní rychlost všech snímků</string>
+    <string name="chain_speed_label">Prodleva snímku: %1$d ms</string>
+    <string name="chain_speed_description">Prodleva jednoho snímku v milisekundách</string>
+    <string name="chain_preview_title">Náhled výsledku</string>
+    <string name="chain_preview_description">Náhled spojeného GIFu</string>
+    <string name="chain_rendering">Spojuji…</string>
+    <string name="chain_cancel_render">Zrušit spojování</string>
+    <string name="chain_cancelled">Spojování bylo zrušeno.</string>
+    <string name="chain_render_again">Spojit znovu</string>
+    <string name="chain_info">%1$d snímků, odhad velikosti %2$d KB</string>
+    <string name="chain_warn">Nad 96 snímků nebo 453 KB: neověřeno na batohu. Nahrávání může selhat.</string>
+    <string name="chain_block">Výsledek překračuje limit aplikace, nelze ho uložit ani odeslat.</string>
+    <string name="chain_save">Uložit do sbírky</string>
+    <string name="chain_send">Odeslat do batohu</string>
+    <string name="chain_saving">Ukládám…</string>
+    <string name="chain_saved">Uloženo do sbírky.</string>
+    <string name="chain_error_empty">Není vybrán žádný GIF.</string>
+    <string name="chain_error_source_unreadable">GIF č. %1$d se nepodařilo načíst. Odeber ho nebo ho znovu importuj.</string>
+    <string name="chain_error_source_invalid">GIF č. %1$d nelze zpracovat. Odeber ho ze spojení.</string>
+    <string name="chain_error_source_too_large">GIF č. %1$d (nebo jejich součet) je příliš velký.</string>
+    <string name="chain_error_inputs_too_large">Vybrané GIFy jsou dohromady příliš velké.</string>
+    <string name="chain_error_too_many_frames">Spojení má více než %1$d snímků. Odeber některý GIF.</string>
+    <string name="chain_error_too_large">Spojený GIF by byl větší než 20 MB. Odeber některý GIF.</string>
+    <string name="chain_error_save_failed">Spojený GIF se nepodařilo uložit.</string>
+    <string name="chain_error_generic">Spojení se nepodařilo. Zkus to znovu.</string>
+</resources>

@@ -15,4 +15,13 @@
     <string name="convert_paste_clipboard">Vložit z clipboardu</string>
     <string name="convert_cancel">Zrušit převod</string>
     <string name="convert_cancelling">Rušení převodu…</string>
+    <string name="convert_error_empty_url">Zadejte URL videa.</string>
+    <string name="convert_error_invalid_url">Neplatná URL. Zadejte celý odkaz začínající https:// na soubor MP4.</string>
+    <string name="convert_error_cleartext">Nešifrované odkazy (http://) jsou zablokované. Zkuste stejný odkaz s https://.</string>
+    <string name="convert_error_http">Server odmítl stažení (chyba %1$d). Odkaz může být neplatný, vypršelý nebo chráněný; zkuste jiný.</string>
+    <string name="convert_error_network">Video se nepodařilo stáhnout. Zkontrolujte připojení k internetu a zkuste to znovu.</string>
+    <string name="convert_error_unreadable">Video nelze přečíst nebo formát není podporován. Použijte přímý odkaz na soubor MP4.</string>
+    <string name="convert_error_too_large">Video je příliš velké (maximum 100 MB). Zkuste kratší nebo menší soubor.</string>
+    <string name="convert_error_save">GIF se nepodařilo uložit. Zkontrolujte volné místo v úložišti a zkuste to znovu.</string>
+    <string name="convert_error_unknown">Převod se nezdařil. Zkuste to znovu nebo použijte jiné video.</string>
 </resources>

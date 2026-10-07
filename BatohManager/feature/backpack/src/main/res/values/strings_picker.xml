@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backpack_picker_title">Vybrat GIF z knihovny</string>
+    <string name="backpack_picker_hint">Klepnutím na obrázek ho nahraješ do batohu.</string>
+    <string name="backpack_picker_load_error">Knihovnu se nepodařilo načíst. Zkontroluj oprávnění aplikace k obrázkům.</string>
+    <string name="backpack_picker_empty">Knihovna je prázdná. Nejdřív si v aplikaci stáhni GIF nebo ulož převedené video.</string>
+</resources>

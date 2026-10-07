@@ -88,7 +88,7 @@ object GifEditorProcessor {
         }
     }
 
-    private fun indexed(pixels: IntArray): Pair<ByteArray, ByteArray> {
+    internal fun indexed(pixels: IntArray): Pair<ByteArray, ByteArray> {
         val unique = linkedMapOf<Int, Int>()
         for (color in pixels) {
             if (!unique.containsKey(color)) unique[color] = unique.size

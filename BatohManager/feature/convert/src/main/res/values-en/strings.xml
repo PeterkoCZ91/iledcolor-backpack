@@ -15,4 +15,13 @@
     <string name="convert_paste_clipboard">Paste from clipboard</string>
     <string name="convert_cancel">Cancel conversion</string>
     <string name="convert_cancelling">Cancelling conversion…</string>
+    <string name="convert_error_empty_url">Enter the video URL.</string>
+    <string name="convert_error_invalid_url">Invalid URL. Enter the full link starting with https:// that points to an MP4 file.</string>
+    <string name="convert_error_cleartext">Unencrypted links (http://) are blocked. Try the same link with https://.</string>
+    <string name="convert_error_http">The server refused the download (error %1$d). The link may be invalid, expired or protected; try another one.</string>
+    <string name="convert_error_network">Could not download the video. Check your internet connection and try again.</string>
+    <string name="convert_error_unreadable">The video cannot be read or its format is not supported. Use a direct link to an MP4 file.</string>
+    <string name="convert_error_too_large">The video is too large (100 MB maximum). Try a shorter or smaller file.</string>
+    <string name="convert_error_save">Could not save the GIF. Check free storage and try again.</string>
+    <string name="convert_error_unknown">Conversion failed. Try again or use a different video.</string>
 </resources>

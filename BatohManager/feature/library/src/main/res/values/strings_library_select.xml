@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_select_title">Vybráno: %1$d</string>
+    <string name="library_select_cancel">Zrušit výběr</string>
+    <string name="library_select_chain">Spojit (%1$d)</string>
+    <string name="library_select_chain_hint">Pro spojení vyber alespoň 2 GIFy. Dlouhým stiskem zapneš výběr.</string>
+    <string name="library_select_max">Lze spojit nejvýše %1$d GIFů.</string>
+    <string name="library_select_broken">Poškozený GIF nelze spojit.</string>
+    <string name="library_select_a11y_selected">vybráno, pořadí %1$d</string>
+    <string name="library_select_a11y_not_selected">nevybráno</string>
+    <string name="library_select_toggle_label">přidat nebo odebrat z výběru</string>
+    <string name="library_more_actions_description">Další akce pro %1$s</string>
+</resources>

@@ -1,18 +1,17 @@
 package com.batoh.manager
 
-import android.net.Uri
+import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.batoh.core.common.Result
 import com.batoh.core.domain.usecase.ImportGifUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class IncomingGifState(val event: Long = 0, val message: String? = null, val copiedUri: String? = null)
@@ -21,11 +20,29 @@ data class IncomingGifState(val event: Long = 0, val message: String? = null, va
 class IncomingGifViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val importGifUseCase: ImportGifUseCase,
-    private val savedState: SavedStateHandle
+    savedState: SavedStateHandle
 ) : ViewModel() {
     private val _state = MutableStateFlow(IncomingGifState())
     val state = _state.asStateFlow()
-    private val incomingImports = IncomingImportQueue<Uri>()
+    private val controller = IncomingImportController<Uri>(
+        savedState = savedState,
+        encode = Uri::toString,
+        decode = Uri::parse,
+        scope = viewModelScope,
+        isSupported = { it.scheme == ContentResolver.SCHEME_CONTENT },
+        importer = { importGifUseCase(it) },
+        onEvent = ::render,
+        completedImports = PrefsCompletedImports(
+            appContext.getSharedPreferences("incoming_imports", Context.MODE_PRIVATE),
+            Uri::toString
+        )
+    )
+
+    init {
+        // After process death the URI grant may be gone; the controller retries and reports
+        // a clear "share again" message instead of silently dropping the share.
+        controller.resumePending()
+    }
 
     fun navigationHandled(event: Long, copiedUri: String?) {
         if (_state.value.event == event && _state.value.copiedUri == copiedUri)
@@ -37,33 +54,18 @@ class IncomingGifViewModel @Inject constructor(
         _state.value = IncomingGifState(System.nanoTime(), message)
     }
 
-    fun importShared(uri: Uri, restoring: Boolean) {
-        when (val admission = incomingImports.submit(
-            item = uri,
-            restoring = restoring,
-            previousImportCompleted = savedState.get<Boolean>("share_completed") == true
-        )) {
-            is IncomingImportQueue.Admission.Start -> startImport(admission.item)
-            IncomingImportQueue.Admission.Queued,
-            IncomingImportQueue.Admission.Ignored -> Unit
-        }
-    }
+    fun importShared(uri: Uri, restoring: Boolean) = controller.submit(uri, restoring)
 
-    private fun startImport(uri: Uri) {
-        savedState["share_completed"] = false
-        val event = System.nanoTime()
-        _state.value = IncomingGifState(event, message(R.string.incoming_importing))
-        viewModelScope.launch {
-            try {
-                _state.value = when (val result = importGifUseCase(uri)) {
-                    is Result.Success -> IncomingGifState(event, message(R.string.incoming_import_success), result.data.toString())
-                    is Result.Error -> IncomingGifState(event, message(R.string.incoming_import_failed))
-                    Result.Loading -> IncomingGifState(event, message(R.string.incoming_import_incomplete))
-                }
-                savedState["share_completed"] = true
-            } finally {
-                incomingImports.finish()?.let(::startImport)
-            }
+    private fun render(event: IncomingImportEvent) {
+        _state.value = when (event) {
+            is IncomingImportEvent.Started -> IncomingGifState(
+                event.id,
+                message(if (event.resumed) R.string.import_resuming else R.string.incoming_importing)
+            )
+            is IncomingImportEvent.Succeeded ->
+                IncomingGifState(event.id, message(R.string.incoming_import_success), event.copiedUri)
+            is IncomingImportEvent.Failed ->
+                IncomingGifState(event.id, message(event.problem.messageRes(event.resumed)))
         }
     }
 

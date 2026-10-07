@@ -11,6 +11,7 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -106,6 +107,8 @@ class BluetoothLeManager @Inject constructor(
     private val _deviceName = MutableStateFlow(targetAddress()?.let { connectionPreferences.getString("name_$it", null) })
     val deviceName = _deviceName.asStateFlow()
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    // Nearby devices' names/addresses are logged only in debuggable builds (privacy in release logcat).
+    private val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     /** Last backpack this phone connected to; null until the first successful connection. */
     private fun targetAddress(): String? =
@@ -116,6 +119,11 @@ class BluetoothLeManager @Inject constructor(
         connectionPreferences.getString("adv_$address", null)?.let { hex ->
             runCatching { BackpackAdvertisement.parse(hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()) }.getOrNull()
         }
+
+    /** Stored raw scan record of the target backpack (read-only, for diagnostics); null when never seen. */
+    fun storedScanRecord(): ByteArray? = targetAddress()
+        ?.let { connectionPreferences.getString("adv_$it", null) }
+        ?.let { hex -> runCatching { hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray() }.getOrNull() }
 
     /** Parses and caches a scan record; returns true when it belongs to a backpack. */
     private fun rememberAdvertisement(device: BluetoothDevice, record: ByteArray): Boolean {
@@ -138,6 +146,11 @@ class BluetoothLeManager @Inject constructor(
     }
     @Volatile
     private var gatt: BluetoothGatt? = null
+
+    // Automatic retry of an early GATT failure (see GattRetryPolicy)
+    private val retryPolicy = GattRetryPolicy()
+    @Volatile private var connectionPhase = GattRetryPolicy.Phase.IDLE
+    @Volatile private var pendingRetry: Runnable? = null
     
     // Write serialization: writeMutex allows only one GATT write in flight at a time;
     // pendingWrite is completed by onCharacteristicWrite only for the matching characteristic
@@ -156,7 +169,7 @@ class BluetoothLeManager @Inject constructor(
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
                     device?.let {
-                        Log.d("BackpackBLE", "Classic Device Found: ${it.name} [${it.address}]")
+                        if (debuggable) Log.d("BackpackBLE", "Classic Device Found")
                         addDevice(it)
                     }
                 }
@@ -187,7 +200,7 @@ class BluetoothLeManager @Inject constructor(
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val device = result.device
-                Log.d("BackpackBLE", "BLE Device Found: ${device.name} [${device.address}] RSSI: ${result.rssi}")
+                if (debuggable) Log.d("BackpackBLE", "BLE Device Found: ${device.name} [${device.address}] RSSI: ${result.rssi}")
                 addDevice(device)
                 result.scanRecord?.bytes?.let { rememberAdvertisement(device, it) }
             }
@@ -304,6 +317,15 @@ class BluetoothLeManager @Inject constructor(
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice) {
         if (!hasPermissions()) return
+        // A manual connect starts a fresh retry budget and drops any pending automatic retry
+        retryPolicy.reset()
+        pendingRetry?.let(mainHandler::removeCallbacks)
+        pendingRetry = null
+        openGatt(device, retry = null)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun openGatt(device: BluetoothDevice, retry: GattRetryPolicy.Retry?) {
         stopScan()
 
         pendingCommand.disconnect()
@@ -314,21 +336,30 @@ class BluetoothLeManager @Inject constructor(
         previousGatt?.disconnect()
         previousGatt?.close()
 
-        _connectionStatus.value = "Connecting to ${device.name ?: "Unknown"}..."
+        // Status must keep the "Connecting" prefix: UI and transfer manager match on it
+        _connectionStatus.value = if (retry != null) {
+            "Connecting (retry ${retry.attempt}/${retry.maxRetries})..."
+        } else {
+            "Connecting to ${device.name ?: "Unknown"}..."
+        }
+        cancelMtuWatchdog()
+        connectionPhase = GattRetryPolicy.Phase.CONNECTING
         _deviceName.value = device.name ?: connectionPreferences.getString("name_${device.address}", null)
         _authCompleted = false
         mtu = 23
         // TRANSPORT_LE forces BLE transport and avoids status=62 stale-cache errors
-        gatt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
-        } else {
-            device.connectGatt(context, false, gattCallback)
-        }
+        gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
     }
 
     @SuppressLint("MissingPermission")
     fun disconnect() {
         stopCapabilityScan()
+        // A user disconnect always wins over a pending automatic retry
+        retryPolicy.cancel()
+        pendingRetry?.let(mainHandler::removeCallbacks)
+        pendingRetry = null
+        cancelMtuWatchdog()
+        connectionPhase = GattRetryPolicy.Phase.IDLE
         val previousGatt = gatt
         gatt = null
         previousGatt?.disconnect()
@@ -338,6 +369,33 @@ class BluetoothLeManager @Inject constructor(
         mtu = 23
         pendingCommand.disconnect()
         pendingWrite?.second?.complete(BluetoothGatt.GATT_FAILURE)
+    }
+
+    /**
+     * Schedules one reconnect after an early GATT failure (typically status 133 on the first
+     * connection). Returns false when the failure must be handled as a normal disconnect.
+     */
+    private fun scheduleRetryIfAllowed(gatt: BluetoothGatt, status: Int, phase: GattRetryPolicy.Phase): Boolean {
+        val retry = retryPolicy.onDisconnected(status, phase, operationInFlight = pendingWrite != null)
+            ?: return false
+        val device = gatt.device
+        val message = "GATT status=$status during ${phase.name.lowercase()} — retry ${retry.attempt}/${retry.maxRetries} in ${retry.delayMs} ms"
+        Log.w("BackpackBLE", message)
+        addBleLog(message)
+        _connectionStatus.value = "Connecting (retry ${retry.attempt}/${retry.maxRetries})..."
+        val runnable = Runnable {
+            // Skip if disconnect() or a manual connect() happened in the meantime
+            if (!retryPolicy.isCurrent(retry.token) || this.gatt != null) return@Runnable
+            pendingRetry = null
+            if (!hasPermissions()) {
+                _connectionStatus.value = "Disconnected"
+                return@Runnable
+            }
+            openGatt(device, retry)
+        }
+        pendingRetry = runnable
+        mainHandler.postDelayed(runnable, retry.delayMs)
+        return true
     }
 
     companion object {
@@ -360,16 +418,26 @@ class BluetoothLeManager @Inject constructor(
             if (this@BluetoothLeManager.gatt != gatt) return
             Log.d("BackpackBLE", "Connection State Change: status=$status newState=$newState")
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                connectionPhase = GattRetryPolicy.Phase.DISCOVERING
                 _connectionStatus.value = "Connected! Discovering services..."
                 Log.d("BackpackBLE", "Starting service discovery...")
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.w("BackpackBLE", "Disconnected (status=$status) — closing GATT client")
-                _connectionStatus.value = "Disconnected"
+                val phase = connectionPhase
+                cancelMtuWatchdog()
+                connectionPhase = GattRetryPolicy.Phase.IDLE
+                // Decide before cleanup so an in-flight write still counts; a scheduled retry
+                // reports "Connecting (retry …)" instead of "Disconnected"
+                if (!scheduleRetryIfAllowed(gatt, status, phase)) {
+                    _connectionStatus.value = "Disconnected"
+                }
                 // close() releases the BLE client slot — without it every unexpected
                 // disconnect leaks a client until the app can no longer connect at all
+                // Only clear the field if it still holds this client: a concurrent connect()/openGatt
+                // may already have replaced it, and that new client must stay untouched.
                 gatt.close()
-                this@BluetoothLeManager.gatt = null
+                if (this@BluetoothLeManager.gatt === gatt) this@BluetoothLeManager.gatt = null
                 _authCompleted = false
                 mtu = 23
                 // Fail fast any coroutine waiting on an in-flight write
@@ -404,6 +472,9 @@ class BluetoothLeManager @Inject constructor(
                          
                          // Manufacturer sequence: enable A953, enable AE02, then requestMtu(512)
                          // They do it all in rapid succession
+                         // Watchdog covers every failure path below (missing char/descriptor, failed
+                         // descriptor write) that would never reach requestMtu
+                         armMtuWatchdog(gatt)
                          enableNotification(gatt, service, NOTIFY_UUID)
                     } else {
                         _connectionStatus.value = "Target Characteristics Not Found"
@@ -467,16 +538,17 @@ class BluetoothLeManager @Inject constructor(
                         enableNotification(gatt, authService, CHAR_AUTH_NOTIFY_UUID)
                     } else {
                         Log.w("BackpackBLE", "Auth Service AE00 not found - requesting MTU without it")
-                        gatt.requestMtu(512)
+                        requestMtuIfPermitted(gatt)
                     }
                 } else if (charUuid == CHAR_AUTH_NOTIFY_UUID) {
                     // AE02 enabled, now request MTU 512 (manufacturer sequence)
                     Log.d("BackpackBLE", "AE02 enabled. Requesting MTU 512...")
-                    gatt.requestMtu(512)
+                    requestMtuIfPermitted(gatt)
                 }
             } else {
                 Log.e("BackpackBLE", "Failed to enable notifications: $status")
                 _connectionStatus.value = "Failed to enable notifications: $status"
+                continueWithDefaultMtu(gatt, "descriptor write failed ($status)")
             }
         }
 
@@ -485,9 +557,17 @@ class BluetoothLeManager @Inject constructor(
             if (this@BluetoothLeManager.gatt != gatt) return
             connectionPreferences.edit().putString("last_device_address", gatt.device.address).apply()
             Log.d("BackpackBLE", "onMtuChanged: mtu=$mtu status=$status")
+            // A late callback after the watchdog already moved us to READY must not change the
+            // MTU (and thus the chunk size) under a running transfer
+            if (!MtuNegotiation.shouldAcceptMtuChange(connectionPhase)) {
+                Log.w("BackpackBLE", "Ignoring late onMtuChanged mtu=$mtu (phase=$connectionPhase)")
+                return
+            }
+            cancelMtuWatchdog()
+            connectionPhase = GattRetryPolicy.Phase.READY
+            this@BluetoothLeManager.mtu = MtuNegotiation.effectiveMtu(status, mtu)
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                this@BluetoothLeManager.mtu = mtu
-                _connectionStatus.value = "Ready (MTU=$mtu)"
+                _connectionStatus.value = "Ready (MTU=${this@BluetoothLeManager.mtu})"
             } else {
                 _connectionStatus.value = "Ready (MTU negotiation failed, using default)"
             }
@@ -527,8 +607,59 @@ class BluetoothLeManager @Inject constructor(
                     gatt.writeDescriptor(descriptor)
                 }
                 Log.d("BackpackBLE", "Enabling notifications on $charUuid")
+            } else {
+                Log.w("BackpackBLE", "CCCD missing on $charUuid")
+                continueWithDefaultMtu(gatt, "CCCD missing")
             }
+        } else {
+            Log.w("BackpackBLE", "Characteristic $charUuid missing")
+            continueWithDefaultMtu(gatt, "notify characteristic missing")
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun requestMtuIfPermitted(gatt: BluetoothGatt) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w("BackpackBLE", "Skipping MTU request because Bluetooth connect permission is unavailable")
+            continueWithDefaultMtu(gatt, "missing permission")
+            return
+        }
+        val started = runCatching { gatt.requestMtu(512) }
+            .onFailure { Log.w("BackpackBLE", "MTU request failed", it) }
+            .getOrDefault(false)
+        if (!started) {
+            continueWithDefaultMtu(gatt, "requestMtu not started")
+            return
+        }
+        // onMtuChanged may never arrive — restart the watchdog for the MTU phase
+        armMtuWatchdog(gatt)
+    }
+
+    private fun armMtuWatchdog(gatt: BluetoothGatt) {
+        cancelMtuWatchdog()
+        val timeout = Runnable { continueWithDefaultMtu(gatt, "MTU negotiation timeout") }
+        mtuTimeout = timeout
+        mainHandler.postDelayed(timeout, MtuNegotiation.TIMEOUT_MS)
+    }
+
+    private fun cancelMtuWatchdog() {
+        mtuTimeout?.let(mainHandler::removeCallbacks)
+        mtuTimeout = null
+    }
+
+    @Volatile private var mtuTimeout: Runnable? = null
+
+    /** Proceeds with the default MTU (23) and reaches READY if MTU negotiation did not complete. */
+    private fun continueWithDefaultMtu(gatt: BluetoothGatt, reason: String) {
+        if (this.gatt != gatt || !MtuNegotiation.shouldFallBack(connectionPhase)) return
+        cancelMtuWatchdog()
+        Log.w("BackpackBLE", "Continuing with default MTU: $reason")
+        mtu = MtuNegotiation.DEFAULT_MTU
+        connectionPhase = GattRetryPolicy.Phase.READY
+        _connectionStatus.value = "Ready (MTU negotiation failed, using default)"
     }
 
     private fun handleNotification(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
@@ -674,7 +805,7 @@ class BluetoothLeManager @Inject constructor(
             pendingWrite = charUuid to deferred
 
             val enqueueOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                writingGatt.writeCharacteristic(characteristic, data, writeType) == BluetoothGatt.GATT_SUCCESS
+                writingGatt.writeCharacteristic(characteristic, data, writeType) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 characteristic.value = data
@@ -770,4 +901,20 @@ class BluetoothLeManager @Inject constructor(
         return true
     }
     
+}
+
+/** Pure MTU negotiation rules (unit-testable without Android). */
+internal object MtuNegotiation {
+    const val DEFAULT_MTU = 23
+    const val TIMEOUT_MS = 5_000L
+
+    fun effectiveMtu(status: Int, reportedMtu: Int): Int =
+        if (status == 0 && reportedMtu >= DEFAULT_MTU) reportedMtu else DEFAULT_MTU
+
+    fun shouldFallBack(phase: GattRetryPolicy.Phase): Boolean =
+        phase == GattRetryPolicy.Phase.DISCOVERING
+
+    /** MTU may only change while negotiating; after READY the chunk size must stay stable. */
+    fun shouldAcceptMtuChange(phase: GattRetryPolicy.Phase): Boolean =
+        phase == GattRetryPolicy.Phase.DISCOVERING
 }

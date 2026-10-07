@@ -10,6 +10,7 @@ import com.batoh.core.domain.model.GifCategory
 import com.batoh.core.domain.model.GifFilter
 import com.batoh.core.domain.model.GifType
 import com.batoh.core.domain.repository.GiphyRepository
+import com.batoh.core.storage.db.CachedCategoryDao
 import com.batoh.core.storage.db.CachedGifDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class GiphyRepositoryImpl @Inject constructor(
     private val api: GiphyApi,
     private val cachedGifDao: CachedGifDao,
+    private val cachedCategoryDao: CachedCategoryDao,
     @ApplicationContext private val context: Context
 ) : GiphyRepository {
 
@@ -34,10 +36,16 @@ class GiphyRepositoryImpl @Inject constructor(
     private val API_KEY: String
         get() = (prefs.getString(UiPreferences.PREF_GIPHY_KEY, "") ?: "").ifBlank { BuildConfig.GIPHY_API_KEY }
 
+    private companion object {
+        // Poslední úspěšný seznam kategorií drží proces v paměti (bez Room).
+        @Volatile var lastCategories: List<GifCategory>? = null
+    }
+
     override fun searchGifs(query: String, filter: GifFilter, offset: Int, limit: Int): Flow<Result<List<Gif>>> = flow {
         // 1. Check Cache
         if (offset == 0) {
-            val cached = cachedGifDao.getGifsForQuery("giphy_$query")
+            val cacheKey = GifCachePolicy.giphySearchKey(query, filter)
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
             }
@@ -69,8 +77,7 @@ class GiphyRepositoryImpl @Inject constructor(
             
             // 2. Update Cache if it's the first page
             if (offset == 0 && gifs.isNotEmpty()) {
-                cachedGifDao.clearForQuery("giphy_$query")
-                cachedGifDao.insertAll(gifs.map { it.toCachedEntity("giphy_$query") })
+                saveToCache(GifCachePolicy.giphySearchKey(query, filter), gifs)
             }
             
             emit(Result.Success(gifs))
@@ -82,7 +89,8 @@ class GiphyRepositoryImpl @Inject constructor(
 
     override fun getTrendingGifs(filter: GifFilter, offset: Int, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == 0) {
-            val cached = cachedGifDao.getGifsForQuery("giphy_trending")
+            val cacheKey = GifCachePolicy.giphyTrendingKey(filter)
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
             }
@@ -111,8 +119,7 @@ class GiphyRepositoryImpl @Inject constructor(
             }.smartFilterAndRank(filter)
 
             if (offset == 0 && gifs.isNotEmpty()) {
-                cachedGifDao.clearForQuery("giphy_trending")
-                cachedGifDao.insertAll(gifs.map { it.toCachedEntity("giphy_trending") })
+                saveToCache(GifCachePolicy.giphyTrendingKey(filter), gifs)
             }
             
             emit(Result.Success(gifs))
@@ -122,19 +129,42 @@ class GiphyRepositoryImpl @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     override fun getCategories(): Flow<Result<List<GifCategory>>> = flow {
-        emit(Result.Loading)
+        val now = System.currentTimeMillis()
+        val stored = runCatching {
+            cachedCategoryDao.getAll(CategoryCachePolicy.minValidCachedAt(now)).map { it.toDomain() }
+        }.getOrNull()
+        val lastKnown = CategoryCachePolicy.initial(lastCategories, stored)
+        if (lastKnown != null) {
+            lastCategories = lastKnown
+            emit(Result.Success(lastKnown))
+        }
+        if (CategoryCachePolicy.shouldEmitLoading(lastKnown)) emit(Result.Loading)
         try {
             val response = api.getCategories(apiKey = API_KEY)
-            emit(Result.Success(response.data.map { dto ->
+            val categories = response.data.map { dto ->
                 GifCategory(
                     name = dto.name,
                     nameEncoded = dto.nameEncoded,
                     previewGif = dto.gif.toDomain()
                 )
-            }))
+            }
+            if (categories.isNotEmpty()) {
+                lastCategories = categories
+                val saved = System.currentTimeMillis()
+                runCatching {
+                    cachedCategoryDao.replaceAll(categories.mapIndexed { i, c -> c.toCachedEntity(i, saved) })
+                }
+            }
+            emit(Result.Success(categories))
         } catch (e: Exception) {
-            emit(Result.Error(e))
+            // Offline: raději poslední známý seznam než chyba (už byl emitnut výše).
+            if (CategoryCachePolicy.shouldEmitError(lastKnown)) emit(Result.Error(e))
         }
     }.flowOn(Dispatchers.IO)
 
+    private suspend fun saveToCache(key: String, gifs: List<Gif>) {
+        val now = System.currentTimeMillis()
+        cachedGifDao.replaceForQuery(key, gifs.mapIndexed { i, g -> g.toCachedEntity(key, i, now) })
+        cachedGifDao.deleteOlderThan(GifCachePolicy.minValidCachedAt(now))
+    }
 }

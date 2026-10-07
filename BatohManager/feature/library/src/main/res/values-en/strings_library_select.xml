@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="library_select_title">Selected: %1$d</string>
+    <string name="library_select_cancel">Cancel selection</string>
+    <string name="library_select_chain">Join (%1$d)</string>
+    <string name="library_select_chain_hint">Select at least 2 GIFs to join. Long-press to start selecting.</string>
+    <string name="library_select_max">You can join at most %1$d GIFs.</string>
+    <string name="library_select_broken">A damaged GIF cannot be joined.</string>
+    <string name="library_select_a11y_selected">selected, position %1$d</string>
+    <string name="library_select_a11y_not_selected">not selected</string>
+    <string name="library_select_toggle_label">add to or remove from selection</string>
+    <string name="library_more_actions_description">More actions for %1$s</string>
+</resources>

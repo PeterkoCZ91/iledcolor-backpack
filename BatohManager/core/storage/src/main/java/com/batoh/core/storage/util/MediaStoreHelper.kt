@@ -18,52 +18,60 @@ class MediaStoreHelper @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
+    /**
+     * Saves the stream into the MediaStore. Any write/folder/publish failure is reported as a
+     * [MediaStoreWriteException] (original error attached as suppressed, NOT as cause) so that
+     * `classifyGifImportFailure` never mistakes a destination error for a revoked source grant.
+     * Cancellation is rethrown unchanged; a partially written item is always deleted.
+     */
     suspend fun saveImage(filename: String, mimeType: String, inputStream: InputStream): Uri? = withContext(Dispatchers.IO) {
         val coroutine = kotlinx.coroutines.currentCoroutineContext()
-        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        }
-
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Images.Media.MIME_TYPE, mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-                put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GifPack")
+        try {
+            val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             } else {
-                @Suppress("DEPRECATION")
-                val directory = java.io.File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "GifPack")
-                if (!directory.exists() && !directory.mkdirs()) throw IOException("Nelze vytvořit složku GifPack")
-                @Suppress("DEPRECATION")
-                put(MediaStore.Images.Media.DATA, java.io.File(directory, filename).absolutePath)
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             }
-        }
 
-        val resolver = context.contentResolver
-        val uri = resolver.insert(collection, contentValues)
-
-        uri?.let {
-            try {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    inputStream.use { input ->
-                        input.copyToCancellable(outputStream, ensureActive = { coroutine.ensureActive() })
-                    }
-                } ?: throw IOException("Failed to open MediaStore output stream")
-                
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+                put(MediaStore.Images.Media.MIME_TYPE, mimeType)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    contentValues.clear()
-                    contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                    resolver.update(it, contentValues, null, null)
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GifPack")
+                } else {
+                    @Suppress("DEPRECATION")
+                    val directory = java.io.File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "GifPack")
+                    if (!directory.exists() && !directory.mkdirs()) throw IOException("Nelze vytvořit složku GifPack")
+                    @Suppress("DEPRECATION")
+                    put(MediaStore.Images.Media.DATA, java.io.File(directory, filename).absolutePath)
                 }
-                it
-            } catch (e: Exception) {
-                // Cleanup
-                runCatching { resolver.delete(it, null, null) }
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                null
             }
+
+            val resolver = context.contentResolver
+            val sink = object : PendingItemSink<Uri> {
+                override fun insert(): Uri? = resolver.insert(collection, contentValues)
+                override fun openOutput(item: Uri) = resolver.openOutputStream(item)
+                override fun publish(item: Uri) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val published = ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+                        if (resolver.update(item, published, null, null) <= 0) {
+                            throw IOException("MediaStore item could not be published")
+                        }
+                    }
+                }
+                override fun delete(item: Uri) {
+                    resolver.delete(item, null, null)
+                }
+            }
+            inputStream.writeToPendingItem(sink, ensureActive = { coroutine.ensureActive() })
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw MediaStoreWriteException("Uložení do MediaStore selhalo").also { it.addSuppressed(e) }
         }
     }
 }
+
+/** Destination-side save failure; deliberately has no cause so it is never classified as a source error. */
+class MediaStoreWriteException(message: String) : RuntimeException(message)

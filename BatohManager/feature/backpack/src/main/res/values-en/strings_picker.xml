@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backpack_picker_title">Choose a GIF from your library</string>
+    <string name="backpack_picker_hint">Tap a GIF to upload it to your backpack.</string>
+    <string name="backpack_picker_load_error">Could not load your library. Check the app’s access to photos.</string>
+    <string name="backpack_picker_empty">Your library is empty. Download a GIF in the app or save a converted video first.</string>
+</resources>

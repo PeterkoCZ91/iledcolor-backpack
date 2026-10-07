@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Search, sort and summary -->
+    <string name="library_search_label">Hledat podle názvu</string>
+    <string name="library_search_clear">Vymazat hledání</string>
+    <string name="library_search_no_results">Žádný GIF neodpovídá hledání „%1$s“.</string>
+    <string name="library_sort_button">Řadit: %1$s</string>
+    <string name="library_sort_button_description">Řazení sbírky, nyní %1$s. Změnit řazení</string>
+    <string name="library_sort_newest">nejnovější</string>
+    <string name="library_sort_oldest">nejstarší</string>
+    <string name="library_sort_name">název A–Z</string>
+    <string name="library_sort_size">velikost</string>
+    <string name="library_summary_all">GIFů: %1$d · %2$s</string>
+    <string name="library_summary_filtered">Zobrazeno %1$d z %2$d · %3$s</string>
+    <!-- Rename -->
+    <string name="library_action_rename">Přejmenovat</string>
+    <string name="library_rename_title">Přejmenovat GIF</string>
+    <string name="library_rename_label">Nový název</string>
+    <string name="library_rename_hint">Přípona .gif zůstane. Přejmenovat lze jen soubory ve složce Obrázky/GifPack.</string>
+    <string name="library_rename_confirm">Přejmenovat</string>
+    <string name="library_rename_cancel">Zrušit</string>
+    <string name="library_rename_error_empty">Zadej název.</string>
+    <string name="library_rename_error_too_long">Název je moc dlouhý (nejvýš 255 bajtů včetně .gif; háčky zabírají 2 bajty, emoji 4).</string>
+    <string name="library_rename_error_characters">Název nesmí obsahovat znaky / \\ : * ? \" &lt; &gt; |</string>
+    <string name="library_rename_error_leading_dot">Název nesmí začínat tečkou.</string>
+    <string name="library_rename_success">Přejmenováno na „%1$s“.</string>
+    <string name="library_rename_invalid">Název nejde použít. Zkus jiný.</string>
+    <string name="library_rename_not_in_collection">Přejmenovat lze jen GIFy uložené aplikací ve složce Obrázky/GifPack.</string>
+    <string name="library_rename_not_found">Soubor už v telefonu není, přejmenování se nepovedlo.</string>
+    <string name="library_rename_name_taken">GIF s tímto názvem už ve sbírce je. Zvol jiný název.</string>
+    <string name="library_rename_no_permission">Android aplikaci nepovolil soubor přejmenovat (patří jiné aplikaci nebo předchozí instalaci).</string>
+    <string name="library_rename_cancelled">Přejmenování zrušeno.</string>
+    <string name="library_rename_failed">Přejmenování se nepovedlo. Zkus to znovu.</string>
+    <string name="library_rename_busy">Přejmenování už probíhá, počkej chvíli a zkus to znovu.</string>
+</resources>

@@ -3,7 +3,7 @@
     <string name="library_title">Moje sbírka</string>
     <string name="library_empty">Zatím tu nic nemáte.\nZkuste něco stáhnout.</string>
     <string name="library_back">Zpět</string>
-    <string name="library_long_press_hint">Podržte GIF pro další možnosti</string>
+    <string name="library_long_press_hint">Použij ⋮ u GIFu pro další možnosti</string>
     <string name="library_action_dialog_title">Co chcete udělat?</string>
     <string name="library_action_share">Sdílet</string>
     <string name="library_action_delete">Smazat</string>
@@ -13,7 +13,7 @@
     <string name="library_send_description">Odeslat GIF do batohu</string>
     <string name="library_import">Importovat GIF</string>
     <string name="library_importing">Importuji…</string>
-    <string name="library_action_hint">Klepni na GIF pro detail, na tužku pro úpravu nebo na šipku pro odeslání. Podržením otevřeš další možnosti.</string>
+    <string name="library_action_hint">Klepni na GIF pro detail, na tužku pro úpravu nebo na šipku pro odeslání. Tlačítko ⋮ otevře další možnosti, podržením vybereš víc GIFů ke spojení.</string>
     <string name="library_load_failed">Knihovnu GIFů se nepodařilo načíst</string>
     <string name="library_delete_success">GIF byl smazán z telefonu</string>
     <string name="library_delete_failed">GIF se nepodařilo smazat</string>

@@ -76,6 +76,7 @@ class BackpackViewModel @Inject constructor(
     fun uploadGif(uri: Uri) = transfers.uploadGif(uri)
     fun uploadPayload(payload: ByteArray) = transfers.uploadPayload(payload)
     fun sendTestImage() = transfers.sendTestImage()
+    fun dumpBackpackInfo() = transfers.dumpBackpackInfo()
     fun autoConnectAndUpload() = transfers.autoConnectAndUpload()
     fun setBrightness(level: Int) = transfers.setBrightness(level)
     fun setScreen(on: Boolean) = transfers.setScreen(on)
@@ -362,8 +363,12 @@ fun BackpackScreen(
             }
             if (showBleLog) {
                 Text(stringResource(R.string.backpack_connection_status, status), style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(onClick = viewModel::sendTestImage, enabled = controlsEnabled,
-                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.backpack_test_upload)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = viewModel::sendTestImage, enabled = controlsEnabled,
+                        modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_test_upload)) }
+                    OutlinedButton(onClick = viewModel::dumpBackpackInfo, enabled = controlsEnabled,
+                        modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_info_action)) }
+                }
                 Card(modifier = Modifier.fillMaxWidth().height(240.dp)) {
                     val scrollState = rememberScrollState()
                     LaunchedEffect(bleLog.size) {

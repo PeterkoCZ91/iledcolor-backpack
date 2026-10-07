@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Search, sort and summary -->
+    <string name="library_search_label">Search by name</string>
+    <string name="library_search_clear">Clear search</string>
+    <string name="library_search_no_results">No GIF matches “%1$s”.</string>
+    <string name="library_sort_button">Sort: %1$s</string>
+    <string name="library_sort_button_description">Collection sort order, currently %1$s. Change sort order</string>
+    <string name="library_sort_newest">newest</string>
+    <string name="library_sort_oldest">oldest</string>
+    <string name="library_sort_name">name A–Z</string>
+    <string name="library_sort_size">size</string>
+    <string name="library_summary_all">GIFs: %1$d · %2$s</string>
+    <string name="library_summary_filtered">Showing %1$d of %2$d · %3$s</string>
+    <!-- Rename -->
+    <string name="library_action_rename">Rename</string>
+    <string name="library_rename_title">Rename GIF</string>
+    <string name="library_rename_label">New name</string>
+    <string name="library_rename_hint">The .gif extension is kept. Only files in the Pictures/GifPack folder can be renamed.</string>
+    <string name="library_rename_confirm">Rename</string>
+    <string name="library_rename_cancel">Cancel</string>
+    <string name="library_rename_error_empty">Enter a name.</string>
+    <string name="library_rename_error_too_long">The name is too long (255 bytes at most including .gif; accented letters take 2 bytes, emoji 4).</string>
+    <string name="library_rename_error_characters">The name must not contain / \\ : * ? \" &lt; &gt; |</string>
+    <string name="library_rename_error_leading_dot">The name must not start with a dot.</string>
+    <string name="library_rename_success">Renamed to “%1$s”.</string>
+    <string name="library_rename_invalid">That name cannot be used. Try another one.</string>
+    <string name="library_rename_not_in_collection">Only GIFs the app saved in the Pictures/GifPack folder can be renamed.</string>
+    <string name="library_rename_not_found">The file is no longer on the phone, so it could not be renamed.</string>
+    <string name="library_rename_name_taken">A GIF with this name is already in the collection. Choose another name.</string>
+    <string name="library_rename_no_permission">Android did not allow the app to rename the file (it belongs to another app or an earlier installation).</string>
+    <string name="library_rename_cancelled">Rename cancelled.</string>
+    <string name="library_rename_failed">Renaming failed. Please try again.</string>
+    <string name="library_rename_busy">A rename is already in progress. Wait a moment and try again.</string>
+</resources>

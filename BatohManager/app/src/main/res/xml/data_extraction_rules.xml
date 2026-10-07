@@ -4,12 +4,18 @@
         <include domain="root" />
         <include domain="database" />
         <include domain="sharedpref" />
+        <!-- API keys entered in Settings live here; keep them out of backups and device transfers. -->
+        <exclude domain="sharedpref" path="batoh_ui_preferences.xml" />
+        <exclude domain="sharedpref" path="incoming_imports.xml" />
         <exclude domain="external" />
     </cloud-backup>
     <device-transfer>
         <include domain="root" />
         <include domain="database" />
         <include domain="sharedpref" />
+        <!-- API keys entered in Settings live here; keep them out of backups and device transfers. -->
+        <exclude domain="sharedpref" path="batoh_ui_preferences.xml" />
+        <exclude domain="sharedpref" path="incoming_imports.xml" />
         <exclude domain="external" />
     </device-transfer>
 </data-extraction-rules>

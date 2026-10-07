@@ -1,5 +1,5 @@
 package com.batoh.feature.library
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +70,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Surface
 
 @Composable
 fun LibraryRoute(
@@ -78,6 +83,7 @@ fun LibraryRoute(
     onSendToBackpack: (String) -> Unit,
     onEditGif: (String) -> Unit,
     onBack: () -> Unit,
+    onChainGifs: (List<String>) -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,6 +91,9 @@ fun LibraryRoute(
     val importing by viewModel.importing.collectAsStateWithLifecycle()
     val consent by viewModel.deleteConsent.collectAsStateWithLifecycle()
     val previewDiagnoses by viewModel.previewDiagnoses.collectAsStateWithLifecycle()
+    val renaming by viewModel.renaming.collectAsStateWithLifecycle()
+    val renameConsent by viewModel.renameConsent.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var pendingImport by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val storagePermission = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -115,6 +124,20 @@ fun LibraryRoute(
             viewModel.deleteConsentLaunched()
         }
     }
+    val renameLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result -> viewModel.renameConsentResult(result.resultCode == android.app.Activity.RESULT_OK) }
+    androidx.compose.runtime.LaunchedEffect(renameConsent) {
+        renameConsent?.let { sender ->
+            viewModel.renameConsentLaunched()
+            try {
+                renameLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+            } catch (e: Exception) {
+                // Dialog could not be shown: release the pending rename instead of staying "busy".
+                viewModel.renameConsentResult(false)
+            }
+        }
+    }
 
     LibraryScreen(
         uiState = uiState,
@@ -130,7 +153,20 @@ fun LibraryRoute(
         previewDiagnoses = previewDiagnoses,
         onPreviewFailed = viewModel::onPreviewFailed,
         onPreviewLoaded = viewModel::onPreviewLoaded,
-        onRetry = viewModel::retry
+        onRetry = viewModel::retry,
+        onQueryChange = viewModel::setQuery,
+        onSortChange = viewModel::setSort,
+        onRenameGif = viewModel::renameGif,
+        renaming = renaming,
+        selection = selection,
+        onStartSelection = viewModel::startSelection,
+        onToggleSelection = { gif ->
+            if (previewDiagnoses[gif.id] is PreviewDiagnosis.Broken && gif.id !in selection) {
+                viewModel.showMessage(context.getString(R.string.library_select_broken))
+            } else viewModel.toggleSelection(gif)
+        },
+        onClearSelection = viewModel::clearSelection,
+        onChain = { viewModel.chainUris().takeIf { it.size >= LibrarySelection.MIN_TO_CHAIN }?.let(onChainGifs) }
     )
 }
 
@@ -150,10 +186,34 @@ fun LibraryScreen(
     previewDiagnoses: Map<String, PreviewDiagnosis> = emptyMap(),
     onPreviewFailed: (Gif) -> Unit = {},
     onPreviewLoaded: (Gif) -> Unit = {},
-    onRetry: () -> Unit = {}
+    onRetry: () -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onSortChange: (LibrarySort) -> Unit = {},
+    onRenameGif: (Gif, String) -> Unit = { _, _ -> },
+    renaming: Boolean = false,
+    selection: List<String> = emptyList(),
+    onStartSelection: (Gif) -> Unit = {},
+    onToggleSelection: (Gif) -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onChain: () -> Unit = {}
 ) {
+    val selecting = selection.isNotEmpty()
+    androidx.activity.compose.BackHandler(enabled = selecting, onBack = onClearSelection)
     var gifToAction by remember { mutableStateOf<Gif?>(null) }
     var gifToRemove by remember { mutableStateOf<Gif?>(null) }
+    var gifToRename by remember { mutableStateOf<Gif?>(null) }
+
+    gifToRename?.let { gif ->
+        RenameGifDialog(
+            gif = gif,
+            renaming = renaming,
+            onConfirm = { newName ->
+                gifToRename = null
+                onRenameGif(gif, newName)
+            },
+            onDismiss = { gifToRename = null }
+        )
+    }
     var backpackView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -202,6 +262,13 @@ fun LibraryScreen(
                             gifToAction = null
                         }) { Text(stringResource(R.string.library_action_edit)) }
                     }
+                    TextButton(
+                        enabled = !renaming,
+                        onClick = {
+                            gifToRename = gifToAction
+                            gifToAction = null
+                        }
+                    ) { Text(stringResource(R.string.library_action_rename)) }
                 }
             },
             confirmButton = {
@@ -247,18 +314,48 @@ fun LibraryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.library_title)) },
+                title = {
+                    Text(if (selecting) stringResource(R.string.library_select_title, selection.size)
+                        else stringResource(R.string.library_title))
+                },
                 actions = {
-                    TextButton(onClick = onImport, enabled = !importing) {
+                    if (!selecting) TextButton(onClick = onImport, enabled = !importing) {
                         Text(stringResource(if (importing) R.string.library_importing else R.string.library_import))
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    if (selecting) IconButton(onClick = onClearSelection, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.Close,
+                            contentDescription = stringResource(R.string.library_select_cancel))
+                    } else IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.library_back))
                     }
                 }
             )
+        },
+        bottomBar = {
+            if (selecting) {
+                Surface(tonalElevation = 3.dp) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        if (!LibrarySelection.canChain(selection)) {
+                            Text(stringResource(R.string.library_select_chain_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = onClearSelection, modifier = Modifier.heightIn(min = 48.dp)) {
+                                Text(stringResource(R.string.library_select_cancel))
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Button(onClick = onChain, enabled = LibrarySelection.canChain(selection),
+                                modifier = Modifier.heightIn(min = 48.dp)) {
+                                Text(stringResource(R.string.library_select_chain, selection.size))
+                            }
+                        }
+                    }
+                }
+            }
         }
     ) { paddingValues ->
         Column(
@@ -272,7 +369,16 @@ fun LibraryScreen(
                     .semantics { liveRegion = LiveRegionMode.Polite })
             }
             Box(Modifier.weight(1f)) {
-            Crossfade(targetState = uiState, label = "library_state") { state ->
+            // Keyed by state type so filtering/sorting updates the grid in place instead of
+            // cross-fading it (and keeps the search field focused).
+            androidx.compose.animation.AnimatedContent(
+                targetState = uiState,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn() togetherWith androidx.compose.animation.fadeOut()
+                },
+                contentKey = { it::class },
+                label = "library_state"
+            ) { state ->
                 when (state) {
                     is LibraryUiState.Loading -> {
                         ShimmerSkeletonGrid(gridColumns = gridColumns, itemCount = 8)
@@ -303,22 +409,44 @@ fun LibraryScreen(
                                     )
                                 }
                             }
-                            LazyVerticalGrid(
+                            LibraryToolbar(
+                                state = state,
+                                onQueryChange = onQueryChange,
+                                onSortChange = onSortChange
+                            )
+                            if (state.entries.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.library_search_no_results, state.query.trim()),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp)
+                                        .semantics { liveRegion = LiveRegionMode.Polite }
+                                )
+                            } else LazyVerticalGrid(
                                 columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                items(state.gifs, key = { it.id }) { gif ->
+                                items(state.entries, key = { it.gif.id }) { entry ->
+                                    val gif = entry.gif
                                     val diagnosis = previewDiagnoses[gif.id]
                                     @OptIn(ExperimentalFoundationApi::class)
                                     GifItem(
                                         gif = gif,
                                         onClick = {
-                                            if (diagnosis is PreviewDiagnosis.Broken) gifToRemove = gif
+                                            if (selecting) onToggleSelection(gif)
+                                            else if (diagnosis is PreviewDiagnosis.Broken) gifToRemove = gif
                                             else onGifClick(gif)
                                         },
-                                        onLongClick = { gifToAction = gif },
+                                        onLongClick = {
+                                            if (selecting) onToggleSelection(gif)
+                                            else if (diagnosis is PreviewDiagnosis.Broken) gifToAction = gif
+                                            else onStartSelection(gif)
+                                        },
+                                        onMoreActions = { gifToAction = gif },
+                                        selectionMode = selecting,
+                                        selectedPosition = selection.indexOf(gif.id).let { if (it >= 0) it + 1 else null },
                                         onSend = { onSendGif(gif) },
                                         onEdit = { onEditGif(gif) },
                                         modifier = Modifier.animateItemPlacement(),
@@ -394,7 +522,10 @@ fun GifItem(
     backpackView: Boolean = false,
     onPreviewFailed: () -> Unit = {},
     onPreviewLoaded: () -> Unit = {},
-    onRemove: (() -> Unit)? = null
+    onRemove: (() -> Unit)? = null,
+    onMoreActions: (() -> Unit)? = null,
+    selectionMode: Boolean = false,
+    selectedPosition: Int? = null
 ) {
     val context = LocalContext.current
     var loadingPreview by remember(gif.thumbnailUrl, backpackView) { mutableStateOf(true) }
@@ -428,7 +559,12 @@ fun GifItem(
     }
     val tileDescription = if (stateLabel != null) stringResource(R.string.library_a11y_tile_with_state, title, stateLabel)
         else stringResource(R.string.library_a11y_tile, title)
-    val clickLabel = stringResource(if (broken != null) R.string.library_a11y_remove_broken else R.string.library_a11y_open_detail)
+    val selectionState = if (selectionMode) {
+        selectedPosition?.let { stringResource(R.string.library_select_a11y_selected, it) }
+            ?: stringResource(R.string.library_select_a11y_not_selected)
+    } else null
+    val clickLabel = if (selectionMode) stringResource(R.string.library_select_toggle_label)
+        else stringResource(if (broken != null) R.string.library_a11y_remove_broken else R.string.library_a11y_open_detail)
     val longClickLabel = stringResource(R.string.library_a11y_more_actions)
 
     Card(
@@ -464,6 +600,7 @@ fun GifItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .semantics { selectionState?.let { stateDescription = it } }
                     .combinedClickable(
                         onClickLabel = clickLabel,
                         onLongClickLabel = longClickLabel,
@@ -471,7 +608,31 @@ fun GifItem(
                         onLongClick = onLongClick
                     )
             )
-            if (actionsAllowed) {
+            if (selectedPosition != null) {
+                Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)))
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp).size(28.dp)
+                        .clearAndSetSemantics { }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(selectedPosition.toString(), color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+            if (!selectionMode && onMoreActions != null) {
+                IconButton(
+                    onClick = onMoreActions,
+                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp).size(48.dp)
+                ) {
+                    Icon(Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.library_more_actions_description, title),
+                        tint = androidx.compose.ui.graphics.Color.White)
+                }
+            }
+            if (actionsAllowed && !selectionMode) {
                 onEdit?.let { edit ->
                     androidx.compose.material3.FilledIconButton(
                         onClick = edit,
@@ -514,7 +675,7 @@ fun GifItem(
                     }
                 }
             }
-            if (actionsAllowed) {
+            if (actionsAllowed && !selectionMode) {
                 onSend?.let { send ->
                     androidx.compose.material3.FilledIconButton(
                         onClick = send,

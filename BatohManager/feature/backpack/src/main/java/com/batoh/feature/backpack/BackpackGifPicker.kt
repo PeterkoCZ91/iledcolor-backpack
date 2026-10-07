@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.batoh.core.common.Result
 import com.batoh.core.domain.model.Gif
@@ -40,12 +41,12 @@ internal fun BackpackGifPicker(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         Text(
-            "Vybrat GIF z knihovny",
+            stringResource(R.string.backpack_picker_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         Text(
-            "Klepnutím na obrázek ho nahraješ do batohu.",
+            stringResource(R.string.backpack_picker_hint),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(16.dp)
         )
@@ -54,13 +55,13 @@ internal fun BackpackGifPicker(
                 CircularProgressIndicator()
             }
             is Result.Error -> Text(
-                gifs.message ?: "Knihovnu se nepodařilo načíst. Zkontroluj oprávnění aplikace k obrázkům.",
+                gifs.message ?: stringResource(R.string.backpack_picker_load_error),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)
             )
             is Result.Success -> if (gifs.data.isEmpty()) {
                 Text(
-                    "Knihovna je prázdná. Nejdřív si v aplikaci stáhni GIF nebo ulož převedené video.",
+                    stringResource(R.string.backpack_picker_empty),
                     modifier = Modifier.padding(16.dp)
                 )
             } else {

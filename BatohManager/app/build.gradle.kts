@@ -14,7 +14,7 @@ android {
         applicationId = "io.github.peterkocz91.gifpack"
         minSdk = 26
         targetSdk = 34
-        versionCode = 52
+        versionCode = 55
         versionName = "v${versionCode}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -23,8 +23,32 @@ android {
         }
     }
 
+    // Optional release signing. Used only when all four variables are set (see docs/releasing.md);
+    // otherwise the release APK stays unsigned. Debug builds always use the default debug key.
+    val releaseSigningEnv = listOf(
+        "GIFPACK_KEYSTORE_PATH",
+        "GIFPACK_KEYSTORE_PASSWORD",
+        "GIFPACK_KEY_ALIAS",
+        "GIFPACK_KEY_PASSWORD",
+    ).associateWith { System.getenv(it).orEmpty() }
+    val hasReleaseSigning = releaseSigningEnv.values.all { it.isNotBlank() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseSigningEnv.getValue("GIFPACK_KEYSTORE_PATH"))
+                storePassword = releaseSigningEnv.getValue("GIFPACK_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigningEnv.getValue("GIFPACK_KEY_ALIAS")
+                keyPassword = releaseSigningEnv.getValue("GIFPACK_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

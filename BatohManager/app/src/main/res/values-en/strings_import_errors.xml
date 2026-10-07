@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="import_resuming">Resuming the shared GIF import after the app restarted…</string>
+    <string name="import_error_permission_revoked">Access to the shared GIF was revoked or has expired. Please share it again.</string>
+    <string name="import_error_restored_unreadable">The app was closed during the import and the shared GIF can no longer be opened. Please share it again.</string>
+    <string name="import_error_source_missing">The shared file no longer exists or was moved.</string>
+    <string name="import_error_source_unreadable">The shared GIF could not be read completely; the source app stopped responding. Try sharing it again.</string>
+    <string name="import_error_too_large">The GIF is too large (20 MB maximum).</string>
+    <string name="import_error_corrupt">The GIF is damaged or exceeds the supported limits.</string>
+    <string name="import_error_unsupported">This kind of share is not supported. Share the GIF from your gallery or file manager.</string>
+    <string name="import_error_unknown">Importing the shared GIF failed. Check free storage and try sharing it again.</string>
+</resources>

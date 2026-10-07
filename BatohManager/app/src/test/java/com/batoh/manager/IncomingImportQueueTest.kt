@@ -34,3 +34,25 @@ class IncomingImportQueueTest {
         assertEquals(IncomingImportQueue.Admission.Start("new-share"), queue.submit("new-share", restoring = false, previousImportCompleted = true))
     }
 }
+
+class IncomingImportQueuePersistenceTest {
+    private class MemoryStore(var saved: List<String> = emptyList()) : IncomingImportQueue.Store<String> {
+        override fun load() = saved
+        override fun save(pending: List<String>) { saved = pending }
+    }
+
+    @Test
+    fun activeAndQueuedItemsArePersistedAndRestoredInOrder() {
+        val store = MemoryStore()
+        val queue = IncomingImportQueue(store)
+        queue.submit("first", restoring = false, previousImportCompleted = false)
+        queue.submit("second", restoring = false, previousImportCompleted = false)
+        assertEquals(listOf("first", "second"), store.saved)
+
+        val recreated = IncomingImportQueue(MemoryStore(store.saved))
+        assertEquals(listOf("first", "second"), recreated.restore())
+        assertEquals(IncomingImportQueue.Admission.Ignored, recreated.submit("first", restoring = true, previousImportCompleted = false))
+        assertEquals("second", recreated.finish())
+        assertNull(recreated.finish())
+    }
+}

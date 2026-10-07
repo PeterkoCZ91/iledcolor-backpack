@@ -10,6 +10,7 @@ import com.batoh.core.conversion.VideoToGifConverter
 import com.batoh.core.conversion.SafeGifDecoder
 import com.batoh.core.conversion.TestPatternGif
 import com.batoh.core.data.bluetooth.BackpackCommands
+import com.batoh.core.data.bluetooth.BackpackInfoFormatter
 import com.batoh.core.data.bluetooth.BackpackPayload
 import com.batoh.core.data.bluetooth.BackpackFrame
 import com.batoh.core.data.bluetooth.BluetoothLeManager
@@ -320,6 +321,38 @@ class BackpackTransferManager @Inject constructor(
     fun clearPrograms() = settings(BackpackCommands.clearPrograms(), "Smazání programů") { it }
     fun refreshPanelState() = settings(null, "Načtení stavu") { it }
 
+    @Volatile private var lastRcspResponse: ByteArray? = null
+
+    /**
+     * Read-only diagnostics: dumps the stored advertisement, the Cmd 0x10 / 0x0D answers and the
+     * already received RCSP answer to the BLE log. Sends only the two query commands (no auth, no writes).
+     */
+    fun dumpBackpackInfo() {
+        if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
+        settingsBusy.value = true
+        settingsOperation.launch(scope) {
+            try {
+                operationMutex.withLock {
+                    fun emit(lines: List<String>) = lines.forEach { bluetoothManager.addBleLog(it) }
+                    bluetoothManager.addBleLog("--- Backpack info ---")
+                    emit(BackpackInfoFormatter.formatAdvertisement(bluetoothManager.storedScanRecord()))
+                    emit(BackpackInfoFormatter.formatState(
+                        bluetoothManager.sendCommand(BackpackCommands.queryState())))
+                    emit(BackpackInfoFormatter.formatBuiltIn(
+                        bluetoothManager.sendCommand(BackpackCommands.queryBuiltInCount(), timeoutMs = 1500L)))
+                    emit(BackpackInfoFormatter.formatRcsp(lastRcspResponse))
+                    bluetoothManager.addBleLog("--- end ---")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                bluetoothManager.addBleLog("Backpack info failed: ${e.javaClass.simpleName}")
+            } finally {
+                settingsBusy.value = false
+            }
+        }
+    }
+
     private fun settings(frame: ByteArray?, label: String, update: (BackpackCommands.State) -> BackpackCommands.State) {
         if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
         settingsBusy.value = true
@@ -433,6 +466,7 @@ class BackpackTransferManager @Inject constructor(
                 0x00, 0xEF.toByte()
             )
             val devInfoResp = bluetoothManager.writeAuthSuspend(rcspDevInfo, timeoutMs = 2000)
+            lastRcspResponse = devInfoResp
             if (devInfoResp != null) {
                 Log.d("BackpackBLE", "RCSP device info [${devInfoResp.size}B]: ${devInfoResp.joinToString("") { "%02X".format(it) }}")
             } else {

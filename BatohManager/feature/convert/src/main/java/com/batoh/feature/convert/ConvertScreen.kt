@@ -130,7 +130,7 @@ fun ConvertScreen(
                     IdleContent(
                         url = url,
                         clipboardUrl = clipboardUrl,
-                        error = (uiState as? ConvertUiState.Error)?.message,
+                        error = (uiState as? ConvertUiState.Error)?.error?.let { convertErrorText(it) },
                         onUrlChange = onUrlChange,
                         onConvertClick = {
                             keyboard?.hide()
@@ -362,4 +362,17 @@ private fun PreviewContent(
             style = MaterialTheme.typography.titleSmall
         )
     }
+}
+
+@Composable
+private fun convertErrorText(error: ConvertError): String = when (error) {
+    ConvertError.EmptyUrl -> stringResource(R.string.convert_error_empty_url)
+    ConvertError.InvalidUrl -> stringResource(R.string.convert_error_invalid_url)
+    ConvertError.CleartextBlocked -> stringResource(R.string.convert_error_cleartext)
+    is ConvertError.Http -> stringResource(R.string.convert_error_http, error.code)
+    ConvertError.Network -> stringResource(R.string.convert_error_network)
+    ConvertError.Unreadable -> stringResource(R.string.convert_error_unreadable)
+    ConvertError.TooLarge -> stringResource(R.string.convert_error_too_large)
+    ConvertError.SaveFailed -> stringResource(R.string.convert_error_save)
+    ConvertError.Unknown -> stringResource(R.string.convert_error_unknown)
 }

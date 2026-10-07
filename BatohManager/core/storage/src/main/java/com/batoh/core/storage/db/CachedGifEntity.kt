@@ -2,12 +2,15 @@ package com.batoh.core.storage.db
 
 import androidx.room.Entity
 import androidx.room.Index
-import androidx.room.PrimaryKey
 
-@Entity(tableName = "cached_gifs", indices = [Index("query")])
+@Entity(
+    tableName = "cached_gifs",
+    primaryKeys = ["query", "id"],
+    indices = [Index("query")]
+)
 data class CachedGifEntity(
-    @PrimaryKey val id: String,
-    val query: String, // Ke kterému vyhledávání patří
+    val id: String,
+    val query: String, // Ke kterému vyhledávání patří (složený klíč s id)
     val title: String,
     val thumbnailUrl: String,
     val originalUrl: String,
@@ -15,5 +18,6 @@ data class CachedGifEntity(
     val width: Int,
     val height: Int,
     val source: String,
-    val cachedAt: Long = System.currentTimeMillis()
+    val cachedAt: Long = System.currentTimeMillis(),
+    val position: Int = 0 // pořadí v odpovědi API
 )

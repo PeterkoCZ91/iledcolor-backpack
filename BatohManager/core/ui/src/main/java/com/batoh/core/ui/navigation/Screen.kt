@@ -13,6 +13,12 @@ sealed class Screen(val route: String) {
         const val ARG_GIF_URI = "gif_uri"
         fun createRoute(uri: String) = "gif-editor?gif_uri=${android.net.Uri.encode(uri)}"
     }
+    data object GifChain : Screen("gif-chain?gif_uris={gif_uris}") {
+        const val ARG_GIF_URIS = "gif_uris"
+        /** Jednotlivá URI se enkódují a spojí čárkou; celek se enkóduje ještě jednou pro trasu. */
+        fun createRoute(uris: List<String>) =
+            "gif-chain?gif_uris=${android.net.Uri.encode(uris.joinToString(",") { android.net.Uri.encode(it) })}"
+    }
     object Categories : Screen("categories")
     data object Convert : Screen("convert")
     data object TextBanner : Screen("text-banner")

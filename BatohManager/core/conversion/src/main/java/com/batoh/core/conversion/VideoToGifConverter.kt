@@ -31,6 +31,7 @@ class VideoToGifConverter @Inject constructor(
         const val FRAME_DELAY_MS = 200   // 5 fps — matches iledeyes (200 ms/frame)
         const val MAX_FRAMES = 30        // cap to keep GIF small
         private const val NQ_SAMPLE = 10 // NeuQuant quality factor
+        private const val MAX_VIDEO_BYTES = 100L * 1024 * 1024
     }
 
     /**
@@ -129,13 +130,18 @@ class VideoToGifConverter @Inject constructor(
             val timeUs = i * intervalUs
             val frame = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST)
             if (frame != null) {
-                val cropped = centerCropToSquare(frame)
-                val scaled = Bitmap.createScaledBitmap(cropped, TARGET_SIZE, TARGET_SIZE, true)
-                check(encoder.addFrame(scaled)) { "Snímek videa nelze převést" }
-                encodedFrames++
-                scaled.recycle()
-                if (cropped !== frame) cropped.recycle()
-                frame.recycle()
+                try {
+                    val cropped = centerCropToSquare(frame)
+                    val scaled = Bitmap.createScaledBitmap(cropped, TARGET_SIZE, TARGET_SIZE, true)
+                    check(encoder.addFrame(scaled)) { "Snímek videa nelze převést" }
+                    encodedFrames++
+                    scaled.recycle()
+                    if (cropped !== frame) cropped.recycle()
+                    frame.recycle()
+                } catch (e: OutOfMemoryError) {
+                    // Huge video frames: report as "too large" instead of crashing the process.
+                    throw VideoTooLargeException(e)
+                }
             }
             onProgress((i + 1) * 100 / frameCount)
         }
@@ -156,10 +162,10 @@ class VideoToGifConverter @Inject constructor(
     private suspend fun downloadToFile(url: String, dest: File, onProgress: suspend (Int) -> Unit) = withContext(Dispatchers.IO) {
         val request = okhttp3.Request.Builder().url(url).build()
         okHttpClient.newCall(request).awaitResponse().use { response ->
-            if (!response.isSuccessful) throw IOException("Download failed: ${response.code}")
-            val body = response.body ?: throw IOException("Empty response")
+            if (!response.isSuccessful) throw DownloadHttpException(response.code)
+            val body = response.body ?: throw EmptyVideoResponseException()
             val contentLength = body.contentLength()
-            require(contentLength <= 100L * 1024 * 1024) { "Video je příliš velké (maximum 100 MB)" }
+            if (contentLength > MAX_VIDEO_BYTES) throw VideoTooLargeException()
             body.byteStream().use { input ->
                 FileOutputStream(dest).use { output ->
                     val buffer = ByteArray(8_192)
@@ -167,7 +173,7 @@ class VideoToGifConverter @Inject constructor(
                     var bytes: Int
                     while (input.read(buffer).also { bytes = it } != -1) {
                         currentCoroutineContext().ensureActive()
-                        require(downloaded + bytes <= 100L * 1024 * 1024) { "Video je příliš velké (maximum 100 MB)" }
+                        if (downloaded + bytes > MAX_VIDEO_BYTES) throw VideoTooLargeException()
                         output.write(buffer, 0, bytes)
                         downloaded += bytes
                         if (contentLength > 0) {
@@ -179,3 +185,13 @@ class VideoToGifConverter @Inject constructor(
         }
     }
 }
+
+/** Download answered with a non-2xx status. */
+class DownloadHttpException(val code: Int) : IOException("Download failed: $code")
+
+/** Download answered without a body. */
+class EmptyVideoResponseException : IOException("Empty response")
+
+/** Video exceeds the download limit or its frames do not fit into memory. */
+class VideoTooLargeException(cause: Throwable? = null) :
+    IllegalArgumentException("Video je příliš velké (maximum 100 MB)", cause)

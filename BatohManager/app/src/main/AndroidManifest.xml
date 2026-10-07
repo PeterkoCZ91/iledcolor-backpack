@@ -11,7 +11,6 @@
     
     <!-- Storage permissions for newer Android versions (SDK >= 33) uses specific media permissions -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <application
         android:name=".BatohApplication"

@@ -46,7 +46,8 @@ object StorageProviderModule {
             BatohDatabase::class.java,
             "batoh_database"
         )
-        .fallbackToDestructiveMigration()
+        .addMigrations(BatohDatabase.MIGRATION_6_7, BatohDatabase.MIGRATION_7_8)
+        .fallbackToDestructiveMigrationOnDowngrade()
         .build()
     }
 
@@ -63,5 +64,10 @@ object StorageProviderModule {
     @Provides
     fun provideCategoryPreferenceDao(database: BatohDatabase): CategoryPreferenceDao {
         return database.categoryPreferenceDao()
+    }
+
+    @Provides
+    fun provideCachedCategoryDao(database: BatohDatabase): com.batoh.core.storage.db.CachedCategoryDao {
+        return database.cachedCategoryDao()
     }
 }

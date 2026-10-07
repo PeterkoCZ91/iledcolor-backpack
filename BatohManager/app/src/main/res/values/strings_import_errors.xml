@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="import_resuming">Pokračuji v importu sdíleného GIFu po restartu aplikace…</string>
+    <string name="import_error_permission_revoked">Přístup ke sdílenému GIFu byl odebrán nebo vypršel. Sdílej ho prosím znovu.</string>
+    <string name="import_error_restored_unreadable">Aplikace byla během importu ukončena a sdílený GIF už nejde znovu otevřít. Sdílej ho prosím znovu.</string>
+    <string name="import_error_source_missing">Sdílený soubor už neexistuje nebo byl přesunut.</string>
+    <string name="import_error_source_unreadable">Sdílený GIF se nepodařilo dočíst, zdrojová aplikace přestala odpovídat. Zkus ho sdílet znovu.</string>
+    <string name="import_error_too_large">GIF je příliš velký (maximum 20 MB).</string>
+    <string name="import_error_corrupt">GIF je poškozený nebo překračuje podporované limity.</string>
+    <string name="import_error_unsupported">Tento způsob sdílení není podporovaný. Sdílej GIF z galerie nebo ze správce souborů.</string>
+    <string name="import_error_unknown">Import sdíleného GIFu selhal. Zkontroluj volné místo a zkus ho sdílet znovu.</string>
+</resources>

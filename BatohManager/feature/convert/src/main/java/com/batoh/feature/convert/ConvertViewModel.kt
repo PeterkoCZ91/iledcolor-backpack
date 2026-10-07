@@ -21,7 +21,7 @@ sealed interface ConvertUiState {
     data class Converting(val progress: Int) : ConvertUiState
     object Cancelling : ConvertUiState
     data class Preview(val gifUri: Uri) : ConvertUiState
-    data class Error(val message: String) : ConvertUiState
+    data class Error(val error: ConvertError) : ConvertUiState
 }
 
 @HiltViewModel
@@ -39,6 +39,7 @@ class ConvertViewModel @Inject constructor(
 
     fun onUrlChange(value: String) {
         _url.value = value
+        _uiState.value = _uiState.value.afterUrlEdit()
     }
 
     fun onConvertClick() {
@@ -49,7 +50,11 @@ class ConvertViewModel @Inject constructor(
 
         val inputUrl = _url.value.trim()
         if (inputUrl.isBlank()) {
-            _uiState.value = ConvertUiState.Error("Zadejte URL videa")
+            _uiState.value = ConvertUiState.Error(ConvertError.EmptyUrl)
+            return
+        }
+        if (!isValidVideoUrl(inputUrl)) {
+            _uiState.value = ConvertUiState.Error(ConvertError.InvalidUrl)
             return
         }
 
@@ -72,19 +77,29 @@ class ConvertViewModel @Inject constructor(
                 when (val result = saveGifBytesUseCase(gifBytes, title)) {
                     is Result.Success -> _uiState.value = ConvertUiState.Preview(result.data)
                     is Result.Error -> _uiState.value =
-                        ConvertUiState.Error(result.message ?: "Nepodařilo se uložit GIF")
+                        ConvertUiState.Error(ConvertError.SaveFailed)
                     // Loading from a one-shot use case is unexpected — surface it instead of
                     // silently staying at Converting(100) forever (frozen spinner)
                     is Result.Loading -> _uiState.value =
-                        ConvertUiState.Error("Ukládání se nedokončilo")
+                        ConvertUiState.Error(ConvertError.SaveFailed)
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: OutOfMemoryError) {
+                // Not an Exception: without this the process would die on a huge video.
+                logFailure(e)
+                _uiState.value = ConvertUiState.Error(classifyConvertError(e))
             } catch (e: Exception) {
-                _uiState.value = ConvertUiState.Error(e.message ?: "Neznámá chyba")
+                logFailure(e)
+                _uiState.value = ConvertUiState.Error(classifyConvertError(e))
             }
         }
         conversionJob?.start()
+    }
+
+    private fun logFailure(e: Throwable) {
+        // android.util.Log is not available in plain JVM tests
+        runCatching { android.util.Log.w("ConvertVM", "Video to GIF failed", e) }
     }
 
     fun cancelConversion() {

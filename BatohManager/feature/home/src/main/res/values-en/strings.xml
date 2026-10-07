@@ -23,7 +23,7 @@
     <string name="home_interest_group_nature">Nature</string>
     <string name="home_interest_group_symbols">Symbols</string>
     <string name="home_settings_grid_density">Grid Density</string>
-    <string name="home_info_body">GifPack is used to download GIFs and convert videos for an LED backpack (64×64 px).</string>
+    <string name="home_info_body">GifPack helps you find, edit and save GIFs for a 64×64 LED backpack. Import GIFs from your gallery, convert videos, and adjust cropping or rotation before sending over Bluetooth. Online Giphy and Klipy search needs your own API keys, added in Settings → API Keys.</string>
     <string name="home_info_ok">OK</string>
     <string name="home_settings_interests">My Interests</string>
     <string name="home_settings_interests_hint">GIFs based on your interests will appear in Search</string>
@@ -33,9 +33,9 @@
     <string name="home_settings_grid_3col">3 columns</string>
     <string name="home_settings_api_keys">API Keys</string>
     <string name="home_settings_klipy_api_key">Klipy API Key</string>
-    <string name="home_settings_klipy_api_key_hint">Your own key from partner.klipy.com; empty = key built into the app</string>
+    <string name="home_settings_klipy_api_key_hint">Enter your own key from partner.klipy.com. Public APKs do not include one; Klipy search needs a key.</string>
     <string name="home_settings_giphy_api_key">Giphy API Key</string>
-    <string name="home_settings_giphy_api_key_hint">Your own key from developers.giphy.com; empty = key built into the app</string>
+    <string name="home_settings_giphy_api_key_hint">Enter your own key from developers.giphy.com. Public APKs do not include one; Giphy search needs a key.</string>
     <string name="home_backpack_button">Backpack</string>
     <string name="home_info_version">Version: %1$s</string>
     <string name="app_name">GifPack</string>

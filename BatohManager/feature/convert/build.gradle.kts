@@ -51,4 +51,6 @@ dependencies {
     // GIF preview
     implementation(libs.io.coil.compose)
     implementation(libs.io.coil.gif)
+
+    testImplementation(libs.junit)
 }

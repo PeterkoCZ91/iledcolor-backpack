@@ -33,22 +33,23 @@ data class BackpackAdvertisement(
 
         /** Finds `01 53 4C 00 05` ("SL") or `01 54 42 44 nn` ("TBD", nn 1..21) and parses from there. */
         fun parse(scanRecord: ByteArray): BackpackAdvertisement? {
-            for (start in 0..scanRecord.size - 17) {
-                if (!matches(scanRecord, start)) continue
-                val b = { i: Int -> scanRecord[start + i].toInt() and 0xFF }
-                val old = b(1) == 0x53
-                return BackpackAdvertisement(
-                    screenTypeId = (b(1) shl 24) or (b(2) shl 16) or (b(3) shl 8) or b(4),
-                    height = (b(5) shl 8) or b(6),
-                    width = (b(7) shl 8) or b(8),
-                    colorType = b(9),
-                    versionCode = if (old) (b(10) shl 8) or b(11) else (b(11) shl 8) or b(12),
-                    customerId = if (old) (b(12) shl 8) or b(13) else (b(13) shl 8) or b(14),
-                    funCode = (b(15) shl 8) or b(16),
-                )
-            }
-            return null
+            val start = locate(scanRecord) ?: return null
+            val b = { i: Int -> scanRecord[start + i].toInt() and 0xFF }
+            val old = b(1) == 0x53
+            return BackpackAdvertisement(
+                screenTypeId = (b(1) shl 24) or (b(2) shl 16) or (b(3) shl 8) or b(4),
+                height = (b(5) shl 8) or b(6),
+                width = (b(7) shl 8) or b(8),
+                colorType = b(9),
+                versionCode = if (old) (b(10) shl 8) or b(11) else (b(11) shl 8) or b(12),
+                customerId = if (old) (b(12) shl 8) or b(13) else (b(13) shl 8) or b(14),
+                funCode = (b(15) shl 8) or b(16),
+            )
         }
+
+        /** Offset of the manufacturer block (`01 53 4C 00 05` / `01 54 42 44 nn`) in [scanRecord], or null. */
+        fun locate(scanRecord: ByteArray): Int? =
+            (0..scanRecord.size - 17).firstOrNull { matches(scanRecord, it) }
 
         private fun matches(r: ByteArray, i: Int): Boolean {
             if (r[i] != 0x01.toByte()) return false
