@@ -29,7 +29,6 @@
     <string name="text_banner_error_render">Text se nepodařilo vykreslit</string>
     <string name="text_banner_error_save">Uložení do sbírky selhalo</string>
     <string name="text_banner_error_payload">Program pro batoh se nepodařilo připravit</string>
-    <string name="text_banner_error_with_detail">%1$s: %2$s</string>
     <string name="text_banner_color_white">Bílá</string>
     <string name="text_banner_color_red">Červená</string>
     <string name="text_banner_color_orange">Oranžová</string>

@@ -151,10 +151,8 @@ fun TextBannerScreen(
                 TextBannerStage.Error -> Button(onClick = viewModel::retry) { Text(stringResource(R.string.common_retry)) }
             }
             state.errorRes?.let { res ->
-                val detail = state.errorDetail
                 // Announced; the retry button above is the recovery action.
-                Text(if (detail != null) stringResource(R.string.text_banner_error_with_detail, stringResource(res), detail)
-                    else stringResource(res), color = MaterialTheme.colorScheme.error,
+                Text(stringResource(res), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
             }
 

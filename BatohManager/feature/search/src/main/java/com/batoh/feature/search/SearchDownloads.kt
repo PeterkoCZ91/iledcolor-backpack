@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.*
 
 internal fun Gif.downloadKey(): String = "${source.lowercase()}|$id"
 enum class GifSaveStage { Pending, Running, Success, Error }
-data class GifSaveState(val stage: GifSaveStage, val message: String? = null)
+data class GifSaveState(val stage: GifSaveStage)
 
 /** Saved means WorkManager succeeded, not merely that a download was enqueued. */
 internal class SearchDownloads(
@@ -33,7 +33,7 @@ internal class SearchDownloads(
                     onWorkQueued(key, result.data)
                     follow(key, result.data)
                 }
-                is Result.Error -> error(result.message ?: "GIF download failed")
+                is Result.Error -> throw result.exception
                 Result.Loading -> error("GIF download was not started")
             }
         }
@@ -46,7 +46,7 @@ internal class SearchDownloads(
             try { work() }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                _states.update { it + (key to GifSaveState(GifSaveStage.Error, e.message ?: "GIF download failed")) }
+                _states.update { it + (key to GifSaveState(GifSaveStage.Error)) }
             }
         }
         jobs[key] = job
@@ -59,7 +59,7 @@ internal class SearchDownloads(
                 DownloadStatus.PENDING, DownloadStatus.UNKNOWN -> GifSaveState(GifSaveStage.Pending)
                 DownloadStatus.RUNNING -> GifSaveState(GifSaveStage.Running)
                 DownloadStatus.SUCCESS -> GifSaveState(GifSaveStage.Success)
-                DownloadStatus.FAILED -> GifSaveState(GifSaveStage.Error, "GIF download failed. Tap to retry.")
+                DownloadStatus.FAILED -> GifSaveState(GifSaveStage.Error)
             }
             _states.update { it + (key to state) }
         }.first { it == DownloadStatus.SUCCESS || it == DownloadStatus.FAILED }

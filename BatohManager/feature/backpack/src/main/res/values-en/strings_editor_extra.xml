@@ -8,4 +8,6 @@
     <string name="editor_playback_needs_bluetooth">To send with custom speed or brightness, allow Bluetooth on the Backpack screen first.</string>
     <string name="editor_playback_payload_failed">Could not build the backpack programme (the GIF must be 64×64).</string>
     <string name="editor_playback_busy">The backpack is busy uploading or changing settings. Try again in a moment.</string>
+    <string name="editor_load_failed">The GIF could not be loaded. Try importing it again.</string>
+    <string name="editor_save_failed">Could not save the edited copy. Try again.</string>
 </resources>

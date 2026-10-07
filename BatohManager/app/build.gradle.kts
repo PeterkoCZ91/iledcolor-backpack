@@ -14,7 +14,7 @@ android {
         applicationId = "io.github.peterkocz91.gifpack"
         minSdk = 26
         targetSdk = 34
-        versionCode = 61
+        versionCode = 62
         versionName = "v${versionCode}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -308,7 +308,7 @@ fun SearchScreen(
                             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                                 if (uiState.loadMoreError != null) {
                                     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(uiState.loadMoreError, color = MaterialTheme.colorScheme.error,
+                                        Text(stringResource(uiState.loadMoreError.messageRes()), color = MaterialTheme.colorScheme.error,
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                                         TextButton(onClick = onRetryLoadMore) { Text(stringResource(R.string.search_retry)) }
@@ -364,7 +364,7 @@ fun SearchScreen(
                             Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(80.dp))
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = uiState.message,
+                                text = stringResource(uiState.error.messageRes()),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
@@ -522,7 +522,7 @@ fun GifItem(
         }
     }
     // Error text overlays the image; include it so a failed download is announced on the tile.
-    val errorLabel = if (saveState?.stage == GifSaveStage.Error) saveState.message ?: stringResource(R.string.search_save_failed) else null
+    val errorLabel = if (saveState?.stage == GifSaveStage.Error) stringResource(R.string.search_save_failed) else null
     val baseDescription = if (sourceLabel != null) stringResource(R.string.search_tile_a11y, title, sourceLabel) else title
     val tileDescription = listOfNotNull(baseDescription, errorLabel).joinToString(", ")
 
@@ -583,7 +583,7 @@ fun GifItem(
             if (saveState?.stage == GifSaveStage.Error) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-                    Text(saveState.message ?: stringResource(R.string.search_save_failed), style = MaterialTheme.typography.labelSmall,
+                    Text(stringResource(R.string.search_save_failed), style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(4.dp))
                 }
             }

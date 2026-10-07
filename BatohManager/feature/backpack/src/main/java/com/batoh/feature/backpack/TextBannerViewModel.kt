@@ -33,7 +33,6 @@ data class TextBannerUiState(
     val savedUri: String? = null,
     /** String resource id of the last error (resolved in the UI so the app language applies). */
     val errorRes: Int? = null,
-    val errorDetail: String? = null,
     /** True once this screen started an upload; the shared upload state is shown only then. */
     val uploadRequested: Boolean = false
 )
@@ -64,10 +63,10 @@ class TextBannerViewModel @Inject constructor(
         val options = _state.value.options
         if (options.text.isBlank()) {
             _state.value = _state.value.copy(stage = TextBannerStage.Empty, previewBytes = null, plan = null,
-                savedUri = null, errorRes = null, errorDetail = null)
+                savedUri = null, errorRes = null)
             return
         }
-        _state.value = _state.value.copy(stage = TextBannerStage.Rendering, savedUri = null, errorRes = null, errorDetail = null)
+        _state.value = _state.value.copy(stage = TextBannerStage.Rendering, savedUri = null, errorRes = null)
         renderJob = viewModelScope.launch {
             try {
                 if (debounce) delay(RENDER_DEBOUNCE_MS)
@@ -80,8 +79,9 @@ class TextBannerViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                android.util.Log.w("TextBanner", "Rendering failed", e)
                 _state.value = _state.value.copy(stage = TextBannerStage.Error, previewBytes = null, plan = null,
-                    errorRes = R.string.text_banner_error_render, errorDetail = e.message)
+                    errorRes = R.string.text_banner_error_render)
             }
         }
     }
@@ -91,18 +91,19 @@ class TextBannerViewModel @Inject constructor(
         val current = _state.value
         if (current.stage != TextBannerStage.Ready || current.saving || current.savedUri != null || saveJob?.isCompleted == false) return
         val bytes = current.previewBytes ?: return
-        _state.value = current.copy(saving = true, errorRes = null, errorDetail = null)
+        _state.value = current.copy(saving = true, errorRes = null)
         saveJob = viewModelScope.launch {
             try {
                 when (val saved = saveGifBytes(bytes, "batoh_text")) {
                     is Result.Success -> _state.value = _state.value.copy(savedUri = saved.data.toString())
-                    is Result.Error -> error(saved.message ?: "")
+                    is Result.Error -> throw saved.exception
                     is Result.Loading -> error("")
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(errorRes = R.string.text_banner_error_save, errorDetail = e.message?.takeIf { it.isNotBlank() })
+                android.util.Log.w("TextBanner", "Saving failed", e)
+                _state.value = _state.value.copy(errorRes = R.string.text_banner_error_save)
             } finally {
                 _state.value = _state.value.copy(saving = false)
             }
@@ -116,11 +117,12 @@ class TextBannerViewModel @Inject constructor(
         val bytes = current.previewBytes ?: return
         try {
             val payload = BackpackPayload.fromGif(bytes)
-            _state.value = current.copy(uploadRequested = true, errorRes = null, errorDetail = null)
+            _state.value = current.copy(uploadRequested = true, errorRes = null)
             // History shows the typed text instead of a generic "Program" label
             transfers.uploadPayload(payload, name = "„${current.options.text.trim().take(24)}“")
         } catch (e: Exception) {
-            _state.value = current.copy(errorRes = R.string.text_banner_error_payload, errorDetail = e.message)
+            android.util.Log.w("TextBanner", "Building the payload failed", e)
+            _state.value = current.copy(errorRes = R.string.text_banner_error_payload)
         }
     }
 

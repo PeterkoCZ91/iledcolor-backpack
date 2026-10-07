@@ -180,7 +180,7 @@ fun CategoriesScreen(
                         }
                     }
                     is CategoriesUiState.Error -> {
-                        CategoriesMessage(message = state.message, isError = true, onRetry = onRetry)
+                        CategoriesMessage(message = stringResource(state.error.messageRes()), isError = true, onRetry = onRetry)
                     }
                 }
             }
@@ -316,12 +316,12 @@ fun CategoryItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
-                            .background(color = getCategoryColor(category.name))
+                            .background(color = getCategoryColor(category.nameEncoded))
                             .clearAndSetSemantics { },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = category.name.firstOrNull()?.toString() ?: "?",
+                            text = displayName.firstOrNull()?.toString() ?: "?",
                             style = MaterialTheme.typography.displayLarge,
                             color = Color.White.copy(alpha = 0.5f)
                         )

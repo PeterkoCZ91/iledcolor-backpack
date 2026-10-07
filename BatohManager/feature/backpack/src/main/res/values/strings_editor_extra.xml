@@ -8,4 +8,6 @@
     <string name="editor_playback_needs_bluetooth">Pro odeslání s vlastní rychlostí nebo jasem nejdřív povol Bluetooth na obrazovce Batoh.</string>
     <string name="editor_playback_payload_failed">Program pro batoh se nepodařilo sestavit (GIF musí mít 64×64).</string>
     <string name="editor_playback_busy">Batoh právě něco nahrává nebo nastavuje. Zkus to za chvíli.</string>
+    <string name="editor_load_failed">GIF se nepodařilo načíst. Zkus ho importovat znovu.</string>
+    <string name="editor_save_failed">Upravenou kopii se nepodařilo uložit. Zkus to znovu.</string>
 </resources>

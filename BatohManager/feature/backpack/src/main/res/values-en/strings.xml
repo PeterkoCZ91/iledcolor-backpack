@@ -48,6 +48,12 @@
     <string name="backpack_upload_failed">Upload failed</string>
     <string name="backpack_upload_cancelled">Upload cancelled</string>
     <string name="backpack_command_failed">Could not complete: %1$s</string>
+    <string name="backpack_command_brightness">setting brightness</string>
+    <string name="backpack_command_screen">turning the display on or off</string>
+    <string name="backpack_command_rotate">rotating the display</string>
+    <string name="backpack_command_clear">clearing programs</string>
+    <string name="backpack_command_refresh">loading the backpack state</string>
+    <string name="backpack_setup_failed">Could not prepare the backpack after connecting. Try connecting again.</string>
     <string name="editor_title">Edit GIF for backpack</string>
     <string name="editor_preview_title">Result preview · 64 × 64</string>
     <string name="editor_preview_description">Animated preview of the edited GIF for the backpack display</string>

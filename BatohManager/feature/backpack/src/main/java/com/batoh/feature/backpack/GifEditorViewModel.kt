@@ -118,7 +118,8 @@ class GifEditorViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(stage = GifEditorStage.Error, error = e.message ?: "GIF nelze upravit")
+                android.util.Log.w("GifEditor", "Loading the GIF failed", e)
+                _state.value = _state.value.copy(stage = GifEditorStage.Error, error = localizedString(R.string.editor_load_failed))
             }
         }
     }
@@ -187,13 +188,14 @@ class GifEditorViewModel @Inject constructor(
                         _state.value = _state.value.copy(saving = false, savedUri = uri)
                         if (sendToBackpack) dispatchSend(uri, bytes)
                     }
-                    is Result.Error -> error(saved.message ?: "Failed to save the copy")
+                    is Result.Error -> throw saved.exception
                     is Result.Loading -> error("Saving did not finish")
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message ?: "Saving failed")
+                android.util.Log.w("GifEditor", "Saving the edited copy failed", e)
+                _state.value = _state.value.copy(error = localizedString(R.string.editor_save_failed))
             } finally {
                 _state.value = _state.value.copy(saving = false)
             }

@@ -32,7 +32,7 @@ Run from `BatohManager/` with the JVM settings from [building](building.md):
 | `core:domain` | `CatalogDataTest`, `UseCasesTest` | Catalog data and use-case behaviour. |
 | `feature:convert` | `ConvertErrorTest` | Typed, localized Video → GIF error mapping. |
 | `feature:library` | `LibrarySelectionTest`, `BackpackPreviewScalerTest`, `PreviewDiagnosisTest`, `GifDisplayNameTest`, `LibraryToolsTest`, `PendingRenameStoreTest` | 64 × 64 preview sampling, preview failure diagnosis, safe rename validation (name limit in UTF-8 bytes), case/diacritic-insensitive filtering, stable sorting and collection summaries, a pending rename surviving process death. |
-| `feature:search` | `SearchDownloadsTest`, `SearchRequestOwnerTest` | Download state mapping, stale paging and request ownership. |
+| `feature:search` | `SearchDownloadsTest`, `SearchRequestOwnerTest`, `SearchErrorsTest` | Download state mapping, stale paging, request ownership and load error classification. |
 
 `core:common`, `core:ui` and `feature:detail` have no unit tests yet (`core:network` only has the log-masking test). The
 video conversion instrumentation test has passed on a device; exact test counts: see test run. Other on-device behaviour is covered by the

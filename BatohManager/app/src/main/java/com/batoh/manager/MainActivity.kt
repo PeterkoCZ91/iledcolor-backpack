@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         pendingSharedUri = null
         legacyPermissionDenied = !granted
         if (granted && uri != null) incomingGif.importShared(uri, restoring = false)
-        else incomingGif.reportError(getString(R.string.incoming_permission_required))
+        else incomingGif.reportError(R.string.incoming_permission_required)
     }
 
     private fun importShared(intent: android.content.Intent, restoring: Boolean) {

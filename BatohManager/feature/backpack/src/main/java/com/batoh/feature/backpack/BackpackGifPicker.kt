@@ -55,7 +55,7 @@ internal fun BackpackGifPicker(
                 CircularProgressIndicator()
             }
             is Result.Error -> Text(
-                gifs.message ?: stringResource(R.string.backpack_picker_load_error),
+                stringResource(R.string.backpack_picker_load_error),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)
             )

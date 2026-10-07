@@ -29,7 +29,6 @@
     <string name="text_banner_error_render">The text could not be rendered</string>
     <string name="text_banner_error_save">Saving to the library failed</string>
     <string name="text_banner_error_payload">The backpack program could not be prepared</string>
-    <string name="text_banner_error_with_detail">%1$s: %2$s</string>
     <string name="text_banner_color_white">White</string>
     <string name="text_banner_color_red">Red</string>
     <string name="text_banner_color_orange">Orange</string>

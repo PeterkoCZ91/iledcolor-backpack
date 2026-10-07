@@ -1,6 +1,7 @@
 package com.batoh.feature.backpack
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import android.bluetooth.BluetoothDevice
 import android.net.Uri
@@ -124,7 +125,8 @@ class BackpackTransferManager @Inject constructor(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        _commandError.value = e.message
+                        logCommandError(e)
+                        _commandError.value = localizedString(R.string.backpack_setup_failed)
                     } finally {
                         initialized.value = connectionStatus.value.startsWith("Ready")
                         settingsBusy.value = false
@@ -361,14 +363,14 @@ class BackpackTransferManager @Inject constructor(
         }
     }
 
-    fun setBrightness(level: Int) = settings(BackpackCommands.brightness(level), "Setting brightness") { it.copy(brightness = level) }
-    fun setScreen(on: Boolean) = settings(BackpackCommands.screen(on), "Setting display") { it.copy(screenOn = on) }
+    fun setBrightness(level: Int) = settings(BackpackCommands.brightness(level), R.string.backpack_command_brightness) { it.copy(brightness = level) }
+    fun setScreen(on: Boolean) = settings(BackpackCommands.screen(on), R.string.backpack_command_screen) { it.copy(screenOn = on) }
     fun setRotation(index: Int, mirror: Boolean) {
         if (advertisement.value?.supportsRotation != true) return
-        settings(BackpackCommands.rotate(index, mirror), "Rotating display") { it.copy(rotationIndex = index, mirror = mirror) }
+        settings(BackpackCommands.rotate(index, mirror), R.string.backpack_command_rotate) { it.copy(rotationIndex = index, mirror = mirror) }
     }
-    fun clearPrograms() = settings(BackpackCommands.clearPrograms(), "Clearing programs") { it }
-    fun refreshPanelState() = settings(null, "Loading state") { it }
+    fun clearPrograms() = settings(BackpackCommands.clearPrograms(), R.string.backpack_command_clear) { it }
+    fun refreshPanelState() = settings(null, R.string.backpack_command_refresh) { it }
 
     @Volatile private var lastRcspResponse: ByteArray? = null
 
@@ -428,7 +430,7 @@ class BackpackTransferManager @Inject constructor(
         }
     }
 
-    private fun settings(frame: ByteArray?, label: String, update: (BackpackCommands.State) -> BackpackCommands.State) {
+    private fun settings(frame: ByteArray?, @StringRes label: Int, update: (BackpackCommands.State) -> BackpackCommands.State) {
         if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
         settingsBusy.value = true
         settingsOperation.launch(scope) {
@@ -441,7 +443,7 @@ class BackpackTransferManager @Inject constructor(
                         // An unanswered user command could arrive late and acknowledge its retry.
                         // Close this uncertain session while still holding transaction ownership.
                         if (response == null) bluetoothManager.disconnect()
-                        requireSuccess(response, label)
+                        requireSuccess(response, localizedString(label))
                         _panelState.value = _panelState.value?.let(update)
                     }
                     refreshState()
@@ -449,7 +451,8 @@ class BackpackTransferManager @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _commandError.value = localizedString(R.string.backpack_command_failed, label)
+                logCommandError(e)
+                _commandError.value = localizedString(R.string.backpack_command_failed, localizedString(label))
             } finally {
                 settingsBusy.value = false
             }
@@ -474,6 +477,12 @@ class BackpackTransferManager @Inject constructor(
         ContextCompat.getContextForLanguage(application).resources.getQuantityString(id, quantity, quantity)
     private fun localizedString(id: Int, vararg args: Any): String =
         ContextCompat.getContextForLanguage(application).getString(id, *args)
+    /** The localized UI text hides the technical cause; keep it in the diagnostics log. */
+    private fun logCommandError(e: Exception) {
+        val note = "Command failed: ${e.javaClass.simpleName}: ${e.message}"
+        Log.w("BackpackBLE", note, e)
+        bluetoothManager.addBleLog(note)
+    }
     private fun requireSuccess(response: ByteArray?, label: String) {
         requireNotNull(response) { "$label: no response" }
         val status = if (response.size >= 7) response[4].toInt() and 0xFF else -1

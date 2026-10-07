@@ -48,6 +48,12 @@
     <string name="backpack_upload_failed">Nahrávání selhalo</string>
     <string name="backpack_upload_cancelled">Nahrávání zrušeno</string>
     <string name="backpack_command_failed">%1$s se nepodařilo provést</string>
+    <string name="backpack_command_brightness">Nastavení jasu</string>
+    <string name="backpack_command_screen">Zapnutí nebo vypnutí displeje</string>
+    <string name="backpack_command_rotate">Otočení displeje</string>
+    <string name="backpack_command_clear">Smazání programů</string>
+    <string name="backpack_command_refresh">Načtení stavu batohu</string>
+    <string name="backpack_setup_failed">Batoh se po připojení nepodařilo připravit. Zkus se připojit znovu.</string>
     <string name="editor_title">Upravit GIF pro batoh</string>
     <string name="editor_preview_title">Náhled výsledku · 64 × 64</string>
     <string name="editor_preview_description">Animovaný náhled upraveného GIFu pro displej batohu</string>

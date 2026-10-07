@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 61).
+yet; debug builds are identified by their `versionCode` (currently 62).
 
 ## [Unreleased]
 
@@ -47,6 +47,13 @@ yet; debug builds are identified by their `versionCode` (currently 61).
   instead of falling back to a built-in device address.
 
 ### Fixed
+- Error messages no longer fall back to English (or raw exception text) in the Czech UI:
+  search, categories, downloads, the GIF editor, the text banner and backpack commands show
+  localized texts (cs + en); search and categories tell a missing API key, no connection and a
+  failing service apart. Technical details go to the log and the diagnostics log instead.
+- After a shared GIF failed to import, the next activity recreation (e.g. switching the app
+  language) jumped to *My Collection* again: the failure reused the already handled navigation
+  event. The share message is also kept as a string resource, so it follows a language switch.
 - Review fixes: the import queue no longer stalls on a failed item; MediaStore pending/publish is checked; a GATT race was removed; `CancellationException` is no longer swallowed in `fetchGifs`; the MTU falls back to 23; the name limit is counted in UTF-8 bytes; a rename survives process death; import after a killed process is idempotent; the legacy permission dialog no longer loops; Video → GIF errors are typed and localized.
 - GIF cache: the key includes the filter (composite key), ordering is kept, entries expire after 7 days and categories are served from memory when offline.
 - The backpack screen no longer crashes on a fresh install (an early return inside the device

@@ -27,9 +27,9 @@ sealed interface SearchUiState {
         val hasMore: Boolean = true,
         val isTrending: Boolean = false,
         val isPersonalized: Boolean = false,
-        val loadMoreError: String? = null
+        val loadMoreError: LoadError? = null
     ) : SearchUiState
-    data class Error(val message: String) : SearchUiState
+    data class Error(val error: LoadError) : SearchUiState
     object Empty : SearchUiState
 }
 
@@ -174,7 +174,7 @@ class SearchViewModel @Inject constructor(
             }
             flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
+                emit(Result.Error(error))
             }.collect { result ->
                 if (!requests.accepts(token)) return@collect
                 when (result) {
@@ -193,9 +193,10 @@ class SearchViewModel @Inject constructor(
                     is Result.Error -> {
                         failedPageOffset = nextOffset
                         failedKlipyOffset = nextKlipyOffset
-                        requests.failPage(token, result.message ?: "Failed to load more GIFs")
+                        val error = result.exception.toLoadError()
+                        requests.failPage(token, error.name)
                         _uiState.value = state.copy(gifs = accumulatedGifs, isLoadingMore = false,
-                            loadMoreError = result.message ?: "Failed to load more GIFs")
+                            loadMoreError = error)
                     }
                 }
             }
@@ -240,7 +241,7 @@ class SearchViewModel @Inject constructor(
             var didSaveHistory = false
             flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
+                emit(Result.Error(error))
             }.collect { result ->
                 if (!requests.accepts(token)) return@collect
                 when (result) {
@@ -273,7 +274,7 @@ class SearchViewModel @Inject constructor(
                     is Result.Error -> {
                         // Only show error if we have NO data (even from cache)
                         if (accumulatedGifs.isEmpty()) {
-                            _uiState.value = SearchUiState.Error(result.message ?: "Unknown error")
+                            _uiState.value = SearchUiState.Error(result.exception.toLoadError())
                         }
                     }
                 }
@@ -311,7 +312,7 @@ class SearchViewModel @Inject constructor(
                     }
                     flow.catch { error ->
                 if (error is CancellationException) throw error
-                emit(Result.Error(error, error.message ?: "Failed to load GIFs"))
+                emit(Result.Error(error))
             }.collect { result ->
                         if (result is Result.Success) gifs = result.data
                     }

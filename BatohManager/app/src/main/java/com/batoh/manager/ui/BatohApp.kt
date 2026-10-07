@@ -71,12 +71,12 @@ fun BatohApp(
 
         Scaffold(
             snackbarHost = {
-                incomingGif.message?.let { message ->
+                incomingGif.messageRes?.let { messageRes ->
                     androidx.compose.material3.Snackbar(action = {
                         androidx.compose.material3.TextButton(onClick = onDismissIncomingMessage) {
                             androidx.compose.material3.Text(stringResource(com.batoh.manager.R.string.common_close))
                         }
-                    }) { androidx.compose.material3.Text(message) }
+                    }) { androidx.compose.material3.Text(stringResource(messageRes)) }
                 }
             },
             bottomBar = {

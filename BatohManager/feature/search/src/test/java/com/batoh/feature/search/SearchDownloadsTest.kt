@@ -54,7 +54,7 @@ class SearchDownloadsTest {
             { flowOf(DownloadStatus.SUCCESS) })
         downloads.save(gif())
         yield()
-        assertEquals("No connection", downloads.states.value[gif().downloadKey()]?.message)
+        assertEquals(GifSaveStage.Error, downloads.states.value[gif().downloadKey()]?.stage)
         downloads.save(gif())
         yield()
         assertEquals(GifSaveStage.Success, downloads.states.value[gif().downloadKey()]?.stage)

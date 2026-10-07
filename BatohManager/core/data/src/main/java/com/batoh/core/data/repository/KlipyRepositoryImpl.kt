@@ -1,6 +1,7 @@
 package com.batoh.core.data.repository
 
 import android.content.Context
+import com.batoh.core.common.MissingApiKeyException
 import com.batoh.core.common.Result
 import com.batoh.core.common.UiPreferences
 import com.batoh.core.data.BuildConfig
@@ -48,7 +49,7 @@ class KlipyRepositoryImpl @Inject constructor(
 
         emit(Result.Loading)
         if (apiKey.isBlank() || apiKey == "MISSING_KEY") {
-            emit(Result.Error(Exception("Klipy API key is missing.")))
+            emit(Result.Error(MissingApiKeyException("Klipy")))
             return@flow
         }
         try {

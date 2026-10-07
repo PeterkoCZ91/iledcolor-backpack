@@ -40,7 +40,7 @@ sealed interface CategoriesUiState {
         val categories: List<GifCategory>,
         val pinnedQueries: Set<String>
     ) : CategoriesUiState
-    data class Error(val message: String) : CategoriesUiState
+    data class Error(val error: LoadError) : CategoriesUiState
 }
 
 @HiltViewModel
@@ -120,7 +120,7 @@ class CategoriesViewModel @Inject constructor(
                         pinnedQueries = pinnedSet
                     )
                 }
-                is Result.Error -> CategoriesUiState.Error(result.message ?: "Neznama chyba")
+                is Result.Error -> CategoriesUiState.Error(result.exception.toLoadError())
             }
         }
         .stateIn(
