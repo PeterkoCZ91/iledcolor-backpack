@@ -15,7 +15,7 @@ manufacturer app for one job — getting the animation you want onto the panel �
 library, a 64 × 64 editor, a scrolling-text generator and an upload that reports what the
 backpack actually confirmed.
 
-> **Project status:** debug builds only (versionCode 61); there is no store listing or
+> **Project status:** debug builds only (versionCode 62); there is no store listing or
 > signed release. **Download:** the APK is on the
 > [releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) (pre-release, no
 > login, no API keys inside). GIF upload, several programmes played in turn, joining GIFs, the
@@ -188,7 +188,7 @@ It is an independent project and is not affiliated with the backpack's manufactu
 animované GIFy a posílá je přes Bluetooth LE do **LED batohu 64 × 64 kompatibilního
 s iledcolor**.
 
-> **Stav projektu:** zatím jen debug buildy (versionCode 61), bez vydání v obchodě.
+> **Stav projektu:** zatím jen debug buildy (versionCode 62), bez vydání v obchodě.
 > **APK ke stažení** je na stránce
 > [Releases](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) (předběžné vydání, bez
 > přihlášení, bez API klíčů). Nahrání GIFu, střídání více programů, spojování GIFů, běžící text,
