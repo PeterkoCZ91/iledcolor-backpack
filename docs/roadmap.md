@@ -77,6 +77,7 @@ Not required for local development or debug testing.
 
 ## Done recently
 
+- **Downloadable APK:** pre-release `v61` on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
 - **Send as a sequence:** several GIFs from the collection, each sent as its own programme; the backpack plays them in turn (two programmes, 181 KB, checked on the panel). Maximum number of programmes and total capacity still unknown.
 - Join GIFs into one programme (multi-select in the collection, order, pause, preview, size warning): a 33-frame / 95 KB result was saved and confirmed by the backpack on the second phone. Panel output not yet checked by eye.
 - Collection: search (case- and accent-insensitive), remembered sort order, rename of own GIFs, count / size summary.

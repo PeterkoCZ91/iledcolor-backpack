@@ -8,9 +8,11 @@ device captures do not belong here.
 
 ### I want to use the app
 
-1. [User guide](user-guide.md) — home, search, collection, editor, scrolling text and the
-   backpack screen, step by step.
-2. [Troubleshooting](troubleshooting.md) — Bluetooth permissions, GATT error 133, MTU,
+1. [Download the APK](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) — a debug build
+   without API keys; no login needed (see the checksum in the release notes).
+2. [User guide](user-guide.md) — home, search, collection, joining GIFs, editor, scrolling text and
+   the backpack screen, step by step.
+3. [Troubleshooting](troubleshooting.md) — Bluetooth permissions, GATT error 133, MTU,
    missing API keys and rejected uploads.
 
 ### I want to build or test it
