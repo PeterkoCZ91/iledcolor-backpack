@@ -8,16 +8,19 @@ than guessed.
 
 Status words follow the [feature-maturity table](README.md#feature-maturity).
 
-## Before making the repository public again
+## Repository visibility
 
-The GitHub repository is currently private. Finish these tasks before asking to reopen it:
+The repository was private while the work below was finished and is public again from
+7 October 2026. Checked before reopening: the diff was scanned and the pushed history was swept by a hook for keys,
+personal paths and device identifiers; the Actions logs contain only CI-runner paths;
+`local.properties`, personal APKs, captures and local notes are excluded by `.gitignore`;
+the CI artifact is built without API keys.
 
-| Order | Task | Done when |
-| --- | --- | --- |
-| 1 | **Verify Video → GIF on Android.** *Half done.* The local-MP4 instrumentation test (`:app:connectedDebugAndroidTest`) passed on a device. The URL (https) → download → preview → save-to-collection flow was checked by hand on a second phone. | Remaining: the owner confirms the URL flow; until then the feature stays marked experimental. Remove only the test GIF created by any further run. |
-| 2 | **Finish first-run/API-key guidance and app-info screenshots.** *Done.* About (`docs/images/about.png`) and Settings → API keys (`docs/images/api-keys.png`, both key fields empty) are captured and linked from the README and user guide. | Done: About text and version match the current build (v53 at capture time). |
-| 3 | **Public-repository preflight.** Many existing source and documentation changes are still uncommitted. | Review every changed/untracked path, confirm `local.properties`, personal APKs, private captures and `PAMET_PROJEKTU.md` are excluded, run the documented tests/lint/build, and scan the final diff for secrets and identifying paths. Preserve the current private-history branch; never publish it. |
-| 4 | **Reopen the repository.** | Only after the preceding items are complete and the owner explicitly asks, switch the GitHub repository to public. Then verify README, CI and Actions logs are safe to expose. |
+| Task | State |
+| --- | --- |
+| Video → GIF on Android | Instrumentation test and the https URL flow passed on phones; still marked experimental until the owner confirms it on the panel. |
+| First-run / API-key guidance and screenshots | Done: About and Settings → API keys screenshots are in the README and user guide. |
+| Preflight of the working tree and history | Done (see above). |
 
 ## Next steps
 
