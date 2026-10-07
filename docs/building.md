@@ -84,7 +84,9 @@ do not share APKs built with a personal key. Never commit `local.properties`.
 
 ## Installing a debug APK
 
-A prebuilt debug APK without API keys is attached to every CI run on `main` as the
+Tagged debug builds are attached to the [releases](https://github.com/PeterkoCZ91/iledcolor-backpack/releases)
+page (no login needed; the checksum is in the notes). A prebuilt debug APK without API keys is also
+attached to every CI run on `main` as the
 `gifpack-debug-<commit>` artifact (30-day retention, GitHub login required). It is signed with
 the CI runner's temporary debug key, so it cannot update an APK built elsewhere — uninstall first.
 

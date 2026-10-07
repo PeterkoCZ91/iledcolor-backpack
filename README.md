@@ -78,7 +78,10 @@ empty: public builds do not include keys, you enter your own.
 Requirements: a phone with Android 8.0 (API 26) or newer and Bluetooth LE; to build, JDK 17
 and Android SDK Platform 34.
 
-**Without building:** every CI run on `main` publishes a debug APK as the
+**Without building:** download the debug APK (`GifPack-v61-debug.apk`) from the
+[releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) (no login needed;
+the SHA-256 is in the release notes). It is a debug build, so it is marked as a pre-release.
+Or take the newest development build: every CI run on `main` publishes a debug APK as the
 `gifpack-debug-<commit>` artifact (open the latest green run under
 [Actions](https://github.com/PeterkoCZ91/iledcolor-backpack/actions/workflows/ci.yml); downloading
 needs a GitHub login, artifacts are kept 30 days). It contains **no API keys** — enter your own
