@@ -31,7 +31,7 @@ the CI artifact is built without API keys.
 | 3 | **Verify remaining backpack answers and visuals.** The "not enough space" status; physical image of edited GIFs. | Clock, status query, brightness, screen on/off and the "already on backpack" status (3) are verified. Rotation is hidden because the tested firmware does not advertise it (`funCode 0x0044`). Done when the statuses are observed and the panel output is checked by eye. |
 | 4 | **Verify the new features on the panel.** Programme speed / brightness bytes and built-in programmes on a device that reports them. | The scrolling-text banner is verified (upload confirmed and it scrolls on the panel). Speed / brightness remain experimental; the tested unit reports 0 built-in programmes. |
 | 5 | **Error states and accessibility.** Each screen's error state, TalkBack, large fonts and touch targets. | Code pass done on all screens (descriptions, headings, 48 dp targets, toggle/slider semantics, announced errors with a recovery action). A manual TalkBack and large-font pass on a phone is still to do. |
-| 6 | **Collection name safety.** Case-insensitive name collisions, rollback of a legacy-path rename, and cancellation after the file is saved in `importGif`. | **In progress** — not done yet. (Rename already survives process death and name length is limited in UTF-8 bytes; see below.) |
+| 6 | **Collection name safety.** Case-insensitive name collisions, rollback of a legacy-path rename and completing the save when `importGif` is cancelled. | Implemented and unit-tested (name rules, rename rollback, non-cancellable commit). Done when checked on a device, including a pre-Android 10 phone for the legacy path. |
 | 7 | **Measure capacity safely.** Find the practical upload limit step by step, watching the panel, without using "clear all" as cleanup. | Largest confirmed upload: 453 KB / 96 frames. |
 
 ## Protocol features not yet used
@@ -88,7 +88,9 @@ Not required for local development or debug testing.
 - Clean install, first connection without a stored address and a test-image upload confirmed by the backpack, checked on a second phone (2026-10-07).
 - Video → GIF instrumentation test passed on a device; the URL (https) → download → preview → save-to-collection flow was verified by hand on a second phone (still experimental until the owner confirms).
 - Review fixes: import queue no longer stalls, MediaStore pending/publish check, GATT race, `CancellationException` handled in `fetchGifs`, MTU falls back to 23, name limit counted in UTF-8 bytes, rename survives process death, idempotent import after process kill, legacy permission dialog no longer loops, typed localized Video → GIF errors.
-- GIF cache: key includes the filter (composite key), ordering kept, 7-day TTL, categories served from memory offline.
+- GIF cache: key includes the filter (composite key), ordering kept, 7-day TTL; the category list is stored in the database (migration 7 → 8) and still shows offline after a restart (checked on a phone in airplane mode).
+- Read-only *Backpack info* diagnostic action (state `0x10`, built-in count `0x0D`, decoded advertisement): the state answer is a 16-byte frame whose `p8` equals the firmware version; see [device capabilities](device-capabilities.md#72-raw-answers-read-with-the-backpack-info-diagnostic-action).
+- The smoke harness passes end to end on a phone again (home, import, picker, both languages); the repository text, comments and docs are English, with Czech kept as a secondary UI language.
 - New unit tests for the domain module, NeuQuant, `GifCachePolicy`, `ConvertError`, `MtuNegotiation` and `PendingRenameStore` (see test run for counts).
 
 ## What is still unknown about the backpack
