@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
@@ -202,6 +203,7 @@ fun LibraryScreen(
     var gifToAction by remember { mutableStateOf<Gif?>(null) }
     var gifToRemove by remember { mutableStateOf<Gif?>(null) }
     var gifToRename by remember { mutableStateOf<Gif?>(null) }
+    var showHelp by remember { mutableStateOf(false) }
 
     gifToRename?.let { gif ->
         RenameGifDialog(
@@ -216,6 +218,17 @@ fun LibraryScreen(
     }
     var backpackView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(stringResource(R.string.library_help)) },
+            text = { Text(stringResource(R.string.library_action_hint)) },
+            confirmButton = {
+                TextButton(onClick = { showHelp = false }) { Text(stringResource(R.string.library_help_close)) }
+            }
+        )
+    }
 
     gifToRemove?.let { gif ->
         AlertDialog(
@@ -319,8 +332,13 @@ fun LibraryScreen(
                         else stringResource(R.string.library_title))
                 },
                 actions = {
-                    if (!selecting) TextButton(onClick = onImport, enabled = !importing) {
-                        Text(stringResource(if (importing) R.string.library_importing else R.string.library_import))
+                    if (!selecting) {
+                        IconButton(onClick = { showHelp = true }) {
+                            Icon(Icons.Default.Info, contentDescription = stringResource(R.string.library_help))
+                        }
+                        TextButton(onClick = onImport, enabled = !importing) {
+                            Text(stringResource(if (importing) R.string.library_importing else R.string.library_import))
+                        }
                     }
                 },
                 navigationIcon = {
@@ -385,12 +403,6 @@ fun LibraryScreen(
                     }
                     is LibraryUiState.Success -> {
                         Column {
-                            Text(
-                                text = stringResource(R.string.library_action_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                            )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 16.dp)

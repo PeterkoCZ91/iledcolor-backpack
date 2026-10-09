@@ -118,4 +118,6 @@
     <string name="backpack_history_already_present">Už byl v batohu (potvrzeno)</string>
     <string name="backpack_history_failed">Selhalo — batoh nepotvrdil</string>
     <string name="backpack_history_cancelled">Zrušeno</string>
+    <string name="backpack_show_advanced">Pokročilé</string>
+    <string name="backpack_hide_advanced">Skrýt pokročilé</string>
 </resources>

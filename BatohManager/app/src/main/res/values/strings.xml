@@ -4,7 +4,7 @@
     <string name="navigation_home">Domů</string>
     <string name="navigation_search">Hledat</string>
     <string name="navigation_categories">Kategorie</string>
-    <string name="navigation_library">Knihovna</string>
+    <string name="navigation_library">Moje sbírka</string>
     <string name="incoming_importing">Importuji sdílený GIF…</string>
     <string name="incoming_import_success">GIF byl importován do knihovny</string>
     <string name="incoming_import_failed">Import sdíleného GIFu selhal</string>

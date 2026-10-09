@@ -236,14 +236,16 @@ fun SearchScreen(
                     FilterChip(
                         selected = filter.source == GifSource.GIPHY,
                         onClick = { onSetGifSource(GifSource.GIPHY) },
-                        label = { Text("Giphy") }
+                        label = { Text("Giphy") },
+                        leadingIcon = { if (filter.source == GifSource.GIPHY) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                     )
                 }
                 item {
                     FilterChip(
                         selected = filter.source == GifSource.KLIPY,
                         onClick = { onSetGifSource(GifSource.KLIPY) },
-                        label = { Text("Klipy") }
+                        label = { Text("Klipy") },
+                        leadingIcon = { if (filter.source == GifSource.KLIPY) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                     )
                 }
                 item {

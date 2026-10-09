@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -117,6 +118,7 @@ fun BackpackScreen(
     var showLibraryPicker by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     var showBleLog by remember { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
     var brightness by remember { mutableFloatStateOf(5f) }
     val activeUpload = upload.stage in setOf(
         UploadStage.Preparing, UploadStage.Connecting, UploadStage.Sending, UploadStage.Finishing
@@ -302,11 +304,14 @@ fun BackpackScreen(
             }
             if (isReady) {
                 Divider()
-                Text(stringResource(R.string.backpack_display), style = MaterialTheme.typography.titleMedium)
-                commandError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = viewModel::refreshPanelState, enabled = controlsEnabled) {
-                    Text(stringResource(R.string.backpack_refresh_display))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.backpack_display), style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f))
+                    IconButton(onClick = viewModel::refreshPanelState, enabled = controlsEnabled) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.backpack_refresh_display))
+                    }
                 }
+                commandError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Text(if (panelState == null) stringResource(R.string.backpack_brightness_unknown)
                     else stringResource(R.string.backpack_brightness, kotlin.math.round(brightness).toInt()))
                 Slider(value = brightness, onValueChange = { brightness = it }, valueRange = 1f..10f,
@@ -347,10 +352,6 @@ fun BackpackScreen(
                     Divider()
                     BuiltInProgramsSection(count, controlsEnabled, viewModel::playBuiltIn)
                 }
-                OutlinedButton(onClick = { confirmClear = true }, enabled = controlsEnabled,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.backpack_clear_confirm), color = MaterialTheme.colorScheme.error)
-                }
             }
             if (isReady || isConnecting) {
                 TextButton(onClick = viewModel::disconnect, enabled = !activeUpload) { Text(stringResource(R.string.backpack_disconnect)) }
@@ -358,6 +359,17 @@ fun BackpackScreen(
             Divider()
             UploadHistorySection(uploadHistory, onClear = viewModel::clearUploadHistory)
             Divider()
+            if (isReady) {
+                TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(if (showAdvanced) R.string.backpack_hide_advanced else R.string.backpack_show_advanced))
+                }
+                if (showAdvanced) {
+                    OutlinedButton(onClick = { confirmClear = true }, enabled = controlsEnabled,
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.backpack_clear_confirm), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { showBleLog = !showBleLog }, modifier = Modifier.weight(1f)) {
                     Text(stringResource(if (showBleLog) R.string.backpack_hide_diagnostics else R.string.backpack_show_diagnostics))
@@ -373,6 +385,8 @@ fun BackpackScreen(
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_test_upload)) }
                     OutlinedButton(onClick = viewModel::dumpBackpackInfo, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_info_action)) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = viewModel::queryPasswordStatus, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_password_status_action)) }
                     OutlinedButton(onClick = viewModel::sendPlaylistTest, enabled = controlsEnabled,

@@ -3,7 +3,7 @@ package com.batoh.manager.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
@@ -66,7 +66,7 @@ fun BatohApp(
             Triple(Screen.Home.route, stringResource(com.batoh.manager.R.string.navigation_home), Icons.Default.Home),
             Triple("search", stringResource(com.batoh.manager.R.string.navigation_search), Icons.Default.Search),
             Triple(Screen.Categories.route, stringResource(com.batoh.manager.R.string.navigation_categories), Icons.Default.List),
-            Triple(Screen.Library.route, stringResource(com.batoh.manager.R.string.navigation_library), Icons.Default.FavoriteBorder)
+            Triple(Screen.Library.route, stringResource(com.batoh.manager.R.string.navigation_library), Icons.Default.Star)
         )
 
         Scaffold(
@@ -144,6 +144,7 @@ fun BatohApp(
                         onGridColumnsChanged = onGridColumnsChanged,
                         onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
                         onNavigateToLibrary = { navController.navigate(Screen.Library.route) },
+                        onNavigateToDetail = { url -> navController.navigate(Screen.Detail.createRoute(url)) },
                         onNavigateToConvert = { navController.navigate(Screen.Convert.route) },
                         onNavigateToBackpack = { navController.navigate(Screen.Backpack.createRoute()) },
                         onNavigateToCategories = { navController.navigate(Screen.Categories.route) },

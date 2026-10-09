@@ -2,7 +2,23 @@ package com.batoh.feature.home
 
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.batoh.core.common.UiPreferences
 import com.batoh.core.common.UiThemeMode
@@ -51,9 +68,11 @@ fun HomeRoute(
     onNavigateToBackpack: () -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToTextBanner: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val backpackStatus by viewModel.backpackStatus.collectAsStateWithLifecycle()
+    val recentGifs by viewModel.recentGifs.collectAsStateWithLifecycle()
     HomeScreen(
         themeMode = themeMode,
         gridColumns = gridColumns,
@@ -67,7 +86,9 @@ fun HomeRoute(
         onBackpackClick = onNavigateToBackpack,
         onCategoriesClick = onNavigateToCategories,
         onTextBannerClick = onNavigateToTextBanner,
-        backpackStatus = backpackStatus
+        backpackStatus = backpackStatus,
+        recentGifs = recentGifs,
+        onRecentGifClick = onNavigateToDetail
     )
 }
 
@@ -86,7 +107,9 @@ fun HomeScreen(
     onBackpackClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onTextBannerClick: () -> Unit = {},
-    backpackStatus: HomeBackpackStatus = HomeBackpackStatus()
+    backpackStatus: HomeBackpackStatus = HomeBackpackStatus(),
+    recentGifs: List<HomeRecentGif> = emptyList(),
+    onRecentGifClick: (String) -> Unit = {}
 ) {
     var showInfoDialog by rememberSaveable { mutableStateOf(false) }
     var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
@@ -376,6 +399,9 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                BackpackStatusCard(status = backpackStatus, onClick = onBackpackClick)
+            }
             item {
                 HomeButton(
                     text = stringResource(R.string.home_search_button),
@@ -412,20 +438,141 @@ fun HomeScreen(
                     contentColor = MaterialTheme.colorScheme.onTertiary
                 )
             }
-            item {
-                BackpackHomeButton(
-                    status = backpackStatus,
-                    onClick = onBackpackClick
-                )
-            }
-            item {
+            // The backpack tile is replaced by the status card at the top, which opens the same screen.
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 HomeButton(
                     text = stringResource(R.string.home_text_banner_button),
                     icon = Icons.Default.Edit,
                     onClick = onTextBannerClick,
                     containerColor = Color(0xFFE65100),
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    height = 80.dp
                 )
+            }
+            if (recentGifs.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    RecentGifsRow(gifs = recentGifs, onGifClick = onRecentGifClick)
+                }
+            }
+        }
+    }
+}
+
+/** Full-width backpack status card at the top of the home screen; a tap opens the Backpack screen. */
+@Composable
+fun BackpackStatusCard(
+    status: HomeBackpackStatus,
+    onClick: () -> Unit
+) {
+    val stateText = stringResource(
+        when (status.state) {
+            BackpackLinkState.CONNECTED -> R.string.home_status_connected
+            BackpackLinkState.CONNECTING -> R.string.home_status_connecting
+            BackpackLinkState.NOT_CONNECTED -> R.string.home_status_not_connected
+        }
+    )
+    val deviceText = status.deviceName ?: stringResource(R.string.home_status_card_no_device)
+    val label = stringResource(
+        R.string.home_status_card_open_cd,
+        listOf(stringResource(R.string.home_status_cd_state, stateText), status.deviceName?.let {
+            stringResource(R.string.home_status_cd_device, it)
+        }).filterNotNull().joinToString(", ")
+    )
+    val connected = status.state == BackpackLinkState.CONNECTED
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .semantics { contentDescription = label; role = Role.Button },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (connected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (connected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clearAndSetSemantics { }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = when (status.state) {
+                    BackpackLinkState.CONNECTED -> Icons.Default.BluetoothConnected
+                    BackpackLinkState.CONNECTING -> Icons.AutoMirrored.Filled.BluetoothSearching
+                    BackpackLinkState.NOT_CONNECTED -> Icons.Default.Bluetooth
+                },
+                contentDescription = null,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = stateText, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = deviceText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+/** "Recently in collection": horizontal row of static thumbnails; a tap opens the GIF detail. */
+@Composable
+fun RecentGifsRow(
+    gifs: List<HomeRecentGif>,
+    onGifClick: (String) -> Unit
+) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.home_recent_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(gifs, key = { it.id }) { gif ->
+                val title = gif.title.ifBlank { stringResource(R.string.home_recent_untitled) }
+                val cd = stringResource(R.string.home_recent_item_cd, title)
+                val thumb by produceState<Bitmap?>(null, gif.thumbnailUrl) {
+                    value = loadThumbnail(context, url = gif.thumbnailUrl)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(role = Role.Button, onClick = { onGifClick(gif.originalUrl) })
+                        .semantics { contentDescription = cd },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val bmp = thumb
+                    if (bmp != null) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -474,11 +621,12 @@ fun HomeButton(
     containerColor: Color,
     contentColor: Color,
     subtitle: String? = null,
-    accessibilityLabel: String? = null
+    accessibilityLabel: String? = null,
+    height: Dp = 120.dp
 ) {
     val buttonModifier = Modifier
         .fillMaxWidth()
-        .height(120.dp)
+        .height(height)
     Button(
         onClick = onClick,
         modifier = if (accessibilityLabel != null) {
@@ -492,6 +640,18 @@ fun HomeButton(
             contentColor = contentColor
         )
     ) {
+        if (height < 100.dp && subtitle == null) {
+            // Wide, low tile: icon and label side by side so the label is not clipped.
+            Row(
+                modifier = if (accessibilityLabel != null) Modifier.clearAndSetSemantics { } else Modifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                Text(text = text, style = MaterialTheme.typography.titleMedium)
+            }
+            return@Button
+        }
         Column(
             // The button's own label replaces the visible texts for screen readers.
             modifier = if (accessibilityLabel != null) Modifier.clearAndSetSemantics { } else Modifier,
@@ -518,6 +678,28 @@ fun HomeButton(
                 )
             }
         }
+    }
+}
+
+/**
+ * Decodes the first frame of a local image, down-sampled to roughly 192 px. Returns null for
+ * remote URLs or on any decode failure (the tile then shows a placeholder icon). Uses only the
+ * platform decoder, so the home module needs no image-loading dependency.
+ */
+private suspend fun loadThumbnail(context: Context, url: String): Bitmap? = withContext(Dispatchers.IO) {
+    try {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "content" && uri.scheme != "file") return@withContext null
+        val resolver = context.contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        while (longest / (sample * 2) >= 192) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+    } catch (e: Exception) {
+        null
     }
 }
 

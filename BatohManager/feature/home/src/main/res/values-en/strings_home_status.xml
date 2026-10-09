@@ -6,4 +6,9 @@
     <string name="home_status_cd_state">Backpack, %1$s</string>
     <string name="home_status_cd_device">device %1$s</string>
     <string name="home_status_cd_firmware">firmware version %1$d</string>
+    <string name="home_status_card_open_cd">%1$s. Open the Backpack screen</string>
+    <string name="home_status_card_no_device">No device</string>
+    <string name="home_recent_title">Recently in collection</string>
+    <string name="home_recent_item_cd">Open detail: %1$s</string>
+    <string name="home_recent_untitled">Untitled GIF</string>
 </resources>

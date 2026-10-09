@@ -11,7 +11,7 @@
     <string name="library_action_edit">Edit for backpack</string>
     <string name="library_edit_description">Edit GIF for backpack</string>
     <string name="library_send_description">Send GIF to backpack</string>
-    <string name="library_import">Import GIF</string>
+    <string name="library_import">Import</string>
     <string name="library_importing">Importing…</string>
     <string name="library_action_hint">Tap a GIF to view it, the pencil to edit, or the arrow to send it. The ⋮ button opens more options; long press to select several GIFs to join.</string>
     <string name="library_load_failed">Could not load the GIF collection</string>
@@ -29,4 +29,6 @@
     <string name="favorites_remove">Remove from favorites</string>
     <string name="favorites_empty">No favorites yet.\nTap the heart icon to add a GIF.</string>
     <string name="favorites_refresh">Refresh</string>
+    <string name="library_help">Help</string>
+    <string name="library_help_close">Close</string>
 </resources>

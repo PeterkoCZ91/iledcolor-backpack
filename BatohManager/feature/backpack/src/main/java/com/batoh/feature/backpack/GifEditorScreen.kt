@@ -7,6 +7,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,7 +60,9 @@ fun GifEditorScreen(
     }
     Scaffold(topBar = {
         TopAppBar(title = { Text(stringResource(R.string.editor_title)) }, navigationIcon = {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            }
         })
     }) { padding ->
         Column(

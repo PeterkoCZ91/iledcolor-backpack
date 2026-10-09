@@ -18,6 +18,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -107,7 +109,9 @@ fun TextBannerScreen(
 
     Scaffold(topBar = {
         TopAppBar(title = { Text(stringResource(R.string.text_banner_title)) }, navigationIcon = {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.common_back))
+            }
         })
     }) { padding ->
         Column(
@@ -129,7 +133,7 @@ fun TextBannerScreen(
             Text(stringResource(R.string.text_banner_preview_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
             Box(
-                Modifier.fillMaxWidth().heightIn(max = 320.dp).aspectRatio(1f)
+                Modifier.fillMaxWidth(0.6f).heightIn(max = 240.dp).aspectRatio(1f).align(Alignment.CenterHorizontally)
                     .background(Color(options.backgroundColor)),
                 contentAlignment = Alignment.Center
             ) {

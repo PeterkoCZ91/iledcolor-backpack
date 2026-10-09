@@ -41,6 +41,15 @@ yet; debug builds are identified by their `versionCode` (currently 62).
 - Experimental *Effect test* diagnostic (buttons 0, 1, 2, 3, 5, 6, 7) that uploads a labelled test GIF with a chosen effect byte. On the tested backpack the byte has no visible effect on GIF items; results in `docs/device-capabilities.md`.
 
 ### Changed
+- Diagnostics: the four action buttons are laid out in two rows so their labels fit on narrow screens.
+- UI consistency: the collection has one name ("Moje sbírka" / "My Collection") and one star icon in the
+  bottom bar, the Text banner and GIF editor use the same back arrow as the other screens, the Giphy / Klipy
+  source chips show a check mark when selected, and the Text banner preview is smaller so the colour
+  controls are visible without scrolling.
+- Home: a backpack status card (connected / not connected, device name) replaces the backpack tile, and a
+  "Recently in collection" row opens the GIF detail. Backpack: *Clear backpack contents* moved into a collapsed
+  *Advanced* section and *Refresh display state* is an icon. Collection: the hint text is behind an info icon and
+  the import action is shortened to "Import". Categories: a missing preview no longer happens when the top Giphy hit is not square (previews now pick the first of ten candidates that passes the filter), and the heart has a round scrim so it stays visible on light previews.
 - The app is published as **GifPack** (repository `iledcolor-backpack`); application id
   `io.github.peterkocz91.gifpack` and deep-link scheme `gifpack://` (Kotlin packages are unchanged).
 - Without a remembered backpack, *Connect* now scans for the first backpack advertising nearby

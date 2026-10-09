@@ -11,11 +11,13 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -286,6 +288,8 @@ fun CategoryItem(
                 .build()
         }
     }
+    // Thumbnail that fails to load (offline, rate limit) falls back to the placeholder too.
+    var thumbnailFailed by remember(previewGif?.thumbnailUrl) { mutableStateOf(false) }
     val openLabel = stringResource(R.string.categories_open)
     val pinA11yLabel = stringResource(R.string.categories_pin_a11y, displayName)
     val pinnedState = stringResource(
@@ -299,12 +303,13 @@ fun CategoryItem(
             shape = RoundedCornerShape(12.dp)
         ) {
             Column {
-                if (previewGif != null) {
+                if (previewGif != null && !thumbnailFailed) {
                     AsyncImage(
                         model = thumbnailRequest,
                         // The name is printed right below; reading it twice adds noise.
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
+                        onError = { thumbnailFailed = true },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f)
@@ -320,10 +325,12 @@ fun CategoryItem(
                             .clearAndSetSemantics { },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = displayName.firstOrNull()?.toString() ?: "?",
-                            style = MaterialTheme.typography.displayLarge,
-                            color = Color.White.copy(alpha = 0.5f)
+                        // Decorative icon instead of a bare letter while no preview is available.
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = Color.White.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -348,11 +355,19 @@ fun CategoryItem(
                     stateDescription = pinnedState
                 }
         ) {
-            Icon(
-                imageVector = if (isPinned) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = null,
-                tint = if (isPinned) MaterialTheme.colorScheme.primary else Color.White
-            )
+            // A round scrim keeps the heart visible on light previews as well as dark ones.
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(if (isPinned) Color.White.copy(alpha = 0.85f) else Color.Black.copy(alpha = 0.4f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPinned) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = null,
+                    tint = if (isPinned) MaterialTheme.colorScheme.primary else Color.White
+                )
+            }
         }
     }
 }

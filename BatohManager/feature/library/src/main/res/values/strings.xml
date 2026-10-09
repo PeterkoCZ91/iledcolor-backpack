@@ -11,7 +11,7 @@
     <string name="library_action_edit">Upravit pro batoh</string>
     <string name="library_edit_description">Upravit GIF pro batoh</string>
     <string name="library_send_description">Odeslat GIF do batohu</string>
-    <string name="library_import">Importovat GIF</string>
+    <string name="library_import">Import</string>
     <string name="library_importing">Importuji…</string>
     <string name="library_action_hint">Klepni na GIF pro detail, na tužku pro úpravu nebo na šipku pro odeslání. Tlačítko ⋮ otevře další možnosti, podržením vybereš víc GIFů ke spojení.</string>
     <string name="library_load_failed">Knihovnu GIFů se nepodařilo načíst</string>
@@ -29,4 +29,6 @@
     <string name="favorites_remove">Odebrat z oblíbených</string>
     <string name="favorites_empty">Zatím žádné oblíbené.\nKliknutím na srdíčko přidejte GIF.</string>
     <string name="favorites_refresh">Obnovit</string>
+    <string name="library_help">Nápověda</string>
+    <string name="library_help_close">Zavřít</string>
 </resources>

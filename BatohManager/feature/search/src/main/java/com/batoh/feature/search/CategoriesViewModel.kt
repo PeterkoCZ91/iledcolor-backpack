@@ -157,7 +157,8 @@ class CategoriesViewModel @Inject constructor(
                             try {
                                 val result = giphyRepository.searchGifs(
                                     query = category.nameEncoded,
-                                    limit = 1
+                                    // The default filter can drop the top hit (e.g. a non-square GIF), so ask for several.
+                                    limit = PREVIEW_CANDIDATES
                                 ).first { it is Result.Success || it is Result.Error }
                                 if (result is Result.Success && result.data.isNotEmpty()) {
                                     _previews.update { map ->
@@ -200,5 +201,9 @@ class CategoriesViewModel @Inject constructor(
             name = displayName,
             nameEncoded = normalized
         )
+    }
+
+    private companion object {
+        const val PREVIEW_CANDIDATES = 10
     }
 }

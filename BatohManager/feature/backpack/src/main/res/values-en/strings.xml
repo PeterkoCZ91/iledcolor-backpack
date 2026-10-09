@@ -118,4 +118,6 @@
     <string name="backpack_history_already_present">Already on backpack (confirmed)</string>
     <string name="backpack_history_failed">Failed — not confirmed by backpack</string>
     <string name="backpack_history_cancelled">Cancelled</string>
+    <string name="backpack_show_advanced">Advanced</string>
+    <string name="backpack_hide_advanced">Hide advanced</string>
 </resources>
