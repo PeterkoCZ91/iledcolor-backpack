@@ -174,6 +174,15 @@ from it — do not distribute builds with your personal key.
 | [Privacy](docs/privacy.md) | Network requests, stored data and permissions |
 | [Releasing](docs/releasing.md) | Signed release builds and the tag workflow |
 
+## Acknowledgements
+
+The BLE protocol was worked out by reverse engineering the manufacturer's app (a Flutter app,
+so most of its logic lives in a Dart AOT binary). Tools used:
+
+- [morluto/rea](https://github.com/morluto/rea) – reverse-engineering toolkit
+- [worawit/blutter](https://github.com/worawit/blutter) – Dart AOT snapshot analysis
+- [Ghidra](https://github.com/NationalSecurityAgency/ghidra) – native binary analysis
+
 Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow
 [SECURITY.md](SECURITY.md). **Privacy:** no account, analytics or tracking; search text goes
 to Giphy / Klipy only when you search — see [PRIVACY.md](PRIVACY.md).
@@ -230,3 +239,8 @@ nahrávání neběží jako služba na pozadí.
 při vyhledávání — viz [PRIVACY.md](PRIVACY.md) (anglicky).
 
 Licence: [MIT](LICENSE).
+
+**Poděkování:** protokol BLE vznikl reverzním inženýrstvím aplikace výrobce (Flutter, logika
+je v binárce Dart AOT). Použité nástroje: [morluto/rea](https://github.com/morluto/rea),
+[worawit/blutter](https://github.com/worawit/blutter) (analýza Dart AOT) a
+[Ghidra](https://github.com/NationalSecurityAgency/ghidra) (analýza nativních binárek).

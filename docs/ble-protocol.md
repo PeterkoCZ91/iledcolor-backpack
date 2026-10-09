@@ -453,7 +453,7 @@ Single-byte fields are truncated to 8 bits.
 |---|---|---|
 | 1 | Static bitmap ("graffiti"): one frame of raw pixels in the panel's colour format (RGB888 on the tested unit, so 64 × 64 × 3 = 12,288 bytes) | [CAP] |
 | 2 | Frame-by-frame animation: N raw bitmaps, followed by a u16 delay per frame | [DER] |
-| 3 | Clock: a 14-byte configuration. The firmware draws the clock. | [DER] |
+| 3 | Clock: a 14-byte configuration. The firmware draws the clock. **Not supported by the tested unit:** an experimental 60-byte clock programme was accepted and confirmed, but the panel showed a white screen with coloured garbage instead of a clock. | [DER] [HW] |
 | 5 | **Built-in programme**: one 8-byte frame, `00 00 00 00` + programme ID (u32). It plays a programme already stored in the firmware. | [DER] |
 | 6 | **GIF file**: the whole GIF file as a single frame. The firmware decodes it. | [HW] [CAP] |
 | 7 | Text rendered by the app into a GIF file (same layout as type 6) | [DER] |
@@ -614,7 +614,8 @@ The manufacturer app sends this command after connecting, but only to units that
 and that set funCode bit **`0x0001`** [DER]. Firmware-drawn clock items (type 3) rely on it. An
 earlier GifPack build sent it to the tested unit, which lacks bit `0x0001`. The unit returned
 a success ACK, with no visible effect. The current app follows the manufacturer's rule and skips
-it on that unit.
+it on that unit. A firmware-drawn clock programme (type 3) was also sent to it once as an experiment (accepted
+and confirmed, rendered as garbage), so clock items stay off for units without bit `0x0001`.
 
 ### 10.8 0x10: query panel state [HW]
 
