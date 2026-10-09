@@ -78,7 +78,7 @@ Not required for local development or debug testing.
 ## Done recently
 
 - **Localized error messages (v62):** search, categories, downloads, the GIF editor, the text banner and backpack commands no longer fall back to English or raw exception text; search and categories tell a missing API key, no connection and a failing service apart. A failed share no longer makes the next language switch jump to the collection. Smoke harness with `--fixtures --import --locale-sweep` passes on the test phone; the offline search message was checked by hand.
-- **Downloadable APK:** pre-release `v62` (earlier `v61`) on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
+- **Downloadable APK:** pre-release `v63` (earlier `v62`, `v61`) on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
 - **Send as a sequence:** several GIFs from the collection, each sent as its own programme; the backpack plays them in turn (two programmes, 181 KB, checked on the panel). Maximum number of programmes and total capacity still unknown.
 - Join GIFs into one programme (multi-select in the collection, order, pause, preview, size warning): a 33-frame / 95 KB result was saved and confirmed by the backpack on the second phone. Panel output not yet checked by eye.
 - Collection: search (case- and accent-insensitive), remembered sort order, rename of own GIFs, count / size summary.

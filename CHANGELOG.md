@@ -7,7 +7,7 @@ yet; debug builds are identified by their `versionCode` (currently 63).
 ## [Unreleased]
 
 ### Added
-- **Downloadable APK:** pre-release `v62` (localized error messages, see *Fixed*) follows the first pre-release, `v61`; both are on the [releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases): a debug build from CI without API keys (checked by searching it for the real keys), with its SHA-256 in the notes. The README and docs link to it.
+- **Downloadable APK:** pre-release `v63` (the UI refresh, see *Changed*) follows `v62` (localized error messages) and the first pre-release, `v61`; all are on the [releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases): a debug build from CI without API keys (checked by searching it for the real keys), with its SHA-256 in the notes. The README and docs link to it.
 - CI uploads a debug APK without API keys as a downloadable artifact for every run.
 - The home *Backpack* tile shows the connection state and the device name.
 - Upload failures carry a typed reason (not connected, connection lost, header / chunk / end
