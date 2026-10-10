@@ -2,11 +2,15 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 63).
+yet; debug builds are identified by their `versionCode` (currently 64).
 
 ## [Unreleased]
 
 ### Added
+- **Find duplicates** in My Collection: groups GIFs with identical content (size first, then SHA-256 only for files of equal size) and offers to delete the extra copies; one file per group always stays and nothing is deleted without confirmation.
+- A trash icon on every collection tile deletes a GIF with one confirmation (the ⋮ menu is no longer needed for that).
+- The backpack screen says when Bluetooth is off and offers a button that turns it on instead of failing silently.
+- Faster uploads: a single-programme upload sends two data chunks before waiting for the ACK (about 1.8x faster on hardware: a 196-chunk programme in 8.5 s instead of 15.5 s). Windows 1, 2, 4 and 8 can be chosen in the diagnostics; 4 aborted once on a repeated ACK, so 2 is the default. Sequences stay stop-and-wait. See `docs/ble-protocol.md` section 8.
 - **Downloadable APK:** pre-release `v63` (the UI refresh, see *Changed*) follows `v62` (localized error messages) and the first pre-release, `v61`; all are on the [releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases): a debug build from CI without API keys (checked by searching it for the real keys), with its SHA-256 in the notes. The README and docs link to it.
 - CI uploads a debug APK without API keys as a downloadable artifact for every run.
 - The home *Backpack* tile shows the connection state and the device name.
@@ -56,6 +60,11 @@ yet; debug builds are identified by their `versionCode` (currently 63).
   instead of falling back to a built-in device address.
 
 ### Fixed
+- A `gifpack://backpack` link now also navigates when the app is already open (the new intent was never handed to the navigation controller).
+- The Scrolling text screen and the GIF editor keep their inputs (text, colours, speed, size, rotation, mirror, Fit / Crop, playback) after the system kills the app process.
+- Once Bluetooth permission is permanently denied, the dead *Allow Bluetooth* button is replaced by an explanation and *Open permission settings*.
+- Changing the sort order in My Collection scrolls the grid back to the top.
+- The smoke test harness (`tools/apk_smoke.py`) uses the current screen names, finds the collapsed *Advanced* section and fails clearly when more than one adb device is attached.
 - Error messages no longer fall back to English (or raw exception text) in the Czech UI:
   search, categories, downloads, the GIF editor, the text banner and backpack commands show
   localized texts (cs + en); search and categories tell a missing API key, no connection and a

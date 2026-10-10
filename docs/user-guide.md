@@ -66,6 +66,10 @@ the system gallery.
     turn. The screen shows the number of programmes and the total size. Only 453 KB in total
     has been confirmed on hardware; above that, and above 8 programmes, a warning is shown
     because the backpack's real limit is unknown.
+- The **bin** icon on a tile deletes that GIF after one confirmation.
+- **Find duplicates** (next to *As on backpack*) groups GIFs with identical content. Each group
+  keeps one file; tick the extra copies you want to remove and confirm. Android may ask once more
+  for permission to delete files the app did not create.
 - **Import GIF** opens the Android picker. The app saves its own copy, so the original can
   live anywhere (including cloud providers) and later be moved or deleted.
 - **Share to the app**: in a gallery or file manager choose *Share → GifPack* on a
@@ -129,6 +133,7 @@ the public GitHub build, so treat it as experimental for now.
 1. On first use, allow **Bluetooth** (Android 12+: *Nearby devices*; Android 8–11:
    *Location*, required by Android for Bluetooth scanning). If you denied it, use
    **Open permission settings**.
+   If Bluetooth is switched off, the screen says so and **Turn on Bluetooth** switches it on.
 2. Switch the backpack on. Tap **Find device** and pick your backpack from the list.
 3. Next time, **Connect backpack** reconnects to the last device directly.
 4. After connecting, the app performs the session handshake, reads the panel state and asks
