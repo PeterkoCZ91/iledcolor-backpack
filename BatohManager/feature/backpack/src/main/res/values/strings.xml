@@ -85,6 +85,7 @@
     <string name="editor_send">Odeslat do batohu</string>
     <string name="backpack_program_name">Program</string>
     <string name="backpack_info_action">Info o batohu</string>
+    <string name="backpack_window_experiment">Okno uploadu (chunky před ACK, výchozí 2)</string>
     <string name="backpack_password_status_action">Stav hesla</string>
     <string name="backpack_playlist_test_action">Test playlistu</string>
     <string name="backpack_playlist_test_name">Test playlistu</string>

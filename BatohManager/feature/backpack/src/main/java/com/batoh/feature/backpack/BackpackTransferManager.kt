@@ -22,6 +22,7 @@ import com.batoh.core.data.bluetooth.UploadFailure
 import com.batoh.core.data.bluetooth.UploadHistory
 import com.batoh.core.data.bluetooth.UploadHistoryEntry
 import com.batoh.core.data.bluetooth.UploadOutcome
+import android.os.SystemClock
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -79,6 +80,13 @@ class BackpackTransferManager @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, null)
     private val _commandError = MutableStateFlow<String?>(null)
     val commandError = _commandError.asStateFlow()
+    /**
+     * How many data chunks of a single-programme upload may be in flight before an ACK (1 = classic stop-and-wait).
+     * 2 is the default: about 1.8x faster and clean on hardware; larger windows stay a diagnostics experiment
+     * (4 once aborted on a repeated ACK). Sequences and playlists always use stop-and-wait.
+     */
+    val uploadWindow = MutableStateFlow(2)
+
     private val _panelState = MutableStateFlow<BackpackCommands.State?>(null)
     val panelState = _panelState.asStateFlow()
     /** Advertised capabilities; rotation controls exist only when the firmware reports funCode 0x0100. */
@@ -576,7 +584,7 @@ class BackpackTransferManager @Inject constructor(
         val start = bluetoothManager.sendCommand(BackpackPayload.startFrame(payload))
         uploadStartFailure(start)?.let { throw UploadFailureException(it) }
         if (start != null && classifyUploadStart(start) == UploadStartDecision.AlreadyPresent) return UploadCompletion.AlreadyPresent
-        sendDataAndEnd(payload)
+        sendDataAndEnd(payload, window = uploadWindow.value)
         return UploadCompletion.Uploaded
     }
 
@@ -605,10 +613,12 @@ class BackpackTransferManager @Inject constructor(
     }
 
     /** Sends all data chunks of [payload] on A952 followed by the `54 01` end frame, waiting for ACK/echo. */
-    private suspend fun sendDataAndEnd(payload: ByteArray, itemIndex: Int = 0, itemCount: Int = 1) {
+    private suspend fun sendDataAndEnd(payload: ByteArray, itemIndex: Int = 0, itemCount: Int = 1, window: Int = 1) {
         val mtu = bluetoothManager.mtu
         if (BackpackFrame.chunkLength(mtu) < 64) throw UploadFailureException(UploadFailure.MtuTooSmall(mtu))
         val packets = BackpackFrame.dataChunks(payload, mtu)
+        val startedAt = SystemClock.elapsedRealtime()
+        if (window > 1) sendChunksPipelined(packets, window, itemIndex, itemCount) else
         for ((index, packet) in packets.withIndex()) {
             bluetoothManager.resetAckState()
             val written = bluetoothManager.writeDataSuspend(packet)
@@ -617,8 +627,58 @@ class BackpackTransferManager @Inject constructor(
                 ?.let { throw UploadFailureException(it) }
             updateUpload(UploadStage.Sending, (itemIndex + (index + 1).toFloat() / packets.size) / itemCount)
         }
+        val summary = "Chunks: ${packets.size} in ${SystemClock.elapsedRealtime() - startedAt} ms (window $window)"
+        Log.i("BackpackBLE", summary)
+        bluetoothManager.addBleLog(summary)
         updateUpload(UploadStage.Finishing, (itemIndex + 1).toFloat() / itemCount)
         endFailure(bluetoothManager.sendCommand(BackpackFrame.end(), charUuid = BluetoothLeManager.CHAR_DATA_UUID))
             ?.let { throw UploadFailureException(it) }
+    }
+
+    /**
+     * Sends chunks with up to [window] unacknowledged. ACKs must arrive in order with status 1 (a gap or any other status aborts, a repeat is ignored), and 2 s without a new ACK is a stall. Any failure closes the link so
+     * that late ACKs of in-flight chunks cannot leak into the next transfer.
+     */
+    private suspend fun sendChunksPipelined(packets: List<ByteArray>, window: Int, itemIndex: Int, itemCount: Int) = coroutineScope {
+        val total = packets.size
+        val acked = java.util.concurrent.atomic.AtomicInteger(0)
+        val lastAckAt = java.util.concurrent.atomic.AtomicLong(SystemClock.elapsedRealtime())
+        val rejected = java.util.concurrent.atomic.AtomicReference<UploadFailure?>(null)
+        val collector = launch(start = CoroutineStart.UNDISPATCHED) {
+            bluetoothManager.ackEvents.collect { (index, status) ->
+                val expected = acked.get()
+                when {
+                    status != 1 || index > expected -> rejected.compareAndSet(null, UploadFailure.ChunkRejected(index, total, status))
+                    // The firmware sometimes repeats an ACK; a repeat of an already confirmed chunk is harmless.
+                    index < expected -> Log.w("BackpackBLE", "Duplicate ACK for chunk $index")
+                    else -> {
+                        acked.incrementAndGet()
+                        lastAckAt.set(SystemClock.elapsedRealtime())
+                    }
+                }
+            }
+        }
+        // Suspends until [done] holds; fails on a rejected ACK or when no ACK arrived for 2 s.
+        suspend fun await(done: () -> Boolean) {
+            while (!done()) {
+                rejected.get()?.let { throw UploadFailureException(it) }
+                if (SystemClock.elapsedRealtime() - lastAckAt.get() > 2000) throw UploadFailureException(UploadFailure.ChunkTimeout(acked.get(), total))
+                delay(2)
+            }
+            rejected.get()?.let { throw UploadFailureException(it) }
+        }
+        try {
+            for ((index, packet) in packets.withIndex()) {
+                await { index - acked.get() < window }
+                if (!bluetoothManager.writeDataSuspend(packet)) throw UploadFailureException(UploadFailure.ChunkWriteFailed(index, total))
+                updateUpload(UploadStage.Sending, (itemIndex + acked.get().toFloat() / total) / itemCount)
+            }
+            await { acked.get() >= total }
+        } catch (e: Exception) {
+            if (e !is CancellationException) bluetoothManager.disconnect()
+            throw e
+        } finally {
+            collector.cancel()
+        }
     }
 }

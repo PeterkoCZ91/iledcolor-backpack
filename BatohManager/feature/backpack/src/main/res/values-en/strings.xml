@@ -85,6 +85,7 @@
     <string name="editor_send">Send to backpack</string>
     <string name="backpack_program_name">Program</string>
     <string name="backpack_info_action">Backpack info</string>
+    <string name="backpack_window_experiment">Upload window (chunks before ACK, default 2)</string>
     <string name="backpack_password_status_action">Password status</string>
     <string name="backpack_playlist_test_action">Playlist test</string>
     <string name="backpack_playlist_test_name">Playlist test</string>

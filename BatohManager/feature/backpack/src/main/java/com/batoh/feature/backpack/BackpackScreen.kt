@@ -48,6 +48,7 @@ class BackpackViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
     val connectionStatus = transfers.connectionStatus
     val bluetoothEnabled = transfers.bluetoothEnabled
+    val uploadWindow = transfers.uploadWindow
     val scannedDevices = transfers.scannedDevices
     val bleLog = transfers.bleLog
     val libraryGifs = getLocalGifs().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Result.Loading)
@@ -81,6 +82,7 @@ class BackpackViewModel @Inject constructor(
     fun sendTestImage() = transfers.sendTestImage()
     fun dumpBackpackInfo() = transfers.dumpBackpackInfo()
     fun queryPasswordStatus() = transfers.queryPasswordStatus()
+    fun setUploadWindow(window: Int) { transfers.uploadWindow.value = window }
     fun sendEffectTest(effect: Int) = transfers.sendEffectTest(effect)
     fun sendPlaylistTest() = transfers.sendPlaylistTest()
     fun autoConnectAndUpload() = transfers.autoConnectAndUpload()
@@ -104,6 +106,7 @@ fun BackpackScreen(
 ) {
     val status by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val bluetoothEnabled by viewModel.bluetoothEnabled.collectAsStateWithLifecycle()
+    val uploadWindow by viewModel.uploadWindow.collectAsStateWithLifecycle()
     val scannedDevices by viewModel.scannedDevices.collectAsStateWithLifecycle()
     val bleLog by viewModel.bleLog.collectAsStateWithLifecycle()
     val upload by viewModel.uploadState.collectAsStateWithLifecycle()
@@ -399,6 +402,13 @@ fun BackpackScreen(
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_password_status_action)) }
                     OutlinedButton(onClick = viewModel::sendPlaylistTest, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_playlist_test_action)) }
+                }
+                Text(stringResource(R.string.backpack_window_experiment), style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf(1, 2, 4, 8).forEach { w ->
+                        FilterChip(selected = uploadWindow == w, onClick = { viewModel.setUploadWindow(w) },
+                            label = { Text(w.toString()) }, enabled = controlsEnabled)
+                    }
                 }
                 Text(stringResource(R.string.backpack_effect_test_title), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {

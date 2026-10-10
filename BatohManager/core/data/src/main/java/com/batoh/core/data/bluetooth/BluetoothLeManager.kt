@@ -79,6 +79,10 @@ class BluetoothLeManager @Inject constructor(
     private val _lastAckIndex = MutableStateFlow<Int>(-1)
     val lastAckIndex = _lastAckIndex.asStateFlow()
 
+    /** Every data-chunk ACK as (index, status); lets a pipelined upload see all ACKs, not just the latest. */
+    private val _ackEvents = MutableSharedFlow<Pair<Int, Int>>(extraBufferCapacity = 512)
+    val ackEvents = _ackEvents.asSharedFlow()
+
     private val commandMutex = Mutex()
     private val pendingCommand = PendingCommandResponse()
 
@@ -714,6 +718,7 @@ class BluetoothLeManager @Inject constructor(
                 ((data[6].toInt() and 0xFF) shl 8) or (data[7].toInt() and 0xFF)
             lastAckStatus = data[8].toInt() and 0xFF
             _lastAckIndex.value = index
+            _ackEvents.tryEmit(index to lastAckStatus)
         }
         // Match only validated A953 responses and the requested opcode. Auth/data/ready
         // events cannot acknowledge an unrelated settings command.
