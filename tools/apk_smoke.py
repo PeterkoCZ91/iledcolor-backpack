@@ -125,12 +125,20 @@ class Smoke:
         self.fixture_uris = []
         self.current_step = "initializing"
 
-    def adb(self, *args, timeout=30):
-        result = subprocess.run(self.base + list(args), capture_output=True, text=True, timeout=timeout)
-        if result.returncode:
-            # Do not include arbitrary device output, serials, paths or credentials in reports.
-            raise RuntimeError(f"ADB operation failed: {args[0]}")
-        return result.stdout
+    def adb(self, *args, timeout=30, attempts=3):
+        for attempt in range(attempts):
+            result = subprocess.run(self.base + list(args), capture_output=True, text=True, timeout=timeout)
+            if not result.returncode:
+                return result.stdout
+            if "more than one device" in result.stderr:
+                # A second transport (e.g. wireless ADB of the same phone) appeared mid-run.
+                # Retrying cannot help; the caller must pass a serial or set ANDROID_SERIAL.
+                raise RuntimeError("More than one ADB device: pass a serial or set ANDROID_SERIAL")
+            # Transient transport hiccups (reconnects, offline flaps) are retried briefly.
+            if attempt + 1 < attempts:
+                time.sleep(1.0)
+        # Do not include arbitrary device output, serials, paths or credentials in reports.
+        raise RuntimeError(f"ADB operation failed: {args[0]}")
 
     def record(self, name, status="passed", detail=None):
         self.current_step = name
@@ -354,7 +362,7 @@ class Smoke:
         self.record("successful upload result persists after leaving and reopening backpack UI")
         self.back()
         self.see("Informace o aplikaci")
-        self.click("Knihovna")
+        self.click("Moje sbírka")
         self.see("Moje sbírka")
 
     def cancel_and_retry_upload(self, title):
@@ -378,7 +386,7 @@ class Smoke:
         self.record("retried upload result persists after navigation")
         self.back()
         self.see("Informace o aplikaci")
-        self.click("Knihovna")
+        self.click("Moje sbírka")
         self.see("Moje sbírka")
 
     def imported_rows(self, title):
@@ -453,7 +461,7 @@ class Smoke:
         labels = self.labels(self.tree())
         about = self.localized_label(labels, "Informace o aplikaci", "About the app")
         settings = self.localized_label(labels, "Nastavení aplikace", "App settings")
-        library = self.localized_label(labels, "Knihovna", "Collection")
+        library = self.localized_label(labels, "Moje sbírka", "My Collection")
         home = self.localized_label(labels, "Domů", "Home")
         backpack = self.localized_label(labels, "Batoh", "Backpack")
         library_screen = self.localized_label(labels, "Moje sbírka", "My Collection")
@@ -512,6 +520,13 @@ class Smoke:
                 raise RuntimeError("Clock sync or display state command failed")
             self.record("clock sync and display state query completed",
                         detail=f"brightness={panel_state[0]}/10; {panel_state[1]}")
+            # Since v63 the clear action lives in the collapsed "Advanced" section.
+            if "Smazat obsah batohu" not in self.labels(self.tree()):
+                for _ in range(3):  # the section sits below the fold on a normal screen
+                    if "Pokročilé" in self.labels(self.tree()):
+                        break
+                    self.adb("shell", "input", "swipe", "540", "1800", "540", "600")
+                self.click("Pokročilé")
             self.click("Smazat obsah batohu")
             self.see("Smazat obsah batohu?")
             self.wait(lambda tree: any("GIFy v knihovně telefonu zůstanou zachované" in label
@@ -557,7 +572,7 @@ class Smoke:
             self.click("Search")
             self.see("Search GIFs…", timeout=30)
             self.record("English search screen opens")
-            self.click("Collection")
+            self.click("My Collection")
             self.see("My Collection", timeout=30)
             self.record("English collection screen opens")
             valid_fixture = next((title for title, kind in fixtures if kind == "valid"), None)
@@ -588,7 +603,7 @@ class Smoke:
         self.click("Hledat")
         self.see("Hledat GIFy...", timeout=30)
         self.record("Czech search screen opens")
-        self.click("Knihovna")
+        self.click("Moje sbírka")
         self.see("Moje sbírka", timeout=30)
         self.record("Czech collection screen opens")
         valid_fixture = next((title for title, kind in fixtures if kind == "valid"), None)

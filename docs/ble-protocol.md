@@ -377,9 +377,17 @@ GifPack also checks that the ACK's index matches the chunk it just sent.
 
 ## 8. Timeouts and flow control
 
-The protocol is **strictly stop-and-wait**. The next frame is written only after the previous
+The manufacturer app is **strictly stop-and-wait**: the next frame is written only after the previous
 frame's ACK arrives. There are no deliberate delays between frames. On the manufacturer side, a
 chunk took about 60–150 ms per round trip in the captures. [CAP]
+
+GifPack sends a single-programme upload with **two chunks in flight** by default. [HW] ACKs must arrive in
+order with status 1; a gap or another status aborts, and a repeated ACK of an already confirmed chunk is
+ignored. Measured on a real unit, one programme of 180–196 chunks took about 15.5 s stop-and-wait and
+8.5 s with a window of 2. A window of 4 or 8 is available in the diagnostics only: it was clean for 10
+chunks, but with 4 an upload of 196 chunks aborted around chunk 57 after the unit sent the ACK of one chunk twice
+(nothing was stored; the panel fell back to its start screen until the next upload). Sequences and
+playlists always use stop-and-wait.
 
 | Item | GifPack | Manufacturer app [DER] |
 |---|---|---|

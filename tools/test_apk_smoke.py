@@ -16,6 +16,18 @@ spec.loader.exec_module(apk_smoke)
 
 
 class SmokeHarnessTests(unittest.TestCase):
+    def test_adb_retries_transient_failure_but_not_multi_device(self):
+        results = [mock.Mock(returncode=1, stderr="error: closed", stdout=""),
+                   mock.Mock(returncode=0, stderr="", stdout="ok")]
+        with mock.patch.object(apk_smoke.subprocess, "run", side_effect=results), \
+                mock.patch.object(apk_smoke.time, "sleep"):
+            self.assertEqual(apk_smoke.Smoke().adb("shell", "true"), "ok")
+        multi = mock.Mock(returncode=1, stderr="adb: more than one device/emulator", stdout="")
+        with mock.patch.object(apk_smoke.subprocess, "run", return_value=multi) as run:
+            with self.assertRaisesRegex(RuntimeError, "More than one ADB device"):
+                apk_smoke.Smoke().adb("shell", "true")
+            self.assertEqual(run.call_count, 1)
+
     def test_click_resolves_enabled_app_owned_clickable_parent(self):
         tree = ET.fromstring(
             '<hierarchy><node package="io.github.peterkocz91.gifpack" clickable="true" enabled="true" '
