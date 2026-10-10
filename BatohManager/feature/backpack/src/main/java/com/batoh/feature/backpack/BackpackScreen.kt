@@ -47,6 +47,7 @@ class BackpackViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
     val connectionStatus = transfers.connectionStatus
+    val bluetoothEnabled = transfers.bluetoothEnabled
     val scannedDevices = transfers.scannedDevices
     val bleLog = transfers.bleLog
     val libraryGifs = getLocalGifs().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Result.Loading)
@@ -102,6 +103,7 @@ fun BackpackScreen(
     viewModel: BackpackViewModel = hiltViewModel()
 ) {
     val status by viewModel.connectionStatus.collectAsStateWithLifecycle()
+    val bluetoothEnabled by viewModel.bluetoothEnabled.collectAsStateWithLifecycle()
     val scannedDevices by viewModel.scannedDevices.collectAsStateWithLifecycle()
     val bleLog by viewModel.bleLog.collectAsStateWithLifecycle()
     val upload by viewModel.uploadState.collectAsStateWithLifecycle()
@@ -224,6 +226,12 @@ fun BackpackScreen(
                         Uri.fromParts("package", context.packageName, null)
                     ))
                 }) { Text(stringResource(R.string.backpack_open_permission_settings)) }
+            }
+            if (permissionsGranted && !bluetoothEnabled) {
+                Text(stringResource(R.string.backpack_bluetooth_off), color = MaterialTheme.colorScheme.error)
+                Button(onClick = {
+                    context.startActivity(android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                }) { Text(stringResource(R.string.backpack_turn_on_bluetooth)) }
             }
             Button(
                 onClick = { showLibraryPicker = true },

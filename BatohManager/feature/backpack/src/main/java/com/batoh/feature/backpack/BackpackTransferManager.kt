@@ -68,6 +68,7 @@ class BackpackTransferManager @Inject constructor(
     val busy = combine(settingsBusy, transferBusy) { settings, transfer -> settings || transfer }
         .stateIn(scope, SharingStarted.Eagerly, false)
     val connectionStatus = bluetoothManager.connectionStatus
+    val bluetoothEnabled = bluetoothManager.bluetoothEnabled
     val scannedDevices = bluetoothManager.scannedDevices
     val bleLog = bluetoothManager.bleLog
     private val _uploadState = MutableStateFlow(UploadState())

@@ -8,6 +8,8 @@
     <string name="backpack_clear_message">This removes all saved images and animations from the backpack memory. GIFs in your phone library will remain untouched. You can upload them again from your library.</string>
     <string name="backpack_clear_confirm">Clear backpack contents</string>
     <string name="backpack_bluetooth_permission">Allow Bluetooth access to connect.</string>
+    <string name="backpack_bluetooth_off">Bluetooth is off. Turn it on to connect to the backpack.</string>
+    <string name="backpack_turn_on_bluetooth">Turn on Bluetooth</string>
     <string name="backpack_allow_bluetooth">Allow Bluetooth</string>
     <string name="backpack_open_permission_settings">Open permission settings</string>
     <string name="backpack_select_gif">Choose a GIF from your library</string>

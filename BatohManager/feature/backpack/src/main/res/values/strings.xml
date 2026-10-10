@@ -8,6 +8,8 @@
     <string name="backpack_clear_message">Odstraní všechny uložené obrázky a animace z paměti batohu. GIFy v knihovně telefonu zůstanou zachované. Obsah batohu pak můžeš znovu nahrát z knihovny.</string>
     <string name="backpack_clear_confirm">Smazat obsah batohu</string>
     <string name="backpack_bluetooth_permission">Pro připojení povol přístup k Bluetooth.</string>
+    <string name="backpack_bluetooth_off">Bluetooth je vypnutý. Zapni ho, aby se šlo připojit k batohu.</string>
+    <string name="backpack_turn_on_bluetooth">Zapnout Bluetooth</string>
     <string name="backpack_allow_bluetooth">Povolit Bluetooth</string>
     <string name="backpack_open_permission_settings">Otevřít nastavení oprávnění</string>
     <string name="backpack_select_gif">Vybrat GIF z knihovny</string>

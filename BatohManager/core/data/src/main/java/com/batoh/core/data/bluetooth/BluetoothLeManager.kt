@@ -14,7 +14,10 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
@@ -45,6 +48,26 @@ class BluetoothLeManager @Inject constructor(
     
     private val _scannedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val scannedDevices = _scannedDevices.asStateFlow()
+
+    // Adapter on/off, so the UI can offer to turn Bluetooth on instead of failing silently
+    private val _bluetoothEnabled = MutableStateFlow(adapter?.isEnabled == true)
+    val bluetoothEnabled = _bluetoothEnabled.asStateFlow()
+
+    init {
+        context.registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                if (state == BluetoothAdapter.STATE_OFF) {
+                    scanCallback = null
+                    _scannedDevices.value = emptyList()
+                    if (gatt == null) _connectionStatus.value = "Disconnected"
+                }
+                if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_OFF) {
+                    _bluetoothEnabled.value = state == BluetoothAdapter.STATE_ON
+                }
+            }
+        }, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+    }
 
     private val _connectionStatus = MutableStateFlow("Disconnected")
     val connectionStatus = _connectionStatus.asStateFlow()
