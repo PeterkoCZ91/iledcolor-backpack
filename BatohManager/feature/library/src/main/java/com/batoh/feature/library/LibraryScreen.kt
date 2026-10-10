@@ -95,6 +95,7 @@ fun LibraryRoute(
     val renaming by viewModel.renaming.collectAsStateWithLifecycle()
     val renameConsent by viewModel.renameConsent.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val duplicates by viewModel.duplicates.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var pendingImport by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val storagePermission = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -167,6 +168,10 @@ fun LibraryRoute(
             } else viewModel.toggleSelection(gif)
         },
         onClearSelection = viewModel::clearSelection,
+        duplicates = duplicates,
+        onFindDuplicates = viewModel::findDuplicates,
+        onDismissDuplicates = viewModel::dismissDuplicates,
+        onDeleteDuplicates = viewModel::deleteDuplicates,
         onChain = { viewModel.chainUris().takeIf { it.size >= LibrarySelection.MIN_TO_CHAIN }?.let(onChainGifs) }
     )
 }
@@ -196,7 +201,11 @@ fun LibraryScreen(
     onStartSelection: (Gif) -> Unit = {},
     onToggleSelection: (Gif) -> Unit = {},
     onClearSelection: () -> Unit = {},
-    onChain: () -> Unit = {}
+    onChain: () -> Unit = {},
+    duplicates: DuplicateScanState? = null,
+    onFindDuplicates: () -> Unit = {},
+    onDismissDuplicates: () -> Unit = {},
+    onDeleteDuplicates: (List<Gif>) -> Unit = {}
 ) {
     val selecting = selection.isNotEmpty()
     androidx.activity.compose.BackHandler(enabled = selecting, onBack = onClearSelection)
@@ -218,6 +227,8 @@ fun LibraryScreen(
     }
     var backpackView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+
+    duplicates?.let { DuplicatesDialog(it, onDelete = onDeleteDuplicates, onDismiss = onDismissDuplicates) }
 
     if (showHelp) {
         AlertDialog(
@@ -417,8 +428,12 @@ fun LibraryScreen(
                                         stringResource(R.string.library_backpack_view_hint),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false)
                                     )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                TextButton(onClick = onFindDuplicates, enabled = duplicates == null) {
+                                    Text(stringResource(R.string.library_duplicates_action))
                                 }
                             }
                             LibraryToolbar(
@@ -684,6 +699,17 @@ fun GifItem(
                             Spacer(Modifier.padding(2.dp))
                             Text(stringResource(R.string.library_remove), color = MaterialTheme.colorScheme.error)
                         }
+                    }
+                }
+            }
+            if (actionsAllowed && !selectionMode && broken == null) {
+                onRemove?.let { remove ->
+                    androidx.compose.material3.FilledIconButton(
+                        onClick = remove,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.library_delete_description, title),
+                            tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }

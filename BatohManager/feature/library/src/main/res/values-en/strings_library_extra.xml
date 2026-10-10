@@ -17,4 +17,17 @@
     <string name="library_remove_cancel">Cancel</string>
     <string name="library_backpack_view">As on backpack</string>
     <string name="library_backpack_view_hint">Pixel-exact 64×64 preview as the backpack shows it (first frame, centre crop).</string>
+    <string name="library_duplicates_action">Find duplicates</string>
+    <string name="library_duplicates_scanning">Looking for duplicates…</string>
+    <string name="library_duplicates_none">No duplicates found.</string>
+    <string name="library_duplicates_failed">Could not search for duplicates.</string>
+    <string name="library_duplicates_summary">Groups found: %1$d. One copy per group is always kept (marked); you can delete the others.</string>
+    <string name="library_duplicates_keep">Keep: %1$s</string>
+    <string name="library_duplicates_delete">Delete selected (%1$d)</string>
+    <string name="library_duplicates_close">Close</string>
+    <string name="library_duplicates_confirm_title">Delete duplicates?</string>
+    <string name="library_duplicates_confirm_message">%1$d copies will be deleted from the phone (Pictures/GifPack folder). This cannot be undone.</string>
+    <string name="library_duplicates_confirm">Delete</string>
+    <string name="library_duplicates_cancel">Cancel</string>
+    <string name="library_duplicates_delete_partial">Could not delete %1$d duplicates.</string>
 </resources>

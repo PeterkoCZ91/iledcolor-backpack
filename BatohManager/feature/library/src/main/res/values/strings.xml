@@ -10,6 +10,7 @@
     <string name="library_refresh">Obnovit</string>
     <string name="library_action_edit">Upravit pro batoh</string>
     <string name="library_edit_description">Upravit GIF pro batoh</string>
+    <string name="library_delete_description">Smazat GIF %1$s</string>
     <string name="library_send_description">Odeslat GIF do batohu</string>
     <string name="library_import">Import</string>
     <string name="library_importing">Importuji…</string>

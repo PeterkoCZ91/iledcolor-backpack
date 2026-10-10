@@ -10,6 +10,7 @@
     <string name="library_refresh">Refresh</string>
     <string name="library_action_edit">Edit for backpack</string>
     <string name="library_edit_description">Edit GIF for backpack</string>
+    <string name="library_delete_description">Delete GIF %1$s</string>
     <string name="library_send_description">Send GIF to backpack</string>
     <string name="library_import">Import</string>
     <string name="library_importing">Importing…</string>

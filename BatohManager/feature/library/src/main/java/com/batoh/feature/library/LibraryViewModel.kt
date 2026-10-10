@@ -18,6 +18,7 @@ import com.batoh.core.domain.usecase.RenameGifUseCase
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import com.batoh.core.domain.usecase.ImportGifUseCase
 import com.batoh.core.domain.usecase.InspectGifUseCase
 import kotlinx.coroutines.launch
@@ -32,6 +33,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import javax.inject.Inject
+
+/** State of the "Find duplicates" tool; null in the ViewModel means the dialog is closed. */
+sealed interface DuplicateScanState {
+    object Scanning : DuplicateScanState
+    /** [groups] hold collection GIFs (first = suggested original to keep); empty = no duplicates. */
+    data class Done(val groups: List<List<Gif>>) : DuplicateScanState
+}
 
 sealed interface LibraryUiState {
     object Loading : LibraryUiState
@@ -71,6 +79,9 @@ class LibraryViewModel @Inject constructor(
     private val _deleteConsent = MutableStateFlow<IntentSender?>(null)
     val deleteConsent = _deleteConsent.asStateFlow()
     private var pendingDelete: Gif? = null
+    private val _duplicates = MutableStateFlow<DuplicateScanState?>(null)
+    val duplicates = _duplicates.asStateFlow()
+    private var duplicateJob: kotlinx.coroutines.Job? = null
     fun showMessage(message: String) { _actionMessage.value = message }
 
     // Bumped by retry() to re-subscribe to the library source after a load error.
@@ -191,6 +202,67 @@ class LibraryViewModel @Inject constructor(
                 }
                 Result.Loading -> _actionMessage.value = localizedString(R.string.library_delete_incomplete)
             }
+        }
+    }
+
+    /** Hashes only files of equal size (off the main thread) and publishes the duplicate groups. */
+    fun findDuplicates() {
+        if (duplicateJob?.isActive == true) return
+        _duplicates.value = DuplicateScanState.Scanning
+        duplicateJob = viewModelScope.launch {
+            try {
+                val entries = (getLibraryEntriesUseCase().first { it is Result.Success } as Result.Success).data
+                val byId = entries.associate { it.gif.id to it.gif }
+                val resolver = getApplication<Application>().contentResolver
+                val finder = DuplicateFinder { c ->
+                    byId[c.id]?.let { resolver.openInputStream(Uri.parse(it.originalUrl)) }
+                }
+                val groups = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    finder.find(entries.map { DuplicateCandidate(it.gif.id, it.gif.title, it.sizeBytes) })
+                }
+                _duplicates.value = DuplicateScanState.Done(groups.map { g -> g.files.mapNotNull { byId[it.id] } })
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _duplicates.value = null
+                _actionMessage.value = localizedString(R.string.library_duplicates_failed)
+            }
+        }
+    }
+
+    fun dismissDuplicates() {
+        duplicateJob?.cancel()
+        _duplicates.value = null
+    }
+
+    /**
+     * Deletes the user-confirmed extra copies. Files Android refuses to delete directly are sent
+     * as one system delete request (API 30+) so the user confirms once.
+     */
+    fun deleteDuplicates(gifs: List<Gif>) {
+        _duplicates.value = null
+        if (gifs.isEmpty() || pendingDelete != null) return
+        viewModelScope.launch {
+            val needConsent = ArrayList<Gif>()
+            var failed = 0
+            for (gif in gifs) {
+                val result = deleteGifUseCase(gif)
+                if (result is Result.Error) {
+                    if (Build.VERSION.SDK_INT >= 30 && result.exception is SecurityException) needConsent.add(gif)
+                    else failed++
+                } else if (result !is Result.Success) failed++
+            }
+            if (needConsent.isNotEmpty()) {
+                try {
+                    _deleteConsent.value = MediaStore.createDeleteRequest(getApplication<Application>().contentResolver,
+                        needConsent.map { Uri.parse(it.originalUrl) }).intentSender
+                    return@launch
+                } catch (e: Exception) {
+                    failed += needConsent.size
+                }
+            }
+            _actionMessage.value = if (failed == 0) localizedString(R.string.library_delete_success)
+                else localizedString(R.string.library_duplicates_delete_partial, failed)
         }
     }
 

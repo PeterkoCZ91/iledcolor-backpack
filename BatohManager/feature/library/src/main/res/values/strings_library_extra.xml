@@ -17,4 +17,17 @@
     <string name="library_remove_cancel">Zrušit</string>
     <string name="library_backpack_view">Jak v batohu</string>
     <string name="library_backpack_view_hint">Náhled 64×64 po pixelech, jak ho zobrazí batoh (první snímek, oříznutí na střed).</string>
+    <string name="library_duplicates_action">Najít duplicity</string>
+    <string name="library_duplicates_scanning">Hledám duplicity…</string>
+    <string name="library_duplicates_none">Žádné duplicity nenalezeny.</string>
+    <string name="library_duplicates_failed">Duplicity se nepodařilo vyhledat.</string>
+    <string name="library_duplicates_summary">Nalezeno skupin: %1$d. Ponechá se vždy jedna kopie (označená); ostatní můžete smazat.</string>
+    <string name="library_duplicates_keep">Ponechat: %1$s</string>
+    <string name="library_duplicates_delete">Smazat označené (%1$d)</string>
+    <string name="library_duplicates_close">Zavřít</string>
+    <string name="library_duplicates_confirm_title">Smazat duplicity?</string>
+    <string name="library_duplicates_confirm_message">Smaže se %1$d kopií z telefonu (složka Obrázky/GifPack). Akci nelze vrátit.</string>
+    <string name="library_duplicates_confirm">Smazat</string>
+    <string name="library_duplicates_cancel">Zrušit</string>
+    <string name="library_duplicates_delete_partial">Nepodařilo se smazat %1$d duplicit.</string>
 </resources>
