@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -40,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -413,6 +415,17 @@ fun LibraryScreen(
                         ShimmerSkeletonGrid(gridColumns = gridColumns, itemCount = 8)
                     }
                     is LibraryUiState.Success -> {
+                        val gridState = rememberLazyGridState()
+                        // Re-ordering keeps the old scroll offset, which leaves the user in the
+                        // middle of a different list; jump to the top on a sort change (not on
+                        // first composition).
+                        var lastSort by remember { mutableStateOf(state.sort) }
+                        LaunchedEffect(state.sort) {
+                            if (state.sort != lastSort) {
+                                lastSort = state.sort
+                                gridState.scrollToItem(0)
+                            }
+                        }
                         Column {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -450,6 +463,7 @@ fun LibraryScreen(
                                         .semantics { liveRegion = LiveRegionMode.Polite }
                                 )
                             } else LazyVerticalGrid(
+                                state = gridState,
                                 columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),

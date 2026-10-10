@@ -3,6 +3,7 @@ package com.batoh.feature.backpack
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.batoh.core.common.Result
 import com.batoh.core.conversion.GifEditOptions
@@ -44,9 +45,13 @@ data class GifEditorUiState(
 class GifEditorViewModel @Inject constructor(
     application: Application,
     private val saveGifBytes: SaveGifBytesUseCase,
-    private val transfers: BackpackTransferManager
+    private val transfers: BackpackTransferManager,
+    private val savedState: SavedStateHandle
 ) : AndroidViewModel(application) {
-    private val _state = MutableStateFlow(GifEditorUiState())
+    // Only the user's choices survive process death; GIF bytes and frames are re-read from the URI.
+    private val _state = MutableStateFlow(
+        GifEditorUiState(options = restoreOptions(), playback = restorePlayback())
+    )
     val state = _state.asStateFlow()
     private val _sendEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val sendEvents = _sendEvents.asSharedFlow()
@@ -65,6 +70,7 @@ class GifEditorViewModel @Inject constructor(
     fun edit(options: GifEditOptions) {
         if (_state.value.saving || options == _state.value.options) return
         _state.value = _state.value.copy(options = options)
+        saveOptions(options)
         startConversion()
     }
 
@@ -74,6 +80,36 @@ class GifEditorViewModel @Inject constructor(
     fun setPlayback(playback: EditorPlaybackOptions) {
         if (_state.value.saving || playback == _state.value.playback) return
         _state.value = _state.value.copy(playback = playback)
+        savedState[KEY_SPEED] = playback.speed
+        savedState[KEY_LIGHT] = playback.light
+    }
+
+    private fun saveOptions(options: GifEditOptions) {
+        savedState[KEY_ROTATION] = options.rotationDegrees
+        savedState[KEY_MIRROR_H] = options.mirrorHorizontal
+        savedState[KEY_MIRROR_V] = options.mirrorVertical
+        savedState[KEY_SCALE] = options.scaleMode.name
+    }
+
+    private fun restoreOptions(): GifEditOptions {
+        val defaults = GifEditOptions(scaleMode = GifScaleMode.Fit)
+        return GifEditOptions(
+            rotationDegrees = savedState.get<Int>(KEY_ROTATION) ?: defaults.rotationDegrees,
+            mirrorHorizontal = savedState.get<Boolean>(KEY_MIRROR_H) ?: defaults.mirrorHorizontal,
+            mirrorVertical = savedState.get<Boolean>(KEY_MIRROR_V) ?: defaults.mirrorVertical,
+            scaleMode = savedState.get<String>(KEY_SCALE)
+                ?.let { name -> GifScaleMode.values().firstOrNull { it.name == name } }
+                ?: defaults.scaleMode
+        )
+    }
+
+    private fun restorePlayback(): EditorPlaybackOptions = try {
+        EditorPlaybackOptions(
+            speed = savedState.get<Int>(KEY_SPEED) ?: EditorPlaybackOptions.DEFAULT_SPEED,
+            light = savedState.get<Int>(KEY_LIGHT) ?: EditorPlaybackOptions.DEFAULT_LIGHT
+        )
+    } catch (e: IllegalArgumentException) {
+        EditorPlaybackOptions()
     }
 
     fun cancel() {
@@ -200,5 +236,14 @@ class GifEditorViewModel @Inject constructor(
                 _state.value = _state.value.copy(saving = false)
             }
         }
+    }
+
+    private companion object {
+        const val KEY_ROTATION = "editor_rotation"
+        const val KEY_MIRROR_H = "editor_mirror_h"
+        const val KEY_MIRROR_V = "editor_mirror_v"
+        const val KEY_SCALE = "editor_scale"
+        const val KEY_SPEED = "editor_speed"
+        const val KEY_LIGHT = "editor_light"
     }
 }

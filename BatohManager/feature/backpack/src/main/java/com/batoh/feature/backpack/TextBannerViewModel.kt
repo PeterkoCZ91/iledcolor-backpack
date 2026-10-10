@@ -1,5 +1,6 @@
 package com.batoh.feature.backpack
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.batoh.core.common.Result
@@ -7,6 +8,8 @@ import com.batoh.core.conversion.TextBannerLayout
 import com.batoh.core.conversion.TextBannerOptions
 import com.batoh.core.conversion.TextBannerPlan
 import com.batoh.core.conversion.TextBannerRenderer
+import com.batoh.core.conversion.TextBannerSize
+import com.batoh.core.conversion.TextBannerSpeed
 import com.batoh.core.data.bluetooth.BackpackPayload
 import com.batoh.core.domain.usecase.SaveGifBytesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,19 +43,26 @@ data class TextBannerUiState(
 @HiltViewModel
 class TextBannerViewModel @Inject constructor(
     private val saveGifBytes: SaveGifBytesUseCase,
-    private val transfers: BackpackTransferManager
+    private val transfers: BackpackTransferManager,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val _state = MutableStateFlow(TextBannerUiState())
+    // Typed inputs survive process death; generated GIF bytes are never persisted, only re-rendered.
+    private val _state = MutableStateFlow(TextBannerUiState(options = TextBannerSavedOptions.read { savedStateHandle[it] }))
     val state = _state.asStateFlow()
     val uploadState = transfers.uploadState
     val busy = transfers.busy
     private var renderJob: Job? = null
     private var saveJob: Job? = null
 
+    init {
+        if (_state.value.options.text.isNotBlank()) startRender(debounce = false)
+    }
+
     fun update(options: TextBannerOptions) {
         val limited = options.copy(text = options.text.take(TextBannerLayout.MAX_TEXT_LENGTH))
         if (_state.value.saving || limited == _state.value.options) return
         _state.value = _state.value.copy(options = limited)
+        TextBannerSavedOptions.write(limited) { key, value -> savedStateHandle[key] = value }
         startRender()
     }
 
@@ -130,5 +140,37 @@ class TextBannerViewModel @Inject constructor(
 
     private companion object {
         const val RENDER_DEBOUNCE_MS = 250L
+    }
+}
+
+/** Maps [TextBannerOptions] to primitives for SavedStateHandle; pure so it is unit-testable. */
+internal object TextBannerSavedOptions {
+    private const val TEXT = "text_banner_text"
+    private const val TEXT_COLOR = "text_banner_text_color"
+    private const val BACKGROUND_COLOR = "text_banner_background_color"
+    private const val SPEED = "text_banner_speed"
+    private const val SIZE = "text_banner_size"
+    private const val BOLD = "text_banner_bold"
+
+    fun write(options: TextBannerOptions, put: (String, Any) -> Unit) {
+        put(TEXT, options.text)
+        put(TEXT_COLOR, options.textColor)
+        put(BACKGROUND_COLOR, options.backgroundColor)
+        put(SPEED, options.speed.name)
+        put(SIZE, options.size.name)
+        put(BOLD, options.bold)
+    }
+
+    /** Missing or stale values fall back to the defaults. */
+    fun read(get: (String) -> Any?): TextBannerOptions {
+        val defaults = TextBannerOptions(text = "")
+        return TextBannerOptions(
+            text = (get(TEXT) as? String).orEmpty().take(TextBannerLayout.MAX_TEXT_LENGTH),
+            textColor = get(TEXT_COLOR) as? Int ?: defaults.textColor,
+            backgroundColor = get(BACKGROUND_COLOR) as? Int ?: defaults.backgroundColor,
+            speed = TextBannerSpeed.entries.firstOrNull { it.name == get(SPEED) } ?: defaults.speed,
+            size = TextBannerSize.entries.firstOrNull { it.name == get(SIZE) } ?: defaults.size,
+            bold = get(BOLD) as? Boolean ?: defaults.bold
+        )
     }
 }

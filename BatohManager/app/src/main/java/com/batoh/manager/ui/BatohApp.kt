@@ -51,6 +51,17 @@ fun BatohApp(
         color = MaterialTheme.colorScheme.background
     ) {
         val navController = rememberNavController()
+        // MainActivity is singleTop: a deep link to the running instance arrives via onNewIntent,
+        // which NavController does not observe on its own (it only reads the launch intent).
+        val activity = androidx.compose.ui.platform.LocalContext.current as? androidx.activity.ComponentActivity
+        androidx.compose.runtime.DisposableEffect(activity, navController) {
+            val listener = androidx.core.util.Consumer<android.content.Intent> { newIntent ->
+                // Only VIEW intents can carry a deep link; share intents are handled by MainActivity.
+                if (newIntent.action == android.content.Intent.ACTION_VIEW) navController.handleDeepLink(newIntent)
+            }
+            activity?.addOnNewIntentListener(listener)
+            onDispose { activity?.removeOnNewIntentListener(listener) }
+        }
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route.orEmpty()
         val isOnSearchRoute = currentRoute.startsWith("search")

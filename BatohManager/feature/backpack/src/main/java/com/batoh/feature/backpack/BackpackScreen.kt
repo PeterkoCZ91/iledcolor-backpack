@@ -145,8 +145,17 @@ fun BackpackScreen(
         }
         return permissionsGranted
     }
+    // Set once a request came back denied without a rationale: the system dialog will not show again.
+    var permanentlyDenied by rememberSaveable { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (checkPermissions()) viewModel.onPermissionsGranted()
+        var activity: android.content.Context? = context
+        while (activity is android.content.ContextWrapper && activity !is android.app.Activity) activity = activity.baseContext
+        val host = activity as? android.app.Activity
+        permanentlyDenied = !checkPermissions() && host != null && permissions.any {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(host, it)
+        }
+        if (permissionsGranted) viewModel.onPermissionsGranted()
     }
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -222,13 +231,19 @@ fun BackpackScreen(
             BackpackDeviceCard(deviceName, advertisement)
             if (!permissionsGranted) {
                 Text(stringResource(R.string.backpack_bluetooth_permission), color = MaterialTheme.colorScheme.error)
-                Button(onClick = { launcher.launch(permissions.toTypedArray()) }) { Text(stringResource(R.string.backpack_allow_bluetooth)) }
-                TextButton(onClick = {
+                val openSettings = {
                     context.startActivity(android.content.Intent(
                         android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.fromParts("package", context.packageName, null)
                     ))
-                }) { Text(stringResource(R.string.backpack_open_permission_settings)) }
+                }
+                if (permanentlyDenied) {
+                    Text(stringResource(R.string.backpack_permission_blocked))
+                    Button(onClick = openSettings) { Text(stringResource(R.string.backpack_open_permission_settings)) }
+                } else {
+                    Button(onClick = { launcher.launch(permissions.toTypedArray()) }) { Text(stringResource(R.string.backpack_allow_bluetooth)) }
+                    TextButton(onClick = openSettings) { Text(stringResource(R.string.backpack_open_permission_settings)) }
+                }
             }
             if (permissionsGranted && !bluetoothEnabled) {
                 Text(stringResource(R.string.backpack_bluetooth_off), color = MaterialTheme.colorScheme.error)
