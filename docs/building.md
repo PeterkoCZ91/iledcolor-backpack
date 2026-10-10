@@ -58,7 +58,7 @@ The full check used before handing over a build adds every module's unit tests:
 
 The debug APK is written to `BatohManager/app/build/outputs/apk/debug/app-debug.apk`. The
 version comes from `app/build.gradle.kts` (`versionCode`, `versionName = "v<versionCode>"`);
-current debug builds are `versionCode 63`.
+current debug builds are `versionCode 64`.
 
 ## API keys
 
