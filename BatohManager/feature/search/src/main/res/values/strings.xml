@@ -58,6 +58,7 @@
     <string name="search_error_generic">Něco se pokazilo. Zkus to znovu.</string>
     <string name="search_error_missing_key">Pro tento zdroj chybí API klíč. Zadej ho v Nastavení → API klíče.</string>
     <string name="search_error_network">Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.</string>
+    <string name="search_error_rate_limited">Služba GIFů hlásí příliš mnoho požadavků (limit klíče). Zkus to za chvíli, nejlépe za hodinu.</string>
     <string name="search_error_server">Služba s GIFy teď neodpovídá. Zkus to za chvíli.</string>
     <string name="search_empty">Žádné výsledky.</string>
     <string name="search_retry">Zkusit znovu</string>

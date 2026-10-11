@@ -15,6 +15,11 @@ class SearchErrorsTest {
         assertEquals(LoadError.Network, IOException("wrapped", UnknownHostException()).toLoadError())
     }
 
+    @Test fun http429IsRateLimitedOtherHttpIsServer() {
+        assertEquals(LoadError.RateLimited, retrofit2.HttpException(429).toLoadError())
+        assertEquals(LoadError.Server, retrofit2.HttpException(500).toLoadError())
+    }
+
     @Test fun unknownOrMissingCauseIsGeneric() {
         assertEquals(LoadError.Unknown, IllegalStateException("Unexpected JSON").toLoadError())
         assertEquals(LoadError.Unknown, (null as Throwable?).toLoadError())

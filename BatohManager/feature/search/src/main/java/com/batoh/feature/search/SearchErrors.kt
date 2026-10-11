@@ -12,7 +12,7 @@ import javax.net.ssl.SSLException
  * Why loading GIFs or categories failed. Exception messages are English and often null, so the
  * UI never shows them; it shows the localized text of the kind instead.
  */
-enum class LoadError { MissingApiKey, Network, Server, Unknown }
+enum class LoadError { MissingApiKey, Network, RateLimited, Server, Unknown }
 
 internal fun Throwable?.toLoadError(): LoadError {
     var cause = this
@@ -25,16 +25,22 @@ internal fun Throwable?.toLoadError(): LoadError {
             is InterruptedIOException, is SSLException -> return LoadError.Network
         }
         // Retrofit is not a dependency of this module; match its HTTP error by name.
-        if (cause.javaClass.name == "retrofit2.HttpException") return LoadError.Server
+        if (cause.javaClass.name == "retrofit2.HttpException") {
+            return if (cause.httpCode() == 429) LoadError.RateLimited else LoadError.Server
+        }
         cause = cause.cause
     }
     return LoadError.Unknown
 }
 
+private fun Throwable.httpCode(): Int? =
+    runCatching { javaClass.getMethod("code").invoke(this) as? Int }.getOrNull()
+
 @StringRes
 internal fun LoadError.messageRes(): Int = when (this) {
     LoadError.MissingApiKey -> R.string.search_error_missing_key
     LoadError.Network -> R.string.search_error_network
+    LoadError.RateLimited -> R.string.search_error_rate_limited
     LoadError.Server -> R.string.search_error_server
     LoadError.Unknown -> R.string.search_error_generic
 }
