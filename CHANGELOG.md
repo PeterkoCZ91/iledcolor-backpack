@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 64).
+yet; debug builds are identified by their `versionCode` (currently 65).
 
 ## [Unreleased]
 
@@ -60,6 +60,7 @@ yet; debug builds are identified by their `versionCode` (currently 64).
   instead of falling back to a built-in device address.
 
 ### Fixed
+- Search and categories show a dedicated "too many requests" message when the GIF service answers HTTP 429 (key rate limit) instead of the generic "service not responding".
 - A `gifpack://backpack` link now also navigates when the app is already open (the new intent was never handed to the navigation controller).
 - The Scrolling text screen and the GIF editor keep their inputs (text, colours, speed, size, rotation, mirror, Fit / Crop, playback) after the system kills the app process.
 - Once Bluetooth permission is permanently denied, the dead *Allow Bluetooth* button is replaced by an explanation and *Open permission settings*.
