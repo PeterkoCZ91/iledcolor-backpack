@@ -39,7 +39,7 @@ logcat — including the API key in the query string. It is disabled in release 
 | Source | Where it lives | Notes |
 | --- | --- | --- |
 | Build time (`GIPHY_API_KEY`, `KLIPY_API_KEY` from `local.properties`, Gradle property or env) | `BuildConfig` of `core/data`, inside the APK | Extractable from the APK. CI and release builds have none — do not set these variables in the release workflow. |
-| Settings → API keys | SharedPreferences `batoh_ui_preferences` (`giphy_api_key`, `klipy_api_key`), plain text in app-private storage | Takes precedence over the build-time key. Included in Android backup (see below). |
+| More → API keys | SharedPreferences `batoh_ui_preferences` (`giphy_api_key`, `klipy_api_key`), plain text in app-private storage | Takes precedence over the build-time key. Included in Android backup (see below). |
 
 Keys are sent only to their own service, as a query parameter over HTTPS.
 
@@ -48,7 +48,7 @@ Keys are sent only to their own service, as a query parameter over HTTPS.
 | Store | Contents | Location |
 | --- | --- | --- |
 | MediaStore `Pictures/GifPack` | Downloaded, imported, edited, generated GIFs | Shared storage — visible to the gallery and apps with media access; survives uninstall; excluded from app backup |
-| SharedPreferences `batoh_ui_preferences` | Theme, grid columns, user interests, API keys typed in Settings | App-private |
+| SharedPreferences `batoh_ui_preferences` | Theme, grid columns, user interests, API keys typed in the app | App-private |
 | SharedPreferences `backpack_upload_history` | Last 10 uploads: title, time, outcome, failure reason code | App-private |
 | SharedPreferences `backpack_connection` | Last device address; per address: advertised name and raw advertisement bytes | App-private |
 | Room database | Search history, cached Giphy / Klipy results (with the query), category pins / last use | App-private |
@@ -59,7 +59,7 @@ Keys are sent only to their own service, as a query parameter over HTTPS.
 
 **Backup:** `allowBackup="true"`; `backup_rules.xml` and `data_extraction_rules.xml` include
 `root`, `database` and `sharedpref`, exclude `external`, and **exclude
-`batoh_ui_preferences.xml`** — the file holding API keys typed in Settings (together with UI
+`batoh_ui_preferences.xml`** — the file holding API keys typed in the app (together with UI
 preferences such as theme and interests, which are therefore not restored either). Upload history
 and the remembered backpack are still backed up.
 

@@ -47,6 +47,7 @@ class SearchViewModel @Inject constructor(
     private val searchLospecGifsUseCase: SearchLospecGifsUseCase,
     private val saveGifUseCase: SaveGifUseCase,
     private val observeDownloadUseCase: ObserveDownloadUseCase,
+    private val getDownloadedGifUriUseCase: GetDownloadedGifUriUseCase,
     private val searchHistoryRepository: SearchHistoryRepository
 ) : ViewModel() {
 
@@ -65,6 +66,7 @@ class SearchViewModel @Inject constructor(
         scope = viewModelScope,
         save = { url, title -> saveGifUseCase(url, title) },
         observe = { id -> observeDownloadUseCase(id) },
+        resultUri = { id -> getDownloadedGifUriUseCase(id) },
         restoredWorkIds = savedStateHandle.get<HashMap<String, String>>("download_work_ids") ?: emptyMap(),
         onWorkQueued = { key, id ->
             val ids = HashMap(savedStateHandle.get<HashMap<String, String>>("download_work_ids") ?: emptyMap())
@@ -73,6 +75,10 @@ class SearchViewModel @Inject constructor(
         }
     )
     val saveStates = downloads.states
+    /** Tile keys whose "send to panel" is waiting for the save to finish. */
+    val sendingKeys = downloads.sending
+    /** Local URIs of saved GIFs the user asked to send to a panel. */
+    val sendReady = downloads.sendReady
 
     val searchHistory: StateFlow<List<String>> = searchHistoryRepository.getRecentHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -144,6 +150,7 @@ class SearchViewModel @Inject constructor(
     }
 
     fun saveGif(gif: Gif) = downloads.save(gif)
+    fun sendToPanel(gif: Gif) = downloads.saveAndSend(gif)
 
     private fun invalidateSearch() {
         requests.invalidate()

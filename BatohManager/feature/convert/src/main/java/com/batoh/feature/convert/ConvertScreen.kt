@@ -57,6 +57,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
+// Darker green: white button text keeps >= 4.5:1 contrast.
+private val SuccessGreen = Color(0xFF2E7D32)
+
 @Composable
 fun ConvertRoute(
     onBack: () -> Unit,
@@ -144,7 +147,7 @@ fun ConvertScreen(
                         label = stringResource(R.string.convert_downloading, uiState.progress),
                         progress = uiState.progress / 100f
                     )
-                    Button(onClick = onCancel) { Text(stringResource(R.string.convert_cancel)) }
+                    Button(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.convert_cancel)) }
                 }
 
                 is ConvertUiState.Converting -> {
@@ -152,7 +155,7 @@ fun ConvertScreen(
                         label = stringResource(R.string.convert_converting, uiState.progress),
                         progress = uiState.progress / 100f
                     )
-                    Button(onClick = onCancel) { Text(stringResource(R.string.convert_cancel)) }
+                    Button(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.convert_cancel)) }
                 }
 
                 is ConvertUiState.Cancelling -> {
@@ -294,7 +297,7 @@ private fun PreviewContent(
     Text(
         text = stringResource(R.string.convert_saved),
         style = MaterialTheme.typography.titleMedium,
-        color = Color(0xFF4CAF50),
+        color = MaterialTheme.colorScheme.onSurface,
         textAlign = TextAlign.Center,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     )
@@ -334,7 +337,7 @@ private fun PreviewContent(
             .heightIn(min = 72.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF4CAF50)
+            containerColor = SuccessGreen
         )
     ) {
         Text(

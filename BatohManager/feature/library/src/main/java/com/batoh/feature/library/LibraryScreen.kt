@@ -24,14 +24,12 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import android.util.Log
+import com.batoh.core.common.LastPanelSize
 import com.batoh.core.domain.model.Gif
 import com.batoh.core.ui.components.ShimmerSkeletonGrid
 import com.batoh.core.ui.components.shimmerEffect
@@ -571,16 +569,18 @@ fun GifItem(
     val context = LocalContext.current
     var loadingPreview by remember(gif.thumbnailUrl, backpackView) { mutableStateOf(true) }
     var previewFailed by remember(gif.thumbnailUrl, backpackView) { mutableStateOf(false) }
-    val thumbnailRequest = remember(gif.thumbnailUrl, backpackView) {
+    // Last connected panel (64×64 if none), sampled with the scale mode its send uses.
+    val (panelWidth, panelHeight) = remember(backpackView) { LastPanelSize.read(context) }
+    val thumbnailRequest = remember(gif.thumbnailUrl, backpackView, panelWidth, panelHeight) {
         ImageRequest.Builder(context)
             .data(gif.thumbnailUrl)
             .apply {
                 if (backpackView) {
-                    // Static first frame, sampled to the exact 64×64 panel grid like the upload path.
+                    // Static first frame, sampled to the exact panel grid like the upload path.
                     decoderFactory(BitmapFactoryDecoder.Factory())
                     size(512)
                     allowHardware(false)
-                    transformations(BackpackPreviewTransformation(crop = true))
+                    transformations(BackpackPreviewTransformation(panelWidth = panelWidth, panelHeight = panelHeight))
                 } else {
                     size(256)
                     crossfade(true)

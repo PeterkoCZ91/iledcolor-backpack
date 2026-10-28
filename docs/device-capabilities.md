@@ -1,5 +1,8 @@
 # iledcolor LED backpack: device capabilities
 
+*Sections 1–8 describe the iledcolor backpack. The iPixel Color family is covered in
+[section 9](#9-ipixel-color-advertisement).*
+
 The backpack has **no GATT command** that reports its panel size, firmware version or feature
 set. All of this is in a short binary record inside its **BLE advertisement** (scan record). Both
 the manufacturer app and GifPack read this record before or while connecting, and decide
@@ -186,3 +189,46 @@ observations from the same test:
 Other units may advertise different capabilities. If you have one, the `ADV` line in the app's
 BLE log shows its values. Reports of other funCode and versionCode combinations would help
 confirm the rows marked [DER].
+
+---
+
+## 9. iPixel Color advertisement
+
+iPixel Color panels (`LED_BLE_XXXXXXXX`) carry no `TBD`/`SL` signature, so the parser of
+section 1 ignores them. They are recognised by their own record. [HW] on two units, so treat the
+details as a hint until more panels are seen.
+
+| Part | Value |
+|---|---|
+| Name | `LED_BLE_` + 8 hex digits |
+| AD type | `0xFF` (manufacturer specific data) |
+| Company id | `0x5254` (bytes `54 52` on the wire) |
+| Value | 7 bytes, for example `00 72 00 07 02 00 81` (32 × 32) and `00 72 00 07 01 00 83` (64 × 16) |
+| **Last value byte** | the **device type**; it equalled the type byte of the info reply on both units |
+
+After connecting, GifPack sends the info query (see [ble-protocol.md](ble-protocol.md#132-device-info-and-size-hw))
+and the reply's type byte wins over the advertised one (a difference is written to the BLE log).
+The type decides the size:
+
+| Type | Size (w × h) | | Type | Size |
+|---|---|---|---|---|
+| `0x80` | 64 × 64 [DER] | | `0x8A` | 64 × 32 [DER] |
+| `0x81` | **32 × 32 [HW]** | | `0x8B` | 96 × 32 [DER] |
+| `0x82` | 32 × 16 [DER] | | `0x8C` | 128 × 32 [DER] |
+| `0x83` | **64 × 16 [HW]** | | `0x8D` | 96 × 32 [DER] |
+| `0x84` | 96 × 16 [DER] | | `0x8E` | 160 × 32 [DER] |
+| `0x85` | 64 × 20 [DER] | | `0x8F` | 192 × 32 [DER] |
+| `0x86` | 128 × 32 [DER] | | `0x90` | 256 × 32 [DER] |
+| `0x87` | 144 × 16 [DER] | | `0x91` | 320 × 32 [DER] |
+| `0x88` | 192 × 16 [DER] | | `0x92` | 384 × 32 [DER] |
+| `0x89` | 48 × 24 [DER] | | `0x93` | 448 × 32 [DER] |
+
+The [DER] sizes come from the open-source [pypixelcolor](https://github.com/lucagoc/pypixelcolor)
+project and have not been seen on hardware; the app shows them as "untested size". A type that is
+not in the table is listed but nothing is sent to it.
+
+What GifPack does with the record: it shows family and size in the panel list and on the device
+card, renders previews, the editor and uploads at that size, and connects to the panel only after
+the user picked it in the list. There is no `funCode`; backpack-only features (brightness, screen
+switch, rotation, built-in programmes, password) are hidden for this family. The size of the last
+connected panel is remembered so previews and the editor use it while disconnected.

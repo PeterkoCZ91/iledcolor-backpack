@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="detail_backpack_preview_description">Náhled 64×64, jak ho zobrazí batoh</string>
+    <string name="detail_backpack_preview_description">Náhled %1$d×%2$d, jak ho zobrazí panel</string>
 </resources>

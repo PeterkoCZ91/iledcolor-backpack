@@ -19,13 +19,16 @@ sealed class Screen(val route: String) {
         fun createRoute(uris: List<String>) =
             "gif-chain?gif_uris=${android.net.Uri.encode(uris.joinToString(",") { android.net.Uri.encode(it) })}"
     }
-    object Categories : Screen("categories")
+    object More : Screen("more")
     data object Convert : Screen("convert")
     data object TextBanner : Screen("text-banner")
-    data object Backpack : Screen("backpack?auto_test={auto_test}&gif_uri={gif_uri}") {
+    data object Backpack : Screen("backpack?auto_test={auto_test}&gif_uri={gif_uri}&my_panels={my_panels}") {
         const val ARG_AUTO_TEST = "auto_test"
         const val ARG_GIF_URI = "gif_uri"
-        fun uploadRoute(gifUri: String) = "backpack?gif_uri=${android.net.Uri.encode(gifUri)}"
+        /** With [ARG_GIF_URI]: send the GIF to all of the user's picked panels instead of the connected one. */
+        const val ARG_MY_PANELS = "my_panels"
+        fun uploadRoute(gifUri: String, toMyPanels: Boolean = false) =
+            "backpack?gif_uri=${android.net.Uri.encode(gifUri)}" + if (toMyPanels) "&my_panels=true" else ""
         fun createRoute(autoTest: Boolean = false) =
             if (autoTest) "backpack?auto_test=true" else "backpack"
     }

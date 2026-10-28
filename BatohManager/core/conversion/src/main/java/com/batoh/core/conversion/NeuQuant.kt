@@ -36,7 +36,6 @@ internal class NeuQuant(
         private const val INTBIASSHIFT = 16
         private const val INTBIAS = 1 shl INTBIASSHIFT
         private const val GAMMASHIFT = 10
-        private const val GAMMA = 1 shl GAMMASHIFT
         private const val BETASHIFT = 10
         private const val BETA = INTBIAS shr BETASHIFT
         private const val BETAGAMMA = INTBIAS shl (GAMMASHIFT - BETASHIFT)

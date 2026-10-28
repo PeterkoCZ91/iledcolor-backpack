@@ -123,6 +123,32 @@ class GifEditorProcessorTest {
     }
 
     @Test
+    fun transform_outputs64x16() {
+        val source = fixture(64, 64, listOf(Frame(ByteArray(4096) { (it % 4).toByte() })))
+        val info = SafeGifDecoder.validate(GifEditorProcessor.transform(source, width = 64, height = 16).gifBytes)
+        assertEquals(64, info.width)
+        assertEquals(16, info.height)
+    }
+
+    @Test
+    fun transformPixels_fitLetterboxesSquareInto64x16() {
+        val pixels = IntArray(16) { red }
+        val out = GifEditorProcessor.transformPixels(pixels, 4, 4, GifEditOptions(scaleMode = GifScaleMode.Fit), 64, 16)
+        assertEquals(64 * 16, out.size)
+        for (y in 0 until 16) for (x in 0 until 64) {
+            val expected = if (x in 24..39) red else black
+            assertEquals("x=$x y=$y", expected, out[y * 64 + x])
+        }
+    }
+
+    @Test
+    fun defaultScaleMode_fitsWhenAspectDiffersTwofold() {
+        assertEquals(GifScaleMode.Fit, GifEditorProcessor.defaultScaleMode(64, 64, 64, 16))
+        assertEquals(GifScaleMode.CenterCrop, GifEditorProcessor.defaultScaleMode(64, 48, 64, 64))
+        assertEquals(GifScaleMode.CenterCrop, GifEditorProcessor.defaultScaleMode(320, 100, 96, 32))
+    }
+
+    @Test
     fun cancellationStopsDecodeAndTransform() {
         val source = fixture(64, 64, listOf(Frame(ByteArray(4096) { 1 })))
         assertThrows(InterruptedException::class.java) {

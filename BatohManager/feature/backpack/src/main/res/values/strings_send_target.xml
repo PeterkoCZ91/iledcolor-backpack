@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="send_target_title">Kam poslat?</string>
+    <string name="send_target_connected">připojený</string>
+    <string name="send_target_all">Všechny moje panely</string>
+    <string name="send_target_all_hint">GIF se pošle postupně na všechny tvoje panely v dosahu.</string>
+    <string name="send_target_none">Žádný tvůj panel teď není v dosahu. Zapni panel, přibliž se k němu a zkus to znovu.</string>
+    <string name="send_target_retry">Hledat znovu</string>
+    <string name="send_target_sending">Odesílám na %1$s</string>
+    <string name="send_target_sending_sized">Odesílám na %1$s (%2$s)</string>
+    <string name="send_target_a11y_send_to">Poslat na panel %1$s</string>
+    <string name="send_target_a11y_send_all">Poslat na všechny moje panely</string>
+    <string name="send_action">Odeslat GIF</string>
+    <string name="send_action_a11y">Odeslat GIF na panel. Vybereš, jestli z telefonu, nebo ze sbírky.</string>
+    <string name="send_source_title">Odeslat GIF z…</string>
+    <string name="send_source_phone">Z telefonu</string>
+    <string name="send_source_phone_hint">Galerie nebo jiný soubor v telefonu.</string>
+    <string name="send_source_phone_a11y">Vybrat GIF z telefonu</string>
+    <string name="send_source_collection">Ze sbírky</string>
+    <string name="send_source_collection_hint">GIFy uložené v aplikaci.</string>
+    <string name="send_source_collection_a11y">Vybrat GIF ze sbírky</string>
+</resources>

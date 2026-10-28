@@ -10,8 +10,8 @@ device captures do not belong here.
 
 1. [Download the APK](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) — a debug build
    without API keys; no login needed (see the checksum in the release notes).
-2. [User guide](user-guide.md) — home, search, collection, joining GIFs, editor, scrolling text and
-   the backpack screen, step by step.
+2. [User guide](user-guide.md) — the five tabs, search, collection, joining GIFs, editor, scrolling text and
+   the Panel tab, step by step.
 3. [Troubleshooting](troubleshooting.md) — Bluetooth permissions, GATT error 133, MTU,
    missing API keys and rejected uploads.
 
@@ -43,7 +43,8 @@ device captures do not belong here.
 ## Feature maturity
 
 "Verified" means confirmed on the tested backpack (iledcolor 64 × 64, `funCode 0x0044`,
-firmware 14) with a phone, not only by unit tests.
+firmware 14) with a phone, not only by unit tests. iPixel Color panels were verified on one
+32 × 32 and one 64 × 16 unit (PNG and GIF uploads); other iPixel sizes are untested.
 
 | Area | Maturity | Notes |
 | --- | --- | --- |
@@ -52,12 +53,14 @@ firmware 14) with a phone, not only by unit tests.
 | Background download with status and retry | Working | WorkManager; downloaded files are validated before saving. |
 | Collection, picker import, share-to-app import | Verified on a phone | Copies are written to `Pictures/GifPack`; malformed GIFs are rejected without a crash. |
 | Safe GIF decoder | Working, unit-tested | 20 MiB, 600 frames, 4 M canvas pixels, 64 M decoded pixels; cancellable. |
-| 64 × 64 panel preview (library, detail) | Working, unit-tested | Same sampling as the upload converter. |
+| Panel preview (library, detail) | Working, unit-tested | Same sampling as the upload converter, at the connected panel's size (64 × 64 by default). |
 | Editor: rotation, flips, fit / crop | Working, unit-tested | Physical colours and playback on the panel not audited. |
 | Editor: programme speed and brightness | Experimental | Bytes are written into the payload; effect on the panel not verified. |
 | Scrolling text banner | Verified | A 136-frame / 85 KB banner uploaded (backpack confirmed) and scrolls on the panel. |
 | Join GIFs (multi-select, order, pause, preview) | Verified upload; experimental above 96 frames / 453 KB | A 33-frame / 95 KB result was confirmed by the backpack. Larger results show a warning because only 453 KB / 96 frames is confirmed; above 600 frames / 20 MiB it is blocked. |
 | Send as a sequence (several programmes in turn) | Verified | Two programmes (181 KB in total) sent with `0x03` headers and a closing `0x08` alternate on the panel; the maximum number of programmes and the total capacity are unknown. |
+| iPixel Color panels (`LED_BLE_*`) | Verified on 32 × 32 and 64 × 16 | Images, GIFs and text banners to the display slot; connected only after the user picks the panel; other sizes untested. |
+| Prepared texts | Working, unit-tested | Saved banner texts sent with one tap, rendered at send time for the connected panel. |
 | Video URL → GIF | Experimental; verified on a phone | MP4 up to 100 MB, up to 30 frames at 64 × 64. The https URL → download → convert → preview → save flow and the on-device converter test passed; http URLs are refused. |
 | GIF upload (Cmd 06 → chunks → end) | Verified | Small GIF, 453 KB / 96-frame GIF, cancel and retry. |
 | "Already on backpack" status | Verified | Re-sending an identical GIF returns status 3 and skips the data transfer. |
@@ -67,7 +70,7 @@ firmware 14) with a phone, not only by unit tests.
 | Status query | Verified | Reads screen, brightness, rotation, mirror — not free memory. |
 | Clock sync on connect | Gated, verified | Sent only when the device advertises time support (bit `0x0001`); skipped on the tested backpack. |
 | Device card | Verified | Name, firmware, panel size, colours and features from the advertisement. |
-| Home tile backpack status | Verified on a phone | Connection state and device name; firmware in the accessibility label. |
+| Home panel status card | Verified on a phone | Connection state and device name; firmware in the accessibility label. |
 | Upload failure reasons | Verified (cancel) | Typed reason plus a "what to do" hint in the upload card and history; other reasons unit-tested. |
 | Upload history | Verified | Last 10 uploads; separates "confirmed by backpack" from failed / cancelled. |
 | Built-in programmes | Count verified, playback unverified | The 0x0D query answers 0 on the tested backpack, so the picker stays hidden. |

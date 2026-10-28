@@ -5,12 +5,15 @@
     <string name="text_banner_input_hint">%1$d / %2$d characters</string>
     <string name="text_banner_preview_title">Preview</string>
     <string name="text_banner_preview_description">Scrolling text preview</string>
-    <string name="text_banner_empty">Type the text that should scroll across the backpack.</string>
+    <string name="text_banner_empty">Type the text that should scroll across the panel.</string>
     <string name="text_banner_rendering">Rendering…</string>
-    <string name="text_banner_info">%1$d frames · %2$.1f s · %3$d kB</string>
+        <plurals name="text_banner_info">
+        <item quantity="one">%1$d frame · %2$.1f s · %3$d kB</item>
+        <item quantity="other">%1$d frames · %2$.1f s · %3$d kB</item>
+    </plurals>
     <string name="text_banner_text_color">Text color</string>
     <string name="text_banner_background_color">Background color</string>
-    <string name="text_banner_same_colors">Text and background have the same color, the text will be invisible.</string>
+    <string name="text_banner_same_colors">Text and background have the same color, so the text will be invisible.</string>
     <string name="text_banner_speed">Speed</string>
     <string name="text_banner_speed_slow">Slow</string>
     <string name="text_banner_speed_normal">Medium</string>
@@ -23,12 +26,12 @@
     <string name="text_banner_save">Save to library</string>
     <string name="text_banner_saving">Saving…</string>
     <string name="text_banner_saved">Saved to library</string>
-    <string name="text_banner_send">Send to backpack</string>
-    <string name="text_banner_open_backpack">Open backpack</string>
-    <string name="text_banner_bluetooth_permission">Bluetooth permission is required to send to the backpack.</string>
-    <string name="text_banner_error_render">The text could not be rendered</string>
-    <string name="text_banner_error_save">Saving to the library failed</string>
-    <string name="text_banner_error_payload">The backpack program could not be prepared</string>
+    <string name="text_banner_send">Send to panel</string>
+    <string name="text_banner_open_backpack">Open panel</string>
+    <string name="text_banner_bluetooth_permission">Bluetooth permission is required to send to the panel.</string>
+    <string name="text_banner_error_render">The text could not be rendered. Try again.</string>
+    <string name="text_banner_error_save">Could not save to the library. Try again.</string>
+    <string name="text_banner_error_payload">The panel program could not be prepared. Try again.</string>
     <string name="text_banner_color_white">White</string>
     <string name="text_banner_color_red">Red</string>
     <string name="text_banner_color_orange">Orange</string>

@@ -3,14 +3,16 @@ package com.batoh.feature.backpack
 import android.app.Application
 import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
-import android.bluetooth.BluetoothDevice
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import com.batoh.core.common.LastPanelSize
 import com.batoh.core.conversion.VideoToGifConverter
 import com.batoh.core.conversion.SafeGifDecoder
 import com.batoh.core.conversion.EffectTestGif
 import com.batoh.core.conversion.TestPatternGif
+import com.batoh.core.conversion.TextBannerOptions
+import com.batoh.core.conversion.TextBannerRenderer
 import com.batoh.core.data.bluetooth.BackpackCommands
 import com.batoh.core.data.bluetooth.BackpackInfoFormatter
 import com.batoh.core.data.bluetooth.BackpackPasswordStatus
@@ -18,6 +20,11 @@ import com.batoh.core.data.bluetooth.BackpackPayload
 import com.batoh.core.data.bluetooth.BackpackPlaylist
 import com.batoh.core.data.bluetooth.BackpackFrame
 import com.batoh.core.data.bluetooth.BluetoothLeManager
+import com.batoh.core.data.bluetooth.MyPanel
+import com.batoh.core.data.bluetooth.NearbyPanel
+import com.batoh.core.data.bluetooth.PanelFamily
+import com.batoh.core.data.bluetooth.PanelSpec
+import com.batoh.core.data.bluetooth.ipixel.IPixelProtocol
 import com.batoh.core.data.bluetooth.UploadFailure
 import com.batoh.core.data.bluetooth.UploadHistory
 import com.batoh.core.data.bluetooth.UploadHistoryEntry
@@ -41,7 +48,25 @@ data class UploadState(
     /** Typed reason when [stage] is [UploadStage.Error] or [UploadStage.Cancelled]; [message] is its localised title. */
     val failure: UploadFailure? = null,
     /** True for a multi-programme sequence upload (changes the success wording). */
-    val isSequence: Boolean = false
+    val isSequence: Boolean = false,
+    /** Set for a "send to all my panels" run: current panel and the results so far. */
+    val multi: MultiPanelProgress? = null
+)
+
+/** Stage update of the running upload; the multi-panel block survives only inside a "send to all" run, never into another upload. */
+internal fun UploadState.withStage(
+    stage: UploadStage, progress: Float, message: String?, failure: UploadFailure?, multiRunActive: Boolean
+): UploadState = copy(stage = stage, progress = progress, message = message, failure = failure,
+    multi = if (multiRunActive) multi else null)
+
+/** Last iPixel settings set in this app session; the panel cannot report them. Clock fields are the last shown face. */
+data class IPixelSettings(
+    val brightness: Int = 100,
+    val quarterTurns: Int = 0,
+    val screenOn: Boolean = true,
+    val clockStyle: Int = 0,
+    val use24h: Boolean = true,
+    val showDate: Boolean = true
 )
 
 /** A single owner of panel transactions; navigation never cancels a transfer. */
@@ -56,10 +81,19 @@ class BackpackTransferManager @Inject constructor(
     private val uploadOperation = SingleOperationOwner()
     private val settingsOperation = SingleOperationOwner()
     private var lastRequest: UploadRequest? = null
+    private var lastMultiContent: MultiPanelContent? = null
+    /** True while a "send to all my panels" run owns [uploadOperation]. */
+    @Volatile private var multiRunActive = false
+    /** The current panel's transfer in such a run; a lost link cancels only this, not the whole run. */
+    @Volatile private var panelJob: Job? = null
     private var userCancelledUpload = false
     /** Set when the link dropped while chunks were being sent, so the cancellation reads as a lost connection. */
     @Volatile private var connectionLostDuringUpload = false
-    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false, val effect: Int? = null, val playlist: Boolean = false, val sequence: List<ByteArray>? = null)
+    /** [gif] (with its editor [playback]) is a ready GIF from [uploadGifBytes]; [payload] is its backpack form when built. */
+    private data class UploadRequest(val name: String, val uri: Uri?, val payload: ByteArray? = null, val test: Boolean = false, val effect: Int? = null, val playlist: Boolean = false, val sequence: List<ByteArray>? = null,
+        val gif: ByteArray? = null, val playback: EditorPlaybackOptions? = null,
+        /** Panel (picked in GifPack, or already connected) this upload must go to; null = whatever the link/auto-connect gives. */
+        val panelAddress: String? = null)
     /** A user-built programme sequence waiting for the backpack screen to grant permissions and start it. */
     private var stagedSequence: StagedSequence? = null
     private class StagedSequence(val payloads: List<ByteArray>, val stagedAtMs: Long)
@@ -71,7 +105,22 @@ class BackpackTransferManager @Inject constructor(
     val connectionStatus = bluetoothManager.connectionStatus
     val bluetoothEnabled = bluetoothManager.bluetoothEnabled
     val scannedDevices = bluetoothManager.scannedDevices
+    val nearbyPanels = bluetoothManager.nearbyPanels
+    val connectedPanel = bluetoothManager.connectedPanel
+    /** Family of the current link, known before [connectedPanel] for an iPixel panel of unknown type. */
+    val connectedFamily: Flow<PanelFamily?> = combine(bluetoothManager.connectionStatus, bluetoothManager.connectedPanel) { _, spec ->
+        spec?.family ?: bluetoothManager.currentFamily
+    }.distinctUntilChanged()
     val bleLog = bluetoothManager.bleLog
+    /** Ignored while an upload or the connect setup (backpack auth, iPixel info query) is running. */
+    fun pickPanel(address: String) {
+        if (uploadOperation.isOccupied || settingsBusy.value) return
+        bluetoothManager.pickPanel(address)
+    }
+    /** Panels the user picked in GifPack; the only possible targets of "send to all my panels". */
+    val myPanels = bluetoothManager.myPanels
+    fun unpickPanel(address: String) = bluetoothManager.unpickPanel(address)
+    fun connectedAddress(): String? = bluetoothManager.connectedAddress
     private val _uploadState = MutableStateFlow(UploadState())
     val uploadState = _uploadState.asStateFlow()
     val uploadProgress = uploadState.map { if (it.stage in activeStages) it.progress else -1f }
@@ -86,6 +135,9 @@ class BackpackTransferManager @Inject constructor(
      * (4 once aborted on a repeated ACK). Sequences and playlists always use stop-and-wait.
      */
     val uploadWindow = MutableStateFlow(2)
+
+    private val _ipixelSettings = MutableStateFlow(IPixelSettings())
+    val ipixelSettings = _ipixelSettings.asStateFlow()
 
     private val _panelState = MutableStateFlow<BackpackCommands.State?>(null)
     val panelState = _panelState.asStateFlow()
@@ -109,8 +161,26 @@ class BackpackTransferManager @Inject constructor(
                 if (!ready) {
                     settingsOperation.cancel()
                     if (_uploadState.value.stage in setOf(UploadStage.Sending, UploadStage.Finishing)) {
-                        connectionLostDuringUpload = true
-                        uploadOperation.cancel(CancellationException("Backpack connection lost"))
+                        if (multiRunActive) {
+                            panelJob?.cancel(CancellationException("Panel connection lost"))
+                        } else {
+                            connectionLostDuringUpload = true
+                            uploadOperation.cancel(CancellationException("Backpack connection lost"))
+                        }
+                    }
+                } else if (isIPixel()) operationMutex.withLock {
+                    // iPixel: only the info command (no auth, built-ins or state query); it also sets the clock.
+                    settingsBusy.value = true
+                    try {
+                        _commandError.value = null
+                        queryIPixelType()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logCommandError(e)
+                    } finally {
+                        initialized.value = connectionStatus.value.startsWith("Ready")
+                        settingsBusy.value = false
                     }
                 } else operationMutex.withLock {
                     settingsBusy.value = true
@@ -147,10 +217,6 @@ class BackpackTransferManager @Inject constructor(
 
     fun startScan() = bluetoothManager.startScan()
     fun stopScan() = bluetoothManager.stopScan()
-    fun connect(device: BluetoothDevice) {
-        if (uploadOperation.isOccupied || settingsBusy.value) return
-        bluetoothManager.connect(device)
-    }
     fun connectToTarget() {
         if (uploadOperation.isOccupied || settingsBusy.value) return
         bluetoothManager.connectToTarget()
@@ -161,18 +227,48 @@ class BackpackTransferManager @Inject constructor(
         bluetoothManager.disconnect()
     }
 
-    fun uploadGif(uri: Uri) = startUpload(UploadRequest("GIF", uri))
-    /** Uploads a ready programme payload (e.g. `BackpackPayload.fromGif(gif, speed =, light =, effect =)`). */
-    fun uploadPayload(payload: ByteArray, name: String? = null) =
-        startUpload(UploadRequest(name ?: localizedString(R.string.backpack_program_name), null, payload.copyOf()))
+    /**
+     * Uploads the GIF at [uri] to exactly [address]: the connected panel as it is, or, for another panel, only if the user
+     * picked it in GifPack (the link is then switched to it). Never auto-connects to any other panel.
+     */
+    fun uploadGifToPanel(uri: Uri, address: String) = startUpload(UploadRequest("GIF", uri, panelAddress = address))
+
+    /** Quick scan for the picked panels that advertise now (also lists them in [nearbyPanels]); never connects. */
+    suspend fun scanMyPanels(): List<NearbyPanel> {
+        val mine = bluetoothManager.myPanels.value.map { it.address }.toSet()
+        if (mine.isEmpty()) return emptyList()
+        bluetoothManager.stopScan()
+        return bluetoothManager.scanForPanels(mine)
+    }
+
+    /** True while a link to a panel is open or being opened. */
+    fun hasLink(): Boolean = bluetoothManager.connectedAddress != null && connectionStatus.value.let {
+        it.startsWith("Ready") || it.startsWith("Connecting") || it.startsWith("Connected")
+    }
+    /**
+     * Uploads a ready GIF (editor output, text banner). A backpack gets exactly
+     * `playback?.buildPayload(gif) ?: BackpackPayload.fromGif(gif)` (a 64x64 GIF's payload is built here and
+     * may throw; other sizes are scaled to 64x64 once Ready); an iPixel panel gets the GIF at its panel
+     * size and [playback] is ignored.
+     */
+    fun uploadGifBytes(gif: ByteArray, name: String?, playback: EditorPlaybackOptions? = null) {
+        val copy = gif.copyOf()
+        val payload = PanelUploadPrep.eagerProgramme(copy, isIPixel(), playback)
+        startUpload(UploadRequest(name ?: localizedString(R.string.backpack_program_name), null, payload, gif = copy, playback = playback))
+    }
+    /** Backpack: the 64x64 test pattern programme; iPixel: the test pattern at the panel size. */
     fun sendTestImage() = startUpload(UploadRequest(localizedString(R.string.backpack_test_image_name), null, test = true))
     /** Experimental: one upload of the asymmetric [EffectTestGif] with programme item effect code [effect]. */
-    fun sendEffectTest(effect: Int) =
+    fun sendEffectTest(effect: Int) {
+        if (isIPixel()) return
         startUpload(UploadRequest(localizedString(R.string.backpack_effect_test_name, effect), null, test = true, effect = effect))
+    }
 
     /** Experimental: announces two [EffectTestGif] programmes (digits 1 and 2) as a playlist via Cmd 0x03 / 0x08. */
-    fun sendPlaylistTest() =
+    fun sendPlaylistTest() {
+        if (isIPixel()) return
         startUpload(UploadRequest(localizedString(R.string.backpack_playlist_test_name), null, playlist = true))
+    }
 
     /**
      * Stages a user-built sequence (one prepared payload per programme, in playing order). The upload starts
@@ -185,6 +281,7 @@ class BackpackTransferManager @Inject constructor(
 
     /** Starts the staged sequence, if there is a fresh one; returns whether an upload was started. */
     fun startStagedSequence(): Boolean {
+        if (isIPixel()) return false
         val staged = stagedSequence ?: return false
         stagedSequence = null
         if (System.currentTimeMillis() - staged.stagedAtMs > STAGED_SEQUENCE_TTL_MS) return false
@@ -195,6 +292,7 @@ class BackpackTransferManager @Inject constructor(
 
     /** Plays built-in firmware programme [id] (1-based, ≤ [builtInCount]) via a type-5 item; nothing is stored. */
     fun playBuiltIn(id: Int) {
+        if (isIPixel()) return
         val count = _builtInCount.value ?: return
         if (id !in 1..count) return
         val adv = advertisement.value
@@ -207,14 +305,20 @@ class BackpackTransferManager @Inject constructor(
         historyPreferences.edit().remove(HISTORY_KEY).apply()
     }
 
-    private fun recordUpload(outcome: UploadOutcome, failure: UploadFailure? = null) {
-        val name = _uploadState.value.name ?: localizedString(R.string.backpack_program_name)
+    private fun recordUpload(
+        outcome: UploadOutcome,
+        failure: UploadFailure? = null,
+        name: String = _uploadState.value.name ?: localizedString(R.string.backpack_program_name)
+    ) {
         val history = UploadHistory.add(_uploadHistory.value, UploadHistoryEntry(name, System.currentTimeMillis(), outcome, failure))
         _uploadHistory.value = history
         historyPreferences.edit().putString(HISTORY_KEY, UploadHistory.encode(history)).apply()
     }
     fun autoConnectAndUpload() = sendTestImage()
-    fun retryUpload() { lastRequest?.let(::startUpload) }
+    fun retryUpload() {
+        lastMultiContent?.let { startMultiUpload(it); return }
+        lastRequest?.let(::startUpload)
+    }
 
     fun cancelUpload() {
         if (!uploadOperation.isOccupied) return
@@ -231,7 +335,7 @@ class BackpackTransferManager @Inject constructor(
         message: String? = null,
         failure: UploadFailure? = null
     ) {
-        _uploadState.value = _uploadState.value.copy(stage = stage, progress = progress, message = message, failure = failure)
+        _uploadState.value = _uploadState.value.withStage(stage, progress, message, failure, multiRunActive)
     }
 
     /** Ends the upload with [failure]: UI state, BLE log line and history entry. */
@@ -250,23 +354,15 @@ class BackpackTransferManager @Inject constructor(
      * Validates [gif] and scales it to 64x64 exactly like a single upload, then wraps it into a programme
      * payload. Throws [UploadFailureException] with a typed failure.
      */
-    internal suspend fun prepareProgramme(gif: ByteArray): PreparedProgramme {
-        val dimensions = BackpackPayload.gifSize(gif) ?: throw UploadFailureException(UploadFailure.NotAGif)
-        var frames = 0
-        val converted = try {
-            val taskContext = currentCoroutineContext()
-            frames = SafeGifDecoder.validate(gif) { taskContext.ensureActive() }.frameCount
-            if (dimensions == (64 to 64)) gif else converter.convertGifBytes(gif)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            throw UploadFailureException(UploadFailure.GifInvalid, e)
-        }
-        return PreparedProgramme(buildPayload { BackpackPayload.fromGif(converted) }, frames)
-    }
+    internal suspend fun prepareProgramme(gif: ByteArray): PreparedProgramme =
+        PanelUploadPrep.programme(gif) { converter.convertGifBytes(it) }
 
-    /** Reads, validates and (if needed) converts the GIF at [uri] into a programme payload. */
-    private suspend fun gifPayload(uri: Uri): ByteArray {
+    /** What [spec]'s family receives for [gif]: the backpack programme payload or the GIF at the iPixel panel size. */
+    internal suspend fun prepareForPanel(gif: ByteArray, spec: PanelSpec): ByteArray =
+        PanelUploadPrep.prepare(gif, spec) { converter.convertGifBytes(it) }
+
+    /** Reads the GIF at [uri] (size-limited) and shows its file name. */
+    private suspend fun readGif(uri: Uri): ByteArray {
         val name = runCatching {
             application.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
@@ -293,70 +389,85 @@ class BackpackTransferManager @Inject constructor(
         } catch (e: Exception) {
             throw UploadFailureException(UploadFailure.GifUnreadable, e)
         }) ?: throw UploadFailureException(UploadFailure.GifUnreadable)
-        return prepareProgramme(gif).payload
+        return gif
     }
 
-    private inline fun buildPayload(block: () -> ByteArray): ByteArray = try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        throw UploadFailureException(UploadFailure.PayloadInvalid, e)
+    private inline fun buildPayload(block: () -> ByteArray): ByteArray = PanelUploadPrep.payload(block)
+
+    /** Backpack programme payload of a test image, ready GIF or picked GIF ([source] read from the request's URI). */
+    private suspend fun backpackPayload(request: UploadRequest, source: ByteArray?): ByteArray = when {
+        request.test -> buildPayload { BackpackPayload.fromGif(TestPatternGif.render()) }
+        request.gif != null -> PanelUploadPrep.readyGifProgramme(request.gif, request.playback) { converter.convertGifBytes(it) }
+        else -> prepareProgramme(requireNotNull(source)).payload
     }
+
+    /** The GIF an iPixel panel of [spec] receives; backpack-only requests (programme payloads, effects, playlists) fail. */
+    private suspend fun ipixelFile(request: UploadRequest, source: ByteArray?, spec: PanelSpec): ByteArray = when {
+        request.test && request.effect == null -> TestPatternGif.render(spec.width, spec.height)
+        source != null -> prepareForPanel(source, spec)
+        else -> throw UploadFailureException(UploadFailure.Unknown, IllegalStateException("Backpack-only upload on an iPixel panel"))
+    }
+
+    /** Size to render editor output and text banners at: the connected panel, else the last one, else 64x64. */
+    fun targetPanelSize(): Pair<Int, Int> =
+        bluetoothManager.connectedPanel.value?.let { it.width to it.height } ?: LastPanelSize.read(application)
+
+    private fun isIPixel(): Boolean = bluetoothManager.currentFamily == PanelFamily.IPixel
 
     private fun startUpload(request: UploadRequest) {
         if (uploadOperation.isOccupied || settingsOperation.isOccupied) return
         lastRequest = request
+        lastMultiContent = null
         userCancelledUpload = false
         connectionLostDuringUpload = false
         transferBusy.value = true
         _uploadState.value = UploadState(UploadStage.Preparing, request.name, request.uri?.toString(), isSequence = request.sequence != null)
         uploadOperation.launch(scope) {
             try {
+                // The GIF an iPixel panel would get; its size is known only once that panel is Ready,
+                // so on an iPixel link the backpack payload is not built here.
+                var source: ByteArray? = request.gif
+                val ipixelLink = isIPixel()
                 val payloads = withContext(Dispatchers.IO) {
                     request.sequence?.let { return@withContext it }
                     if (request.playlist) return@withContext listOf(1, 2).map { digit ->
                         buildPayload { BackpackPayload.fromGif(EffectTestGif.render(digit)) }
                     }
-                    listOf(when {
-                        request.payload != null -> request.payload
-                        request.effect != null -> buildPayload { BackpackPayload.fromGif(EffectTestGif.render(request.effect), effect = request.effect) }
-                        request.test -> buildPayload { BackpackPayload.fromGif(TestPatternGif.render()) }
-                        else -> gifPayload(requireNotNull(request.uri))
-                    })
+                    when {
+                        request.payload != null -> listOf(request.payload)
+                        request.effect != null -> listOf(buildPayload { BackpackPayload.fromGif(EffectTestGif.render(request.effect), effect = request.effect) })
+                        else -> {
+                            if (!request.test && request.gif == null) source = readGif(requireNotNull(request.uri))
+                            // A ready GIF without an eager payload waits for Ready: its target may be an iPixel panel.
+                            if (ipixelLink || request.gif != null || request.panelAddress != null) emptyList() else listOf(backpackPayload(request, source))
+                        }
+                    }
                 }
                 ensureActive()
                 updateUpload(UploadStage.Connecting)
                 val status = connectionStatus.value
-                if (!status.startsWith("Ready") && !status.startsWith("Connecting") && !status.startsWith("Connected")) {
+                val wanted = request.panelAddress
+                if (wanted != null) {
+                    // Only this panel: keep its link, else close another link and connect to it (picked panels only).
+                    if (!hasLink() || bluetoothManager.connectedAddress != wanted) {
+                        if (bluetoothManager.connectedAddress != null) closePanelLink()
+                        if (!bluetoothManager.connectToPicked(wanted)) throw UploadFailureException(UploadFailure.NotConnected)
+                    }
+                } else if (!status.startsWith("Ready") && !status.startsWith("Connecting") && !status.startsWith("Connected")) {
                     bluetoothManager.connectToTarget()
                 }
                 val ready = withTimeoutOrNull(20000) {
                     combine(connectionStatus, initialized) { state, init -> state.startsWith("Ready") && init }.first { it }
                 }
-                if (ready == null) throw UploadFailureException(UploadFailure.NotConnected)
-                operationMutex.withLock {
-                    if (!connectionStatus.value.startsWith("Ready")) throw UploadFailureException(UploadFailure.ConnectionLost)
-                    updateUpload(UploadStage.Sending)
-                    try {
-                        val completion = if (request.playlist || request.sequence != null) doPlaylist(payloads) else doUpload(payloads.single())
-                        val message = when (completion) {
-                            // A sequence shows its success text once, as the stage line; no extra message.
-                            UploadCompletion.Uploaded -> if (request.sequence != null) null else localizedString(R.string.backpack_upload_success)
-                            UploadCompletion.AlreadyPresent -> localizedString(R.string.backpack_upload_already_present)
-                        }
-                        updateUpload(UploadStage.Success, 1f, message)
-                        recordUpload(if (completion == UploadCompletion.Uploaded) UploadOutcome.Confirmed else UploadOutcome.AlreadyPresent)
-                    } catch (e: Exception) {
-                        // A missing answer after the link already dropped is reported as a lost connection.
-                        val linkGone = !connectionStatus.value.startsWith("Ready")
-                        // Keep transaction ownership until the uncertain BLE session is closed.
-                        bluetoothManager.disconnect()
-                        throw if (linkGone && e is UploadFailureException && e.failure.isMissingAnswer()) {
-                            UploadFailureException(UploadFailure.ConnectionLost, e)
-                        } else e
-                    }
+                if (ready == null || (wanted != null && bluetoothManager.connectedAddress != wanted)) throw UploadFailureException(UploadFailure.NotConnected)
+                val completion = uploadToReadyPanel(request, source, payloads)
+                val message = when (completion) {
+                    // A sequence shows its success text once, as the stage line; no extra message.
+                    UploadCompletion.Uploaded -> if (request.sequence != null) null else localizedString(R.string.backpack_upload_success)
+                    UploadCompletion.AlreadyPresent -> localizedString(R.string.backpack_upload_already_present)
                 }
+                updateUpload(UploadStage.Success, 1f, message)
+                recordUpload(if (completion == UploadCompletion.Uploaded) UploadOutcome.Confirmed else UploadOutcome.AlreadyPresent)
             } catch (e: CancellationException) {
                 failUpload(when {
                     userCancelledUpload -> UploadFailure.Cancelled
@@ -372,6 +483,221 @@ class BackpackTransferManager @Inject constructor(
         }
     }
 
+    /**
+     * Under the operation lock on a Ready link: builds what the connected panel's family receives for [request]
+     * ([source] is the read or ready GIF, [payloads] prebuilt backpack payloads) and sends it. A failed transfer
+     * closes the uncertain link before the failure is rethrown.
+     */
+    private suspend fun uploadToReadyPanel(request: UploadRequest, source: ByteArray?, payloads: List<ByteArray>): UploadCompletion =
+        operationMutex.withLock {
+            if (!connectionStatus.value.startsWith("Ready")) throw UploadFailureException(UploadFailure.ConnectionLost)
+            // Decided by the connected family only; the stored advertisement may still be a backpack's.
+            val ipixel = isIPixel()
+            val ipixelGif = if (ipixel) {
+                val spec = bluetoothManager.connectedPanel.value
+                    ?: throw UploadFailureException(UploadFailure.Unknown, IllegalStateException("iPixel panel of unknown type"))
+                withContext(Dispatchers.Default) { ipixelFile(request, source, spec) }
+            } else null
+            val backpackPayloads = if (ipixel) emptyList() else payloads.ifEmpty {
+                listOf(withContext(Dispatchers.IO) { backpackPayload(request, source) })
+            }
+            updateUpload(UploadStage.Sending)
+            try {
+                when {
+                    ipixelGif != null -> doIPixelUpload(ipixelGif)
+                    request.playlist || request.sequence != null -> doPlaylist(backpackPayloads)
+                    else -> doUpload(backpackPayloads.single())
+                }
+            } catch (e: Exception) {
+                // A missing answer after the link already dropped is reported as a lost connection.
+                val linkGone = !connectionStatus.value.startsWith("Ready")
+                // Keep transaction ownership until the uncertain BLE session is closed.
+                bluetoothManager.disconnect()
+                throw if (linkGone && e is UploadFailureException && e.failure.isMissingAnswer()) {
+                    UploadFailureException(UploadFailure.ConnectionLost, e)
+                } else e
+            }
+        }
+
+    /** Sends the GIF at [uri] to every picked panel in range, each converted for its own family and size. */
+    fun uploadGifToMyPanels(uri: Uri) =
+        startMultiUpload(MultiPanelContent.Library(uri.lastPathSegment ?: "GIF", uri))
+
+    /** Like [uploadGifBytes] for all my panels in range: a backpack gets [playback], an iPixel panel the GIF at its size. */
+    fun uploadGifBytesToMyPanels(gif: ByteArray, name: String?, playback: EditorPlaybackOptions? = null) =
+        startMultiUpload(MultiPanelContent.ReadyGif(name ?: localizedString(R.string.backpack_program_name), gif.copyOf(), playback))
+
+    /** Renders the text banner [options] separately at each of my panels' sizes and sends it there. */
+    fun uploadBannerToMyPanels(options: TextBannerOptions, name: String) =
+        startMultiUpload(MultiPanelContent.Banner(name, options))
+
+    /**
+     * "Send to all my panels": a quick scan for the picked panels, then one at a time connect, wait for Ready and
+     * initialisation, upload through [uploadToReadyPanel], record history, disconnect. A failing panel does not stop
+     * the run; cancelling stops it after the current panel. The panel connected before comes last and stays
+     * connected; otherwise the previously connected panel is reconnected at the end.
+     */
+    private fun startMultiUpload(content: MultiPanelContent) {
+        if (uploadOperation.isOccupied || settingsOperation.isOccupied) return
+        lastRequest = null
+        lastMultiContent = content
+        if (bluetoothManager.myPanels.value.isEmpty()) {
+            // No picked panel at all: nothing is tried, so no history entry.
+            _uploadState.value = UploadState(UploadStage.Error, content.name, message = localizedString(R.string.multi_send_no_panels))
+            return
+        }
+        userCancelledUpload = false
+        connectionLostDuringUpload = false
+        transferBusy.value = true
+        multiRunActive = true
+        _uploadState.value = UploadState(UploadStage.Preparing, content.name, (content as? MultiPanelContent.Library)?.uri?.toString(),
+            multi = MultiPanelProgress(0, 0, null, emptyList()))
+        uploadOperation.launch(scope) {
+            val previous = bluetoothManager.connectedAddress
+            val lastBefore = bluetoothManager.lastPanelAddress()
+            // Each panel's Ready also stores its size as the last panel's; restored with the address.
+            val (widthBefore, heightBefore) = LastPanelSize.read(application)
+            val results = mutableListOf<PanelSendResult>()
+            var targets = emptyList<MyPanel>()
+            // A library GIF's file name is known once it has been read.
+            val historyName = { _uploadState.value.name ?: content.name }
+            fun progress(stage: UploadStage, index: Int, panel: MyPanel?) {
+                _uploadState.value = _uploadState.value.copy(stage = stage, progress = 0f, message = null, failure = null,
+                    multi = MultiPanelProgress(index, targets.size, panel?.let(::panelLabel), results.toList()))
+            }
+            try {
+                val source = (content as? MultiPanelContent.Library)?.let { withContext(Dispatchers.IO) { readGif(it.uri) } }
+                val mine = bluetoothManager.myPanels.value
+                bluetoothManager.stopScan()
+                val advertising = bluetoothManager.scanForPanels(mine.map { it.address }.toSet())
+                val plan = MultiPanelSend.plan(mine, advertising, previous)
+                plan.notInRange.forEach { results += PanelSendResult(it, PanelSendOutcome.NotInRange) }
+                targets = plan.targets
+                for ((index, panel) in targets.withIndex()) {
+                    progress(UploadStage.Connecting, index + 1, panel)
+                    val outcome = sendToPanel(content, source, panel)
+                    results += PanelSendResult(panel, outcome)
+                    recordPanelResult(historyName(), panel, outcome)
+                    val keepConnected = index == targets.lastIndex && panel.address == previous
+                    progress(UploadStage.Connecting, index + 1, panel)
+                    if (!keepConnected) closePanelLink()
+                }
+                val summary = MultiPanelSend.summary(results)
+                _uploadState.value = _uploadState.value.copy(
+                    stage = if (summary.allSucceeded) UploadStage.Success else UploadStage.Error, progress = 1f,
+                    message = localizedString(R.string.multi_send_summary, summary.succeeded, summary.total), failure = null,
+                    multi = MultiPanelProgress(targets.size, targets.size, null, results.toList()))
+            } catch (e: CancellationException) {
+                // Cancelled by the user: the current panel's transfer was cancelled, the rest are not contacted.
+                val done = results.map { it.panel.address }.toSet()
+                val pending = targets.filter { it.address !in done }
+                pending.firstOrNull()?.let {
+                    results += PanelSendResult(it, PanelSendOutcome.Failed(UploadFailure.Cancelled))
+                    recordPanelResult(historyName(), it, PanelSendOutcome.Failed(UploadFailure.Cancelled))
+                }
+                pending.drop(1).forEach { results += PanelSendResult(it, PanelSendOutcome.Skipped) }
+                val summary = MultiPanelSend.summary(results)
+                _uploadState.value = _uploadState.value.copy(stage = UploadStage.Cancelled,
+                    // Cancelled during the scan: no panel was planned, so there is nothing to sum up.
+                    message = if (summary.total == 0) null else localizedString(R.string.multi_send_summary, summary.succeeded, summary.total),
+                    failure = UploadFailure.Cancelled, multi = MultiPanelProgress(targets.size, targets.size, null, results.toList()))
+                throw e
+            } catch (e: Exception) {
+                failUpload((e as? UploadFailureException)?.failure ?: UploadFailure.Unknown, e)
+            } finally {
+                multiRunActive = false
+                panelJob = null
+                // A cancel while a panel's link was still opening or initialising (stage Connecting) leaves it open,
+                // or a GATT retry pending: close any link of the run that is not the panel connected before it.
+                if (MultiPanelSend.closeLinkAfterRun(bluetoothManager.connectedAddress, previous, connectionStatus.value)) {
+                    bluetoothManager.disconnect()
+                }
+                bluetoothManager.restoreLastPanel(lastBefore)
+                LastPanelSize.write(application, widthBefore, heightBefore)
+                if (previous != null && bluetoothManager.connectedAddress != previous) bluetoothManager.connectToTarget()
+                transferBusy.value = false
+            }
+        }
+    }
+
+    /**
+     * One panel of a run: connect (only to this picked address), wait for Ready and initialisation, render or convert
+     * the content for this panel and upload it. Never throws except when the whole run is cancelled.
+     */
+    private suspend fun sendToPanel(content: MultiPanelContent, source: ByteArray?, panel: MyPanel): PanelSendOutcome = coroutineScope {
+        val job = async {
+            try {
+                val status = connectionStatus.value
+                val linked = bluetoothManager.connectedAddress == panel.address &&
+                    (status.startsWith("Ready") || status.startsWith("Connecting") || status.startsWith("Connected"))
+                if (!linked) {
+                    if (bluetoothManager.connectedAddress != null) closePanelLink()
+                    if (!bluetoothManager.connectToPicked(panel.address)) throw UploadFailureException(UploadFailure.NotConnected)
+                }
+                val ready = withTimeoutOrNull(20000) {
+                    combine(connectionStatus, initialized) { state, init -> state.startsWith("Ready") && init }.first { it }
+                }
+                // Only the picked panel of this turn may receive anything.
+                if (ready == null || bluetoothManager.connectedAddress != panel.address) throw UploadFailureException(UploadFailure.NotConnected)
+                val (request, gif) = when (content) {
+                    is MultiPanelContent.Library -> UploadRequest(content.name, content.uri) to requireNotNull(source)
+                    is MultiPanelContent.ReadyGif -> UploadRequest(content.name, null, gif = content.gif, playback = content.playback) to content.gif
+                    is MultiPanelContent.Banner -> {
+                        val spec = bluetoothManager.connectedPanel.value
+                            ?: throw UploadFailureException(UploadFailure.Unknown, IllegalStateException("iPixel panel of unknown type"))
+                        val banner = withContext(Dispatchers.Default) {
+                            val taskContext = currentCoroutineContext()
+                            TextBannerRenderer.render(content.options, spec.width, spec.height) { taskContext.ensureActive() }.gifBytes
+                        }
+                        UploadRequest(content.name, null, gif = banner) to banner
+                    }
+                }
+                when (uploadToReadyPanel(request, gif, emptyList())) {
+                    UploadCompletion.Uploaded -> PanelSendOutcome.Sent
+                    UploadCompletion.AlreadyPresent -> PanelSendOutcome.AlreadyPresent
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val failure = (e as? UploadFailureException)?.failure ?: UploadFailure.Unknown
+                val note = "Panel ${panel.name ?: "?"}: upload failed: ${failure.code}" + " (${e.javaClass.simpleName}: ${e.message})"
+                Log.w("BackpackBLE", note, e)
+                bluetoothManager.addBleLog(note)
+                PanelSendOutcome.Failed(failure)
+            }
+        }
+        panelJob = job
+        try {
+            job.await()
+        } catch (e: CancellationException) {
+            // Only this panel's job was cancelled (its link dropped); a cancelled run rethrows here.
+            ensureActive()
+            bluetoothManager.addBleLog("Panel ${panel.name ?: "?"}: connection lost")
+            PanelSendOutcome.Failed(UploadFailure.ConnectionLost)
+        } finally {
+            panelJob = null
+        }
+    }
+
+    /** Disconnects and waits (≤ 1 s) until the Ready handling has reset, so the next panel is initialised afresh. */
+    private suspend fun closePanelLink() {
+        bluetoothManager.disconnect()
+        withTimeoutOrNull(1000) { initialized.first { !it } }
+    }
+
+    private fun recordPanelResult(contentName: String, panel: MyPanel, outcome: PanelSendOutcome) {
+        val name = "$contentName → ${panelLabel(panel)}"
+        when (outcome) {
+            PanelSendOutcome.Sent -> recordUpload(UploadOutcome.Confirmed, name = name)
+            PanelSendOutcome.AlreadyPresent -> recordUpload(UploadOutcome.AlreadyPresent, name = name)
+            is PanelSendOutcome.Failed -> recordUpload(
+                if (outcome.failure == UploadFailure.Cancelled) UploadOutcome.Cancelled else UploadOutcome.Failed, outcome.failure, name)
+            PanelSendOutcome.NotInRange, PanelSendOutcome.Skipped -> Unit
+        }
+    }
+
+    private fun panelLabel(panel: MyPanel): String = panel.name ?: localizedString(R.string.backpack_unknown_device)
+
     fun setBrightness(level: Int) = settings(BackpackCommands.brightness(level), R.string.backpack_command_brightness) { it.copy(brightness = level) }
     fun setScreen(on: Boolean) = settings(BackpackCommands.screen(on), R.string.backpack_command_screen) { it.copy(screenOn = on) }
     fun setRotation(index: Int, mirror: Boolean) {
@@ -381,6 +707,16 @@ class BackpackTransferManager @Inject constructor(
     fun clearPrograms() = settings(BackpackCommands.clearPrograms(), R.string.backpack_command_clear) { it }
     fun refreshPanelState() = settings(null, R.string.backpack_command_refresh) { it }
 
+    fun ipixelBrightness(level: Int) =
+        ipixelSetting(IPixelProtocol.brightnessCommand(level), 0x04) { it.copy(brightness = level) }
+    fun ipixelRotation(quarterTurns: Int) =
+        ipixelSetting(IPixelProtocol.rotationCommand(quarterTurns), 0x06) { it.copy(quarterTurns = quarterTurns) }
+    fun ipixelScreen(on: Boolean) = ipixelSetting(IPixelProtocol.screenCommand(on), 0x07) { it.copy(screenOn = on) }
+    fun ipixelClock(style: Int, use24h: Boolean, showDate: Boolean) =
+        ipixelSetting(IPixelProtocol.clockCommand(style, use24h, showDate, java.time.LocalDate.now()), 0x06) {
+            it.copy(clockStyle = style, use24h = use24h, showDate = showDate)
+        }
+
     @Volatile private var lastRcspResponse: ByteArray? = null
 
     /**
@@ -388,6 +724,7 @@ class BackpackTransferManager @Inject constructor(
      * already received RCSP answer to the BLE log. Sends only the two query commands (no auth, no writes).
      */
     fun dumpBackpackInfo() {
+        if (isIPixel()) return
         if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
         settingsBusy.value = true
         settingsOperation.launch(scope) {
@@ -418,6 +755,7 @@ class BackpackTransferManager @Inject constructor(
      * or a Cmd 0x0E write) and logs the raw reply plus its decoded meaning.
      */
     fun queryPasswordStatus() {
+        if (isIPixel()) return
         if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
         settingsBusy.value = true
         settingsOperation.launch(scope) {
@@ -440,6 +778,7 @@ class BackpackTransferManager @Inject constructor(
     }
 
     private fun settings(frame: ByteArray?, @StringRes label: Int, update: (BackpackCommands.State) -> BackpackCommands.State) {
+        if (isIPixel()) return
         if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
         settingsBusy.value = true
         settingsOperation.launch(scope) {
@@ -466,6 +805,57 @@ class BackpackTransferManager @Inject constructor(
                 settingsBusy.value = false
             }
         }
+    }
+
+    /** One iPixel setting under the same single-operation rule as [settings]; OK answer `05 00 id xx 01` within 2 s. */
+    private fun ipixelSetting(frame: ByteArray, commandId: Int, update: (IPixelSettings) -> IPixelSettings) {
+        if (!isIPixel()) return
+        if (!connectionStatus.value.startsWith("Ready") || !initialized.value || uploadOperation.isOccupied || settingsOperation.isOccupied) return
+        settingsBusy.value = true
+        settingsOperation.launch(scope) {
+            try {
+                operationMutex.withLock {
+                    _commandError.value = null
+                    val acked = coroutineScope {
+                        // Listen before writing so a fast answer cannot be missed.
+                        val ack = async(start = CoroutineStart.UNDISPATCHED) {
+                            withTimeoutOrNull(2000) { bluetoothManager.ipixelNotifications.first { IPixelProtocol.isSettingAck(it, commandId) } }
+                        }
+                        if (bluetoothManager.writeIPixel(frame)) ack.await() != null else false.also { ack.cancel() }
+                    }
+                    check(acked) { "iPixel setting 0x%02X: no OK answer".format(commandId) }
+                    _ipixelSettings.value = update(_ipixelSettings.value)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logCommandError(e)
+                _commandError.value = localizedString(R.string.ipixel_setting_failed)
+            } finally {
+                settingsBusy.value = false
+            }
+        }
+    }
+
+    /** iPixel info command: sets the clock and reads the type byte (≤ 2 s); a missing answer is only logged. */
+    private suspend fun queryIPixelType() = coroutineScope {
+        val address = bluetoothManager.connectedAddress
+        // Listen before writing so a fast reply cannot be missed.
+        val reply = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeoutOrNull(2000) { bluetoothManager.ipixelNotifications.mapNotNull(IPixelProtocol::parseDeviceInfo).first() }
+        }
+        val now = java.util.Calendar.getInstance()
+        val written = bluetoothManager.writeIPixel(IPixelProtocol.deviceInfoCommand(
+            now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), now.get(java.util.Calendar.SECOND)))
+        val type = if (written) reply.await() else null.also { reply.cancel() }
+        val note = when {
+            !written -> "iPixel info: write failed"
+            type == null -> "iPixel info: no answer"
+            else -> "iPixel info: type=0x%02X".format(type)
+        }
+        Log.i("BackpackBLE", note)
+        bluetoothManager.addBleLog(note)
+        if (type != null && address != null) bluetoothManager.updateIPixelType(address, type)
     }
 
     /** Cmd 0D → built-in programme count (7 B or 8 B answer). Optional: a missing answer only hides the feature. */
@@ -497,6 +887,17 @@ class BackpackTransferManager @Inject constructor(
         val status = if (response.size >= 7) response[4].toInt() and 0xFF else -1
         check(status == 1 || status == 3) { "$label: device rejected the command (status $status)" }
     }
+    /** What a "send to all my panels" run sends; each panel gets it rendered or converted for itself. */
+    private sealed interface MultiPanelContent {
+        val name: String
+        /** A library GIF, read once; converted per panel like a single send. */
+        class Library(override val name: String, val uri: Uri) : MultiPanelContent
+        /** A ready GIF (editor output) with its backpack [playback]. */
+        class ReadyGif(override val name: String, val gif: ByteArray, val playback: EditorPlaybackOptions?) : MultiPanelContent
+        /** A text banner, rendered at each panel's own size. */
+        class Banner(override val name: String, val options: TextBannerOptions) : MultiPanelContent
+    }
+
     private companion object {
         const val HISTORY_KEY = "entries"
         /** A staged sequence not started within this time is dropped (e.g. permissions were never granted). */
@@ -585,6 +986,17 @@ class BackpackTransferManager @Inject constructor(
         uploadStartFailure(start)?.let { throw UploadFailureException(it) }
         if (start != null && classifyUploadStart(start) == UploadStartDecision.AlreadyPresent) return UploadCompletion.AlreadyPresent
         sendDataAndEnd(payload, window = uploadWindow.value)
+        return UploadCompletion.Uploaded
+    }
+
+    /** Sends [gif] to slot 0 of the connected iPixel panel, window by window (see [IPixelUploader]). */
+    private suspend fun doIPixelUpload(gif: ByteArray): UploadCompletion {
+        val startedAt = SystemClock.elapsedRealtime()
+        IPixelUploader(bluetoothManager::writeIPixel, bluetoothManager.ipixelNotifications)
+            .upload(gif, isGif = true) { updateUpload(UploadStage.Sending, it) }
+        val summary = "iPixel upload: ${gif.size} B in ${SystemClock.elapsedRealtime() - startedAt} ms"
+        Log.i("BackpackBLE", summary)
+        bluetoothManager.addBleLog(summary)
         return UploadCompletion.Uploaded
     }
 

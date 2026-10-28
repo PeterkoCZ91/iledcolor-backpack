@@ -9,25 +9,32 @@
     <string name="library_problem_too_large">GIF je větší než 20 MB.</string>
     <string name="library_problem_corrupt">GIF je poškozený nebo používá nepodporované funkce.</string>
     <string name="library_problem_unreadable">Soubor nejde přečíst (chyba úložiště).</string>
-    <string name="library_remove">Odebrat</string>
-    <string name="library_remove_description">Odebrat nefunkční GIF z knihovny</string>
-    <string name="library_remove_title">Odebrat GIF z knihovny?</string>
+    <string name="library_remove">Smazat</string>
+    <string name="library_remove_description">Smazat nefunkční GIF z telefonu</string>
+    <string name="library_remove_title">Smazat GIF z telefonu?</string>
     <string name="library_remove_message">„%1$s“ se smaže z telefonu (složka Obrázky/GifPack). Akci nelze vrátit.</string>
-    <string name="library_remove_confirm">Odebrat</string>
+    <string name="library_remove_confirm">Smazat</string>
     <string name="library_remove_cancel">Zrušit</string>
-    <string name="library_backpack_view">Jak v batohu</string>
-    <string name="library_backpack_view_hint">Náhled 64×64 po pixelech, jak ho zobrazí batoh (první snímek, oříznutí na střed).</string>
+    <string name="library_backpack_view">Jak na panelu</string>
+    <string name="library_backpack_view_hint">Náhled po pixelech, jak ho zobrazí poslední připojený panel (první snímek).</string>
     <string name="library_duplicates_action">Najít duplicity</string>
     <string name="library_duplicates_scanning">Hledám duplicity…</string>
     <string name="library_duplicates_none">Žádné duplicity nenalezeny.</string>
     <string name="library_duplicates_failed">Duplicity se nepodařilo vyhledat.</string>
-    <string name="library_duplicates_summary">Nalezeno skupin: %1$d. Ponechá se vždy jedna kopie (označená); ostatní můžete smazat.</string>
-    <string name="library_duplicates_keep">Ponechat: %1$s</string>
-    <string name="library_duplicates_delete">Smazat označené (%1$d)</string>
     <string name="library_duplicates_close">Zavřít</string>
-    <string name="library_duplicates_confirm_title">Smazat duplicity?</string>
-    <string name="library_duplicates_confirm_message">Smaže se %1$d kopií z telefonu (složka Obrázky/GifPack). Akci nelze vrátit.</string>
     <string name="library_duplicates_confirm">Smazat</string>
     <string name="library_duplicates_cancel">Zrušit</string>
-    <string name="library_duplicates_delete_partial">Nepodařilo se smazat %1$d duplicit.</string>
+    <string name="library_duplicates_delete_partial">Duplicit, které se nepodařilo smazat: %1$d.</string>
+    <plurals name="library_duplicates_simple_message">
+        <item quantity="one">Nalezen %1$d duplicitní GIF. Smazat ho a ponechat původní?</item>
+        <item quantity="few">Nalezeny %1$d duplicitní GIFy. Smazat je a ponechat vždy jeden?</item>
+        <item quantity="many">Nalezeno %1$d duplicitního GIFu. Smazat je a ponechat vždy jeden?</item>
+        <item quantity="other">Nalezeno %1$d duplicitních GIFů. Smazat je a ponechat vždy jeden?</item>
+    </plurals>
+    <plurals name="library_duplicates_result">
+        <item quantity="one">Smazán %1$d duplicitní GIF.</item>
+        <item quantity="few">Smazány %1$d duplicity.</item>
+        <item quantity="many">Smazáno %1$d duplicity.</item>
+        <item quantity="other">Smazáno %1$d duplicit.</item>
+    </plurals>
 </resources>

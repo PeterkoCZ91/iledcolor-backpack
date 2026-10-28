@@ -22,6 +22,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import com.batoh.core.common.LastPanelSize
+import com.batoh.core.data.bluetooth.ipixel.IPixelAdvertisement
+import com.batoh.core.data.bluetooth.ipixel.IPixelProtocol
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
@@ -29,6 +32,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
@@ -60,6 +65,7 @@ class BluetoothLeManager @Inject constructor(
                 if (state == BluetoothAdapter.STATE_OFF) {
                     scanCallback = null
                     _scannedDevices.value = emptyList()
+                    _nearbyPanels.value = emptyList()
                     if (gatt == null) _connectionStatus.value = "Disconnected"
                 }
                 if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_OFF) {
@@ -133,6 +139,28 @@ class BluetoothLeManager @Inject constructor(
     // Advertised name of the target ("iledcolor-XXXX"), cached per address like the advertisement.
     private val _deviceName = MutableStateFlow(targetAddress()?.let { connectionPreferences.getString("name_$it", null) })
     val deviceName = _deviceName.asStateFlow()
+
+    // Supported panels (backpacks and iPixel panels) seen by startScan(), one entry per address.
+    private val _nearbyPanels = MutableStateFlow<List<NearbyPanel>>(emptyList())
+    val nearbyPanels: StateFlow<List<NearbyPanel>> = _nearbyPanels.asStateFlow()
+    // Panels the user picked in GifPack ("my panels"); refreshed whenever a picked flag or a panel's type changes.
+    private val _myPanels = MutableStateFlow<List<MyPanel>>(emptyList())
+    val myPanels: StateFlow<List<MyPanel>> = _myPanels.asStateFlow()
+    init { refreshMyPanels() }
+    // Family and size of the connected panel; null until Ready (and for an iPixel panel of unknown type).
+    private val _connectedPanel = MutableStateFlow<PanelSpec?>(null)
+    val connectedPanel: StateFlow<PanelSpec?> = _connectedPanel.asStateFlow()
+    // FA03 notifications of a connected iPixel panel; never mixed with the backpack's A953/AE02 frames.
+    private val _ipixelNotifications = MutableSharedFlow<ByteArray>(extraBufferCapacity = 16)
+    val ipixelNotifications: SharedFlow<ByteArray> = _ipixelNotifications.asSharedFlow()
+    // Family found during service discovery of the current connection.
+    @Volatile private var connectedFamily: PanelFamily? = null
+    /** Family of the current connection, known from service discovery on (before [connectedPanel] for an iPixel panel). */
+    val currentFamily: PanelFamily? get() = connectedFamily
+    /** Address of the current GATT connection; null when disconnected. */
+    val connectedAddress: String? get() = gatt?.device?.address
+    // Type bytes advertised by iPixel panels in this session (the info reply may correct them).
+    private val ipixelScanTypes = java.util.concurrent.ConcurrentHashMap<String, Int>()
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     // Nearby devices' names/addresses are logged only in debuggable builds (privacy in release logcat).
     private val debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -171,6 +199,72 @@ class BluetoothLeManager @Inject constructor(
         }
         return true
     }
+
+    /** Parses an iPixel scan record; the type byte is persisted only until the info reply confirms one. */
+    private fun rememberIPixel(address: String, name: String?, record: ByteArray): IPixelAdvertisement? {
+        val adv = IPixelAdvertisement.parse(name, record) ?: return null
+        if (ipixelScanTypes.put(address, adv.typeByte) != adv.typeByte) {
+            addBleLog("ADV iPixel: type=0x%02X".format(adv.typeByte))
+        }
+        if (!connectionPreferences.contains("ipixel_type_$address")) {
+            connectionPreferences.edit().putInt("ipixel_type_$address", adv.typeByte).apply()
+        }
+        return adv
+    }
+
+    private fun storedFamily(address: String): PanelFamily? =
+        connectionPreferences.getString("family_$address", null)
+            ?.let { runCatching { PanelFamily.valueOf(it) }.getOrNull() }
+
+    private fun storedIPixelType(address: String): Int? =
+        if (connectionPreferences.contains("ipixel_type_$address")) connectionPreferences.getInt("ipixel_type_$address", 0) else null
+
+    private fun ipixelSpec(typeByte: Int): PanelSpec? =
+        IPixelProtocol.sizeFor(typeByte)?.let { (w, h) -> PanelSpec(PanelFamily.IPixel, w, h, typeByte in IPixelProtocol.VERIFIED_TYPES) }
+
+    /** Only the 64 x 64 backpack is confirmed on hardware; a missing or empty size falls back to it. */
+    private fun backpackSpec(adv: BackpackAdvertisement?): PanelSpec =
+        adv?.takeIf { it.width > 0 && it.height > 0 }
+            ?.let { PanelSpec(PanelFamily.Backpack, it.width, it.height, it.width == 64 && it.height == 64) }
+            ?: PanelSpec.BACKPACK_DEFAULT
+
+    /** Re-reads "my panels" (picked flag true) with each panel's cached name, family and size. */
+    private fun refreshMyPanels() {
+        _myPanels.value = PickedPanels.addresses(connectionPreferences.all).map { address ->
+            val spec = when (storedFamily(address)) {
+                PanelFamily.Backpack -> backpackSpec(cachedAdvertisement(address))
+                PanelFamily.IPixel -> storedIPixelType(address)?.let(::ipixelSpec)
+                null -> null
+            }
+            MyPanel(address, connectionPreferences.getString("name_$address", null), spec)
+        }
+    }
+
+    private fun addNearby(panel: NearbyPanel) {
+        _nearbyPanels.value = _nearbyPanels.value.filter { it.address != panel.address } + panel
+    }
+
+    private fun setConnectedPanel(spec: PanelSpec?) {
+        _connectedPanel.value = spec
+        if (spec != null) LastPanelSize.write(context, spec.width, spec.height)
+    }
+
+    /** Called once the connection is Ready, also via the default-MTU fallback; remembers it as the last panel. */
+    @SuppressLint("MissingPermission")
+    private fun publishConnectedPanel(gatt: BluetoothGatt) {
+        val address = gatt.device.address
+        val editor = connectionPreferences.edit().putString("last_device_address", address)
+        // iPixel names are not stored by the scan; "my panels" shows this one.
+        gatt.device.name?.let { editor.putString("name_$address", it) }
+        editor.apply()
+        refreshMyPanels()
+        setConnectedPanel(when (connectedFamily) {
+            PanelFamily.Backpack -> backpackSpec(cachedAdvertisement(address))
+            PanelFamily.IPixel -> storedIPixelType(address)?.let(::ipixelSpec)
+            null -> null
+        })
+    }
+
     @Volatile
     private var gatt: BluetoothGatt? = null
 
@@ -222,6 +316,7 @@ class BluetoothLeManager @Inject constructor(
         if (gatt != null) return
 
         if (scanCallback != null) stopScan()
+        _nearbyPanels.value = emptyList()
 
         // 1. Start BLE Scan
         scanCallback = object : ScanCallback() {
@@ -229,7 +324,15 @@ class BluetoothLeManager @Inject constructor(
                 val device = result.device
                 if (debuggable) Log.d("BackpackBLE", "BLE Device Found: ${device.name} [${device.address}] RSSI: ${result.rssi}")
                 addDevice(device)
-                result.scanRecord?.bytes?.let { rememberAdvertisement(device, it) }
+                result.scanRecord?.bytes?.let { record ->
+                    if (rememberAdvertisement(device, record)) {
+                        addNearby(NearbyPanel(device.address, device.name, backpackSpec(BackpackAdvertisement.parse(record)), result.rssi))
+                    } else {
+                        rememberIPixel(device.address, device.name, record)?.let {
+                            addNearby(NearbyPanel(device.address, device.name, ipixelSpec(it.typeByte), result.rssi))
+                        }
+                    }
+                }
             }
             
             override fun onScanFailed(errorCode: Int) {
@@ -281,9 +384,19 @@ class BluetoothLeManager @Inject constructor(
         stopScan()
         if (capabilityScan != null) return
         val address = targetAddress()
-        val cached = address?.let(::cachedAdvertisement)
+        val family = address?.let(::storedFamily)
+        val picked = address != null && connectionPreferences.getBoolean("picked_$address", false)
+        if (address != null && ConnectTarget.choose(address, family, picked, emptyList()) == null) {
+            Log.w("BackpackBLE", "Last panel was not picked in GifPack")
+            addBleLog("No picked panel: the last iPixel panel was never picked in GifPack")
+            _connectionStatus.value = "Disconnected"
+            return
+        }
+        val ipixel = family == PanelFamily.IPixel
+        val cached = address?.takeIf { !ipixel }?.let(::cachedAdvertisement)
         val scanner = adapter.bluetoothLeScanner
-        if (address != null && (cached != null || scanner == null)) {
+        val cachedType = address?.takeIf { ipixel }?.let(::storedIPixelType)
+        if (address != null && (cached != null || cachedType != null || scanner == null)) {
             cached?.let { _advertisement.value = it }
             connect(adapter.getRemoteDevice(address))
             return
@@ -294,16 +407,29 @@ class BluetoothLeManager @Inject constructor(
         }
         // Capabilities live only in the advertisement. With a known backpack, catch it with a short
         // scan filtered to its address; on first use, connect to the first backpack advertising nearby.
+        // A picked iPixel panel is caught the same way; on first use iPixel panels are only noted, never chosen.
         _connectionStatus.value = "Connecting (reading capabilities)..."
         var found: BluetoothDevice? = null
+        val advertising = mutableListOf<NearbyPanel>()
         lateinit var finish: Runnable
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val record = result.scanRecord?.bytes ?: return
-                if (address != null && result.device.address != address) return
-                if (rememberAdvertisement(result.device, record)) {
-                    found = result.device
+                val device = result.device
+                if (address != null && device.address != address) return
+                if (rememberAdvertisement(device, record)) {
+                    advertising += NearbyPanel(device.address, device.name, backpackSpec(BackpackAdvertisement.parse(record)), result.rssi)
+                    found = device
                     mainHandler.post(finish)
+                } else {
+                    val adv = rememberIPixel(device.address, device.name, record) ?: return
+                    if (advertising.none { it.address == device.address }) {
+                        advertising += NearbyPanel(device.address, device.name, ipixelSpec(adv.typeByte), result.rssi)
+                    }
+                    if (ipixel) {
+                        found = device
+                        mainHandler.post(finish)
+                    }
                 }
             }
             override fun onScanFailed(errorCode: Int) {
@@ -316,12 +442,15 @@ class BluetoothLeManager @Inject constructor(
         finish = Runnable {
             if (capabilityScan !== callback) return@Runnable
             stopCapabilityScan()
-            val target = found ?: address?.let { adapter.getRemoteDevice(it) }
+            val chosen = ConnectTarget.choose(address, family, picked, advertising)
+            val target = chosen?.let { found?.takeIf { d -> d.address == it } ?: adapter.getRemoteDevice(it) }
             if (target != null) {
                 connect(target)
             } else {
-                Log.w("BackpackBLE", "No backpack advertising nearby")
-                addBleLog("No backpack advertising nearby")
+                val reason = if (advertising.isEmpty()) "No backpack advertising nearby"
+                    else "No backpack advertising nearby (iPixel panels connect only after being picked)"
+                Log.w("BackpackBLE", reason)
+                addBleLog(reason)
                 _connectionStatus.value = "Disconnected"
             }
         }
@@ -341,8 +470,124 @@ class BluetoothLeManager @Inject constructor(
         runCatching { adapter?.bluetoothLeScanner?.stopScan(callback) }
     }
 
+    /** User picked [address] in GifPack's panel list: from now on it may be reconnected automatically. */
     @SuppressLint("MissingPermission")
-    fun connect(device: BluetoothDevice) {
+    fun pickPanel(address: String) {
+        if (!hasPermissions() || adapter == null || !BluetoothAdapter.checkBluetoothAddress(address)) return
+        stopCapabilityScan()
+        val family = _nearbyPanels.value.firstOrNull { it.address == address }
+            ?.let { it.spec?.family ?: PanelFamily.IPixel }
+            ?: storedFamily(address)
+        val editor = connectionPreferences.edit().putBoolean(PickedPanels.key(address), true)
+            .putString("last_device_address", address)
+        if (family != null) editor.putString("family_$address", family.name)
+        _nearbyPanels.value.firstOrNull { it.address == address }?.name?.let { editor.putString("name_$address", it) }
+        editor.apply()
+        refreshMyPanels()
+        connect(adapter.getRemoteDevice(address))
+    }
+
+    /**
+     * "Remove from my panels": clears the picked flag and, if it is the last panel, forgets it as such; the panel's
+     * cached data and any connection to it are left alone.
+     */
+    fun unpickPanel(address: String) {
+        val editor = connectionPreferences.edit()
+        PickedPanels.unpickKeys(address, connectionPreferences.getString("last_device_address", null)).forEach { editor.remove(it) }
+        editor.apply()
+        refreshMyPanels()
+    }
+
+    /**
+     * Connects to [address] for a "send to all my panels" run. Refused (false) unless the user picked it in
+     * GifPack; it is never used by the automatic paths, which keep [connectToTarget]'s rules.
+     */
+    @SuppressLint("MissingPermission")
+    fun connectToPicked(address: String): Boolean {
+        if (!hasPermissions() || adapter == null || !BluetoothAdapter.checkBluetoothAddress(address)) return false
+        if (!connectionPreferences.getBoolean(PickedPanels.key(address), false)) {
+            Log.w("BackpackBLE", "Refusing to connect: panel was not picked in GifPack")
+            return false
+        }
+        stopCapabilityScan()
+        connect(adapter.getRemoteDevice(address))
+        return true
+    }
+
+    /** Address the next [connectToTarget] goes to; null when none is stored. */
+    fun lastPanelAddress(): String? = targetAddress()
+
+    /** Restores the last panel after a run over several panels, which made each of them "last" in turn. */
+    fun restoreLastPanel(address: String?) {
+        val editor = connectionPreferences.edit()
+        if (address != null) editor.putString("last_device_address", address) else editor.remove("last_device_address")
+        editor.apply()
+    }
+
+    /**
+     * Short low-latency scan filtered to [addresses] (my panels); returns those advertising, early once all were seen.
+     * Only stores what a normal scan stores; the found panels also show up in [nearbyPanels].
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun scanForPanels(addresses: Set<String>, timeoutMs: Long = MY_PANELS_SCAN_MS): List<NearbyPanel> {
+        val scanner = adapter?.bluetoothLeScanner
+        if (!hasPermissions() || scanner == null || addresses.isEmpty()) return emptyList()
+        val seen = java.util.concurrent.ConcurrentHashMap<String, NearbyPanel>()
+        val allSeen = CompletableDeferred<Unit>()
+        val callback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                val device = result.device
+                if (device.address !in addresses) return
+                val record = result.scanRecord?.bytes ?: return
+                val panel = BackpackAdvertisement.parse(record)
+                    ?.let { NearbyPanel(device.address, device.name, backpackSpec(it), result.rssi) }
+                    ?: rememberIPixel(device.address, device.name, record)
+                        ?.let { NearbyPanel(device.address, device.name, ipixelSpec(it.typeByte), result.rssi) }
+                    ?: return
+                seen[device.address] = panel
+                if (seen.keys.containsAll(addresses)) allSeen.complete(Unit)
+            }
+            override fun onScanFailed(errorCode: Int) {
+                Log.w("BackpackBLE", "My-panels scan failed: $errorCode")
+                allSeen.complete(Unit)
+            }
+        }
+        val filters = addresses.map { android.bluetooth.le.ScanFilter.Builder().setDeviceAddress(it).build() }
+        val settings = android.bluetooth.le.ScanSettings.Builder()
+            .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        try {
+            scanner.startScan(filters, settings, callback)
+            withTimeoutOrNull(timeoutMs) { allSeen.await() }
+        } finally {
+            runCatching { scanner.stopScan(callback) }
+        }
+        val found = seen.values.toList()
+        found.forEach(::addNearby)
+        addBleLog("My panels: ${found.size} of ${addresses.size} advertising")
+        return found
+    }
+
+    /** Type byte from the panel's info reply; it overrides the advertised hint. */
+    fun updateIPixelType(address: String, typeByte: Int) {
+        val hint = ipixelScanTypes[address] ?: storedIPixelType(address)
+        if (hint != null && hint != typeByte) {
+            val message = "iPixel type: scan 0x%02X, info 0x%02X".format(hint, typeByte)
+            Log.w("BackpackBLE", message)
+            addBleLog(message)
+        }
+        ipixelScanTypes[address] = typeByte
+        connectionPreferences.edit().putInt("ipixel_type_$address", typeByte).apply()
+        refreshMyPanels()
+        _nearbyPanels.value = _nearbyPanels.value.map { if (it.address == address) it.copy(spec = ipixelSpec(typeByte)) else it }
+        if (connectedFamily == PanelFamily.IPixel && gatt?.device?.address == address &&
+            connectionPhase == GattRetryPolicy.Phase.READY
+        ) {
+            setConnectedPanel(ipixelSpec(typeByte))
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun connect(device: BluetoothDevice) {
         if (!hasPermissions()) return
         // A manual connect starts a fresh retry budget and drops any pending automatic retry
         retryPolicy.reset()
@@ -371,6 +616,8 @@ class BluetoothLeManager @Inject constructor(
         }
         cancelMtuWatchdog()
         connectionPhase = GattRetryPolicy.Phase.CONNECTING
+        connectedFamily = null
+        _connectedPanel.value = null
         _deviceName.value = device.name ?: connectionPreferences.getString("name_${device.address}", null)
         _authCompleted = false
         mtu = 23
@@ -387,6 +634,8 @@ class BluetoothLeManager @Inject constructor(
         pendingRetry = null
         cancelMtuWatchdog()
         connectionPhase = GattRetryPolicy.Phase.IDLE
+        connectedFamily = null
+        _connectedPanel.value = null
         val previousGatt = gatt
         gatt = null
         previousGatt?.disconnect()
@@ -428,6 +677,7 @@ class BluetoothLeManager @Inject constructor(
     companion object {
         private const val CAPABILITY_SCAN_MS = 3000L
         private const val DISCOVERY_SCAN_MS = 8000L
+        private const val MY_PANELS_SCAN_MS = 5000L
         val SERVICE_UUID = java.util.UUID.fromString("0000a950-0000-1000-8000-00805f9b34fb")
         val CHAR_CTRL_UUID = java.util.UUID.fromString("0000a951-0000-1000-8000-00805f9b34fb")
         val CHAR_DATA_UUID = java.util.UUID.fromString("0000a952-0000-1000-8000-00805f9b34fb")
@@ -454,6 +704,8 @@ class BluetoothLeManager @Inject constructor(
                 val phase = connectionPhase
                 cancelMtuWatchdog()
                 connectionPhase = GattRetryPolicy.Phase.IDLE
+                connectedFamily = null
+                _connectedPanel.value = null
                 // Decide before cleanup so an in-flight write still counts; a scheduled retry
                 // reports "Connecting (retry …)" instead of "Disconnected"
                 if (!scheduleRetryIfAllowed(gatt, status, phase)) {
@@ -482,7 +734,9 @@ class BluetoothLeManager @Inject constructor(
             Log.d("BackpackBLE", "onServicesDiscovered status=$status")
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val service = gatt.getService(SERVICE_UUID)
+                val ipixelService = gatt.getService(IPixelProtocol.SERVICE_UUID)
                 if (service != null) {
+                    rememberFamily(gatt, PanelFamily.Backpack)
                     val ctrlChar = service.getCharacteristic(CHAR_CTRL_UUID)
                     val dataChar = service.getCharacteristic(CHAR_DATA_UUID)
                     if (ctrlChar != null && dataChar != null) {
@@ -507,6 +761,15 @@ class BluetoothLeManager @Inject constructor(
                         _connectionStatus.value = "Target Characteristics Not Found"
                         Log.e("BackpackBLE", "Characteristics $CHAR_CTRL_UUID or $CHAR_DATA_UUID not found")
                     }
+                } else if (ipixelService != null) {
+                    // iPixel panel: enable FA03, then the same MTU request and watchdog as the backpack
+                    Log.d("BackpackBLE", "iPixel service 00FA found")
+                    rememberFamily(gatt, PanelFamily.IPixel)
+                    // FA02 also allows write-without-response; uploads were verified with responses
+                    ipixelService.getCharacteristic(IPixelProtocol.WRITE_UUID)?.writeType =
+                        BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    armMtuWatchdog(gatt)
+                    enableNotification(gatt, ipixelService, IPixelProtocol.NOTIFY_UUID)
                 } else {
                     _connectionStatus.value = "Target Service Not Found"
                     Log.e("BackpackBLE", "Service $SERVICE_UUID not found")
@@ -571,6 +834,9 @@ class BluetoothLeManager @Inject constructor(
                     // AE02 enabled, now request MTU 512 (manufacturer sequence)
                     Log.d("BackpackBLE", "AE02 enabled. Requesting MTU 512...")
                     requestMtuIfPermitted(gatt)
+                } else if (charUuid == IPixelProtocol.NOTIFY_UUID) {
+                    Log.d("BackpackBLE", "FA03 enabled. Requesting MTU 512...")
+                    requestMtuIfPermitted(gatt)
                 }
             } else {
                 Log.e("BackpackBLE", "Failed to enable notifications: $status")
@@ -598,6 +864,7 @@ class BluetoothLeManager @Inject constructor(
             } else {
                 _connectionStatus.value = "Ready (MTU negotiation failed, using default)"
             }
+            publishConnectedPanel(gatt)
         }
 
         override fun onCharacteristicWrite(
@@ -687,6 +954,12 @@ class BluetoothLeManager @Inject constructor(
         mtu = MtuNegotiation.DEFAULT_MTU
         connectionPhase = GattRetryPolicy.Phase.READY
         _connectionStatus.value = "Ready (MTU negotiation failed, using default)"
+        publishConnectedPanel(gatt)
+    }
+
+    private fun rememberFamily(gatt: BluetoothGatt, family: PanelFamily) {
+        connectedFamily = family
+        connectionPreferences.edit().putString("family_${gatt.device.address}", family.name).apply()
     }
 
     private fun handleNotification(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
@@ -696,6 +969,11 @@ class BluetoothLeManager @Inject constructor(
             addBleLog("RX←${characteristic.uuid.toString().substring(4,8)} [${value.size}B] $hex")
             _receivedData.tryEmit(value)
             parseAck(value, characteristic.uuid)
+        } else if (characteristic.uuid == IPixelProtocol.NOTIFY_UUID) {
+            val hex = value.joinToString("") { "%02X".format(it) }
+            Log.d("BackpackBLE", "RX←fa03 [${value.size}B] $hex")
+            addBleLog("RX←fa03 [${value.size}B] $hex")
+            _ipixelNotifications.tryEmit(value.copyOf())
         }
     }
     
@@ -791,7 +1069,12 @@ class BluetoothLeManager @Inject constructor(
      * If both are present, Android defaults to NO_RESPONSE.
      */
     @SuppressLint("MissingPermission")
-    suspend fun writeDataSuspend(data: ByteArray, charUuid: java.util.UUID = CHAR_DATA_UUID, serviceUuid: java.util.UUID = SERVICE_UUID): Boolean {
+    suspend fun writeDataSuspend(
+        data: ByteArray,
+        charUuid: java.util.UUID = CHAR_DATA_UUID,
+        serviceUuid: java.util.UUID = SERVICE_UUID,
+        logWrite: Boolean = true
+    ): Boolean {
         val writingGatt = gatt
         if (writingGatt == null) {
             Log.e("BackpackBLE", "Gatt is null - cannot write")
@@ -821,7 +1104,7 @@ class BluetoothLeManager @Inject constructor(
 
         val hexPreview = data.take(32).joinToString("") { "%02X".format(it) } + if (data.size > 32) "..." else ""
         Log.d("BackpackBLE", "TX→${charUuid.toString().substring(4,8)} [${data.size}B] $hexPreview")
-        addBleLog("TX→${charUuid.toString().substring(4,8)} [${data.size}B] $hexPreview")
+        if (logWrite) addBleLog("TX→${charUuid.toString().substring(4,8)} [${data.size}B] $hexPreview")
 
         // Serialize: Android BLE allows only ONE outstanding GATT operation. The mutex
         // also prevents two coroutines (e.g. upload + auth) from overwriting each other's
@@ -871,6 +1154,23 @@ class BluetoothLeManager @Inject constructor(
             Log.d("BackpackBLE", "Write CONFIRMED to ${charUuid.toString().substring(4,8)} size: ${data.size}")
             return@withLock true
         }
+    }
+
+    /**
+     * Writes [data] to FA02 in [IPixelProtocol.pieceSize] pieces (`mtu - 3`, at most 512), each confirmed before the next; false on the first failed piece.
+     * The BLE log gets one line per call, not per piece (an upload window is hundreds of pieces at MTU 23).
+     */
+    suspend fun writeIPixel(data: ByteArray): Boolean {
+        val piece = IPixelProtocol.pieceSize(mtu)
+        val hexPreview = data.take(32).joinToString("") { "%02X".format(it) } + if (data.size > 32) "..." else ""
+        addBleLog("TX→fa02 [${data.size}B in ${(data.size + piece - 1) / piece} pieces] $hexPreview")
+        var offset = 0
+        while (offset < data.size) {
+            val end = minOf(data.size, offset + piece)
+            if (!writeDataSuspend(data.copyOfRange(offset, end), IPixelProtocol.WRITE_UUID, IPixelProtocol.SERVICE_UUID, logWrite = false)) return false
+            offset = end
+        }
+        return true
     }
 
     /**

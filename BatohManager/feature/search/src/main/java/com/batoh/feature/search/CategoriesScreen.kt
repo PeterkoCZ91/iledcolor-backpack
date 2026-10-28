@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,151 +38,113 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.batoh.core.domain.model.GifCategory
 import com.batoh.core.ui.components.ShimmerSkeletonGrid
 import java.util.Locale
 
+/**
+ * Loading / error / empty / grid content of the category list, shared with the empty-query state of the search screen.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CategoriesRoute(
-    gridColumns: Int,
-    onCategoryClick: (String) -> Unit,
-    onBack: () -> Unit,
-    viewModel: CategoriesViewModel = hiltViewModel()
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    CategoriesScreen(
-        uiState = uiState,
-        gridColumns = gridColumns,
-        onCategoryClick = { category ->
-            viewModel.onCategoryOpened(category.nameEncoded)
-            onCategoryClick(category.nameEncoded)
-        },
-        onTogglePin = { category -> viewModel.togglePinned(category.nameEncoded) },
-        onRetry = viewModel::retry,
-        onBack = onBack
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CategoriesScreen(
+fun CategoriesContent(
     uiState: CategoriesUiState,
     gridColumns: Int,
     onCategoryClick: (GifCategory) -> Unit,
     onTogglePin: (GifCategory) -> Unit,
     onRetry: () -> Unit,
-    onBack: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(context.getString(R.string.categories_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = context.getString(R.string.categories_back))
-                    }
+    Box(modifier = modifier) {
+        Crossfade(targetState = uiState, label = "categories_state") { state ->
+            when (state) {
+                is CategoriesUiState.Loading -> {
+                    ShimmerSkeletonGrid(gridColumns = gridColumns, cornerRadius = 12.dp)
                 }
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            Crossfade(targetState = uiState, label = "categories_state") { state ->
-                when (state) {
-                    is CategoriesUiState.Loading -> {
-                        ShimmerSkeletonGrid(gridColumns = gridColumns, cornerRadius = 12.dp)
-                    }
-                    is CategoriesUiState.Success -> if (
-                        state.pinnedCategories.isEmpty() && state.monthlyTrendingCategories.isEmpty() &&
-                        state.recentCategories.isEmpty() && state.categories.isEmpty()
+                is CategoriesUiState.Success -> if (
+                    state.pinnedCategories.isEmpty() && state.monthlyTrendingCategories.isEmpty() &&
+                    state.recentCategories.isEmpty() && state.categories.isEmpty()
+                ) {
+                    // Nothing to show: announce it and offer the same recovery as the error state.
+                    CategoriesMessage(
+                        message = stringResource(R.string.categories_empty),
+                        isError = false,
+                        onRetry = onRetry
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Nothing to show: announce it and offer the same recovery as the error state.
-                        CategoriesMessage(
-                            message = stringResource(R.string.categories_empty),
-                            isError = false,
-                            onRetry = onRetry
-                        )
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            if (state.pinnedCategories.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    QuickCategorySection(
-                                        title = context.getString(R.string.categories_pinned),
-                                        categories = state.pinnedCategories,
-                                        pinnedQueries = state.pinnedQueries,
-                                        onCategoryClick = onCategoryClick,
-                                        onTogglePin = onTogglePin
-                                    )
-                                }
-                            }
-
-                            if (state.monthlyTrendingCategories.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    QuickCategorySection(
-                                        title = context.getString(R.string.categories_monthly_trending),
-                                        categories = state.monthlyTrendingCategories,
-                                        pinnedQueries = state.pinnedQueries,
-                                        onCategoryClick = onCategoryClick,
-                                        onTogglePin = onTogglePin
-                                    )
-                                }
-                            }
-
-                            if (state.recentCategories.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    QuickCategorySection(
-                                        title = context.getString(R.string.categories_recent),
-                                        categories = state.recentCategories,
-                                        pinnedQueries = state.pinnedQueries,
-                                        onCategoryClick = onCategoryClick,
-                                        onTogglePin = onTogglePin
-                                    )
-                                }
-                            }
-
-                            if (state.categories.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    Text(
-                                        text = context.getString(R.string.categories_discover),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.padding(vertical = 8.dp).semantics { heading() }
-                                    )
-                                }
-                            }
-
-                            items(state.categories, key = { it.nameEncoded }) { category ->
-                                val isPinned = state.pinnedQueries.contains(
-                                    normalizeQuery(category.nameEncoded)
-                                )
-                                @OptIn(ExperimentalFoundationApi::class)
-                                CategoryItem(
-                                    category = category,
-                                    isPinned = isPinned,
-                                    onClick = { onCategoryClick(category) },
-                                    onTogglePin = { onTogglePin(category) },
-                                    modifier = Modifier.animateItemPlacement()
+                        if (state.pinnedCategories.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                QuickCategorySection(
+                                    title = context.getString(R.string.categories_pinned),
+                                    categories = state.pinnedCategories,
+                                    pinnedQueries = state.pinnedQueries,
+                                    onCategoryClick = onCategoryClick,
+                                    onTogglePin = onTogglePin
                                 )
                             }
                         }
+
+                        if (state.monthlyTrendingCategories.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                QuickCategorySection(
+                                    title = context.getString(R.string.categories_monthly_trending),
+                                    categories = state.monthlyTrendingCategories,
+                                    pinnedQueries = state.pinnedQueries,
+                                    onCategoryClick = onCategoryClick,
+                                    onTogglePin = onTogglePin
+                                )
+                            }
+                        }
+
+                        if (state.recentCategories.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                QuickCategorySection(
+                                    title = context.getString(R.string.categories_recent),
+                                    categories = state.recentCategories,
+                                    pinnedQueries = state.pinnedQueries,
+                                    onCategoryClick = onCategoryClick,
+                                    onTogglePin = onTogglePin
+                                )
+                            }
+                        }
+
+                        if (state.categories.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Text(
+                                    text = context.getString(R.string.categories_discover),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(vertical = 8.dp).semantics { heading() }
+                                )
+                            }
+                        }
+
+                        items(state.categories, key = { it.nameEncoded }) { category ->
+                            val isPinned = state.pinnedQueries.contains(
+                                normalizeQuery(category.nameEncoded)
+                            )
+                            @OptIn(ExperimentalFoundationApi::class)
+                            CategoryItem(
+                                category = category,
+                                isPinned = isPinned,
+                                onClick = { onCategoryClick(category) },
+                                onTogglePin = { onTogglePin(category) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
                     }
-                    is CategoriesUiState.Error -> {
-                        CategoriesMessage(message = stringResource(state.error.messageRes()), isError = true, onRetry = onRetry)
-                    }
+                }
+                is CategoriesUiState.Error -> {
+                    CategoriesMessage(message = stringResource(state.error.messageRes()), isError = true, onRetry = onRetry)
                 }
             }
         }
@@ -337,7 +298,8 @@ fun CategoryItem(
                 Text(
                     text = displayName,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
+                    // Two lines so large font scales do not cut names off.
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(8.dp)
                 )

@@ -5,9 +5,14 @@
     <string name="text_banner_input_hint">%1$d / %2$d znaků</string>
     <string name="text_banner_preview_title">Náhled</string>
     <string name="text_banner_preview_description">Náhled běžícího textu</string>
-    <string name="text_banner_empty">Napiš text, který má po batohu běžet.</string>
+    <string name="text_banner_empty">Napiš text, který má po panelu běžet.</string>
     <string name="text_banner_rendering">Vykresluji…</string>
-    <string name="text_banner_info">%1$d snímků · %2$.1f s · %3$d kB</string>
+        <plurals name="text_banner_info">
+        <item quantity="one">%1$d snímek · %2$.1f s · %3$d kB</item>
+        <item quantity="few">%1$d snímky · %2$.1f s · %3$d kB</item>
+        <item quantity="many">%1$d snímku · %2$.1f s · %3$d kB</item>
+        <item quantity="other">%1$d snímků · %2$.1f s · %3$d kB</item>
+    </plurals>
     <string name="text_banner_text_color">Barva textu</string>
     <string name="text_banner_background_color">Barva pozadí</string>
     <string name="text_banner_same_colors">Text a pozadí mají stejnou barvu, text nebude vidět.</string>
@@ -23,12 +28,12 @@
     <string name="text_banner_save">Uložit do sbírky</string>
     <string name="text_banner_saving">Ukládám…</string>
     <string name="text_banner_saved">Uloženo do sbírky</string>
-    <string name="text_banner_send">Odeslat do batohu</string>
-    <string name="text_banner_open_backpack">Otevřít batoh</string>
-    <string name="text_banner_bluetooth_permission">Pro odeslání do batohu je potřeba povolit Bluetooth.</string>
-    <string name="text_banner_error_render">Text se nepodařilo vykreslit</string>
-    <string name="text_banner_error_save">Uložení do sbírky selhalo</string>
-    <string name="text_banner_error_payload">Program pro batoh se nepodařilo připravit</string>
+    <string name="text_banner_send">Odeslat do panelu</string>
+    <string name="text_banner_open_backpack">Otevřít panel</string>
+    <string name="text_banner_bluetooth_permission">Pro odeslání do panelu je potřeba povolit Bluetooth.</string>
+    <string name="text_banner_error_render">Text se nepodařilo vykreslit. Zkus to znovu.</string>
+    <string name="text_banner_error_save">Uložení do sbírky se nepodařilo. Zkus to znovu.</string>
+    <string name="text_banner_error_payload">Program pro panel se nepodařilo připravit. Zkus to znovu.</string>
     <string name="text_banner_color_white">Bílá</string>
     <string name="text_banner_color_red">Červená</string>
     <string name="text_banner_color_orange">Oranžová</string>

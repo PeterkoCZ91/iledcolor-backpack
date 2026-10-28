@@ -18,6 +18,8 @@ interface LocalMediaRepository {
     suspend fun saveGifBytes(bytes: ByteArray, title: String): Result<Uri>
     suspend fun importGif(uri: Uri): Result<Uri>
     fun observeDownload(workId: String): Flow<DownloadStatus>
+    /** Collection content URI written by a finished [saveGif] work; null when unknown or not succeeded. */
+    suspend fun downloadedUri(workId: String): String?
     suspend fun deleteGif(gif: Gif): Result<Unit>
     /** Reads the library file with the bounded GIF parser; null = valid for editing and upload. */
     suspend fun inspectGif(gif: Gif): GifFileProblem?

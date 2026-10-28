@@ -102,6 +102,41 @@ def has_backpack_command_error(labels):
     return any("se nepodařilo provést" in label or "Could not complete:" in label for label in labels)
 
 
+# Labels the harness relies on: string key -> (Czech, English). tools/test_apk_smoke.py checks every
+# entry against the app's own string resources, so a copy change in the app fails offline, not on a phone.
+UI_LABELS = {
+    "navigation_home": ("Domů", "Home"),
+    "navigation_search": ("Hledat", "Search"),
+    "navigation_panel": ("Panel", "Panel"),
+    "navigation_library": ("Sbírka", "Collection"),
+    "navigation_more": ("Více", "More"),
+    "home_search_hint": ("Hledej GIFy…", "Search GIFs…"),
+    "home_text_banner_button": ("Běžící text", "Scrolling text"),
+    "more_section_tools": ("Nástroje", "Tools"),
+    "more_section_settings": ("Nastavení", "Settings"),
+    "more_section_about": ("O aplikaci", "About"),
+    "home_settings_language": ("Jazyk aplikace", "App language"),
+    "search_categories_heading": ("Kategorie", "Categories"),
+    "library_title": ("Moje sbírka", "My collection"),
+    "send_action": ("Odeslat GIF", "Send a GIF"),
+    "send_source_title": ("Odeslat GIF z…", "Send a GIF from…"),
+    "send_source_collection": ("Ze sbírky", "From my collection"),
+    "incoming_import_success": ("GIF byl importován do sbírky", "GIF imported into your collection"),
+    "detail_preview_loaded": ("Náhled GIFu načten", "GIF preview loaded"),
+    "detail_send_to_backpack": ("Odeslat do panelu", "Send to panel"),
+    "detail_edit_for_backpack": ("Upravit pro panel", "Edit for panel"),
+    "common_close": ("Zavřít", "Close"),
+    "library_remove_title": ("Smazat GIF z telefonu?", "Delete GIF from the phone?"),
+    "library_problem_corrupt": ("GIF je poškozený nebo používá nepodporované funkce.",
+                                "The GIF is damaged or uses unsupported features."),
+}
+
+
+def ui(key, language):
+    """Label for [key] in "cs" or "en"."""
+    return UI_LABELS[key][0 if language == "cs" else 1]
+
+
 def selected_app_language(tree):
     parents = {child: parent for parent in tree.iter("node") for child in parent}
     language_tags = {
@@ -168,7 +203,7 @@ class Smoke:
 
     @staticmethod
     def localized_label(labels, czech, english):
-        # Controls with a state suffix ("Batoh, Nepřipojeno, …") match like matches_label does.
+        # Controls with a state suffix ("Panel, Nepřipojeno, …") match like matches_label does.
         for label in (czech, english):
             if label in labels or any(item.startswith(label + ",") for item in labels):
                 return label
@@ -194,6 +229,19 @@ class Smoke:
             label,
             timeout,
         )
+
+    def see_matching(self, pattern, timeout=20):
+        """Wait until some label matches the regular expression [pattern] (text with a variable part)."""
+        regex = re.compile(pattern)
+        return self.wait(lambda tree: any(regex.fullmatch(label) for label in self.labels(tree)), pattern, timeout)
+
+    def click_key(self, key):
+        """Tap the control whose text is [key] from UI_LABELS, in whichever language is shown."""
+        self.click(self.localized_label(self.labels(self.tree()), *UI_LABELS[key]))
+
+    def see_any(self, labels, timeout=20):
+        """Wait until any of [labels] (the same text in several languages) is on screen."""
+        return self.wait(lambda tree: any(label in self.labels(tree) for label in labels), " / ".join(labels), timeout)
 
     def click(self, label):
         # Always query fresh bounds from a node belonging to this app.
@@ -243,6 +291,58 @@ class Smoke:
                 return
             node = parents[node]
         raise RuntimeError("Could not identify send button belonging to the valid fixture card")
+
+    def screen_size(self):
+        if not hasattr(self, "_screen_size"):
+            match = re.search(r"(\d+)x(\d+)", self.adb("shell", "wm", "size"))
+            self._screen_size = (int(match.group(1)), int(match.group(2))) if match else (1080, 2400)
+        return self._screen_size
+
+    def swipe_up(self):
+        width, height = self.screen_size()
+        self.adb("shell", "input", "swipe", str(width // 2), str(int(height * 0.75)),
+                 str(width // 2), str(int(height * 0.3)))
+
+    def scroll_to(self, label, attempts=6):
+        """Scroll a list down until a control with [label] is on screen; returns that hierarchy."""
+        for _ in range(attempts):
+            tree = self.tree()
+            if any(node.get("package") == PACKAGE and self.matches_label(node, label)
+                   for node in tree.iter("node")):
+                return tree
+            self.swipe_up()
+        return self.see(label)
+
+    def tab(self, key):
+        """Tap a bottom-bar tab by its label in whichever language is currently shown."""
+        czech, english = UI_LABELS[key]
+        tree = self.tree()
+        label = self.localized_label(self.labels(tree), czech, english)
+        if self.tab_is_selected(tree, label):
+            return label  # the active tab is not exposed as clickable; nothing to do
+        self.click(label)
+        return label
+
+    @classmethod
+    def tab_is_selected(cls, tree, label):
+        parents = {child: parent for parent in tree.iter() for child in parent}
+        for node in tree.iter("node"):
+            if node.get("package") != PACKAGE or not cls.matches_label(node, label):
+                continue
+            while node is not None and node.tag == "node":
+                if node.get("selected") == "true" and node.get("clickable") != "true":
+                    return True
+                node = parents.get(node)
+        return False
+
+    def open_tool_and_return(self, label, more_label):
+        """A tool row must leave the tab bar (full-screen route) and Back must land on More again."""
+        self.click(label)
+        self.wait(lambda tree: not any(node.get("package") == PACKAGE and self.matches_label(node, more_label)
+                                       for node in tree.iter("node")),
+                  "full-screen tool route hides the bottom bar", timeout=15)
+        self.back()
+        self.see(more_label)
 
     def back(self):
         self.wait(lambda _: True, "app before Back")
@@ -318,17 +418,18 @@ class Smoke:
                 # Broken library items open the removal dialog with the reason (since v50). The harness
                 # only checks the text and presses Cancel; it never confirms a deletion.
                 self.wait(lambda tree: any(label in self.labels(tree) for label in
-                                           ("Odebrat GIF z knihovny?", "Remove GIF from the library?")),
+                                           UI_LABELS["library_remove_title"]),
                           "malformed GIF removal dialog")
                 self.wait(lambda tree: any(label in self.labels(tree) for label in
-                                           ("GIF je poškozený nebo používá nepodporované funkce.",
-                                            "The GIF is damaged or uses unsupported features.")),
+                                           UI_LABELS["library_problem_corrupt"]),
                           "malformed GIF friendly reason")
                 self.click(self.localized_label(self.labels(self.tree()), "Zrušit", "Cancel"))
                 self.record("malformed GIF shows friendly reason and removal is cancelled")
             self.crash_check()
-            self.back()
-            self.wait(lambda tree: any(label in self.labels(tree) for label in ("Moje sbírka", "My Collection")),
+            # A broken item opens only a dialog (already cancelled above): Back would leave the library.
+            if kind != "malformed":
+                self.back()
+            self.wait(lambda tree: any(label in self.labels(tree) for label in UI_LABELS["library_title"]),
                       "collection after GIF detail")
         self.record("fixture gallery/detail navigation remains responsive")
 
@@ -348,46 +449,46 @@ class Smoke:
         return not failed
 
     def upload_fixture(self, title):
-        self.click_related(title, "Odeslat GIF do batohu")
-        self.see("LED batoh")
-        self.see("Hotovo — obrázek je v batohu", timeout=90)
+        self.click_related(title, "Odeslat GIF do panelu")
+        self.see("Panel")
+        self.see("Hotovo — obrázek je v panelu", timeout=90)
         self.see(title)
         self.record("real valid fixture upload reports confirmed success")
         self.back()
-        self.see("Moje sbírka")
+        self.see_any(UI_LABELS["library_title"])
         self.click("Domů")
-        self.click("Batoh")
-        self.see("Hotovo — obrázek je v batohu")
+        self.click("Panel")
+        self.see("Hotovo — obrázek je v panelu")
         self.see(title)
         self.record("successful upload result persists after leaving and reopening backpack UI")
         self.back()
-        self.see("Informace o aplikaci")
-        self.click("Moje sbírka")
-        self.see("Moje sbírka")
+        self.see_any(UI_LABELS["home_search_hint"])
+        self.tab("navigation_library")
+        self.see_any(UI_LABELS["library_title"])
 
     def cancel_and_retry_upload(self, title):
-        self.click_related(title, "Odeslat GIF do batohu")
-        self.see("LED batoh")
+        self.click_related(title, "Odeslat GIF do panelu")
+        self.see("Panel")
         self.wait(lambda tree: has_upload_progress(self.labels(tree)),
                   "upload progress", timeout=90)
         self.click("Zrušit nahrávání")
         self.see("Nahrávání zrušeno", timeout=30)
         self.record("in-flight upload cancels without reporting success")
         self.click("Zkusit znovu")
-        self.see("Hotovo — obrázek je v batohu", timeout=180)
+        self.see("Hotovo — obrázek je v panelu", timeout=180)
         self.see(title)
         self.record("cancelled upload reconnects and succeeds when retried")
         self.back()
-        self.see("Moje sbírka")
+        self.see_any(UI_LABELS["library_title"])
         self.click("Domů")
-        self.click("Batoh")
-        self.see("Hotovo — obrázek je v batohu")
+        self.click("Panel")
+        self.see("Hotovo — obrázek je v panelu")
         self.see(title)
         self.record("retried upload result persists after navigation")
         self.back()
-        self.see("Informace o aplikaci")
-        self.click("Moje sbírka")
-        self.see("Moje sbírka")
+        self.see_any(UI_LABELS["home_search_hint"])
+        self.tab("navigation_library")
+        self.see_any(UI_LABELS["library_title"])
 
     def imported_rows(self, title):
         # Names contain only our generated ASCII UUID prefix, never arbitrary user input.
@@ -412,14 +513,14 @@ class Smoke:
                      "--eu", "android.intent.extra.STREAM", uri, "-f", "0x20000001")
             try:
                 if kind == "valid":
-                    self.see("GIF byl importován do knihovny")
-                    self.see("Náhled GIFu načten")
-                    self.see("Odeslat do batohu")
-                    self.see("Upravit pro batoh")
+                    self.see_any(UI_LABELS["incoming_import_success"])
+                    self.see_any(UI_LABELS["detail_preview_loaded"])
+                    self.see_any(UI_LABELS["detail_send_to_backpack"])
+                    self.see_any(UI_LABELS["detail_edit_for_backpack"])
                     self.record("cold ACTION_SEND imports valid GIF and opens send/edit detail")
                 else:
                     self.wait(lambda tree: has_shared_import_error(self.labels(tree)), "malformed import error")
-                    self.see("Moje sbírka")
+                    self.see_any(UI_LABELS["library_title"])
                     self.record("warm ACTION_SEND rejects malformed GIF with visible error")
             finally:
                 after = self.imported_rows(title)
@@ -432,16 +533,21 @@ class Smoke:
                 raise RuntimeError("Malformed import unexpectedly copied data into the library")
             self.crash_check()
             # Close the persistent status banner through its app-labelled action.
-            self.click("Zavřít")
+            self.click_key("common_close")
             if kind == "valid":
                 self.back()
-                self.see("Moje sbírka")
+                self.see_any(UI_LABELS["library_title"])
         self.record("import validation creates only valid copy; malformed creates no row")
 
     def run(self, apk=None, hardware=False, fixtures=False, upload=False, imports=False,
             cancel_upload=False, locale_sweep=False):
-        if self.adb("get-state").strip() != "device":
-            raise RuntimeError("ADB device is not authorized")
+        try:
+            state = self.adb("get-state", attempts=1).strip()
+        except RuntimeError:
+            state = "none"
+        if state != "device":
+            raise RuntimeError("No usable ADB device (state: %s): connect the phone, unlock it, accept the "
+                               "USB debugging prompt and pass --serial or set ANDROID_SERIAL" % state)
         if apk:
             output = self.adb("install", "-r", str(apk), timeout=120)
             if "Success" not in output:
@@ -459,28 +565,30 @@ class Smoke:
         self.adb("shell", "am", "force-stop", PACKAGE)
         self.adb("shell", "am", "start", "-n", PACKAGE + "/" + ACTIVITY)
         labels = self.labels(self.tree())
-        about = self.localized_label(labels, "Informace o aplikaci", "About the app")
-        settings = self.localized_label(labels, "Nastavení aplikace", "App settings")
-        library = self.localized_label(labels, "Moje sbírka", "My Collection")
         home = self.localized_label(labels, "Domů", "Home")
-        backpack = self.localized_label(labels, "Batoh", "Backpack")
-        library_screen = self.localized_label(labels, "Moje sbírka", "My Collection")
-        language = "cs" if about == "Informace o aplikaci" else "en"
+        language = "cs" if home == "Domů" else "en"
+        more = ui("navigation_more", language)
+        library = ui("navigation_library", language)
+        backpack = ui("navigation_panel", language)
         # The picker button lives on the backpack screen, not on Home: choose its text by language.
-        backpack_picker = "Vybrat GIF z knihovny" if language == "cs" else "Choose a GIF from your library"
+        send_label = ui("send_action", language)
 
-        self.see(about)
-        self.record("home screen opens")
-        self.click(about)
-        self.see(("Verze: " if language == "cs" else "Version: ") + version)
+        self.see(ui("home_search_hint", language))
+        self.record("home dashboard opens with search entry")
+        for key in ("navigation_search", "navigation_panel", "navigation_library", "navigation_more"):
+            self.see(ui(key, language))
+        self.record("bottom bar shows Home, Search, Panel, Collection, More")
+        self.click(more)
+        self.scroll_to(ui("more_section_tools", language))
+        self.open_tool_and_return("Video → GIF", more)
+        self.open_tool_and_return(ui("home_text_banner_button", language), more)
+        self.record("More: tool rows open full-screen routes and Back returns")
+        self.scroll_to(ui("home_settings_language", language))
+        self.record("More: settings are inline (no dialog)")
+        self.scroll_to(("Verze: " if language == "cs" else "Version: ") + version)
         self.record("displayed version matches installed APK", detail=version)
-        self.click("OK")
-        self.click(settings)
-        self.see("Nastavení" if language == "cs" else "Settings")
-        self.record("settings dialog opens")
-        self.back()
         self.click(library)
-        self.see(library_screen)
+        self.see(ui("library_title", language))
         self.record("library opens")
         if seeded:
             self.fixture_checks(seeded)
@@ -490,27 +598,27 @@ class Smoke:
             self.upload_fixture(next(title for title, kind in seeded if kind == "valid"))
         if cancel_upload:
             self.cancel_and_retry_upload(next(title for title, kind in seeded if kind == "cancel"))
-        self.click(home)
         self.click(backpack)
-        self.see("LED batoh" if language == "cs" else "LED Backpack")
-        tree = self.see(backpack_picker)
+        tree = self.see(send_label)
         labels = self.labels(tree)
         if any(re.search(r"rotac|zrcadl|Hardcoded MAC|Target:", label, re.I) for label in labels):
             raise RuntimeError("Removed experimental controls remain visible")
         if any(label in labels for label in ("Skrýt diagnostiku", "Hide diagnostics")):
             raise RuntimeError("Diagnostics are expanded by default")
-        self.record("backpack UI has library picker and collapsed diagnostics")
-        self.click(backpack_picker)
-        self.see("Klepnutím na obrázek ho nahraješ do batohu." if language == "cs"
-                 else "Tap a GIF to upload it to your backpack.")
+        self.record("backpack UI has one send button and collapsed diagnostics")
+        self.click(send_label)
+        self.see_any(UI_LABELS["send_source_title"])
+        self.click(ui("send_source_collection", language))
+        self.see("Klepnutím na obrázek ho nahraješ do panelu." if language == "cs"
+                 else "Tap a GIF to upload it to your panel.")
         self.record("picker opens app library (not external phone picker)")
         self.back()
-        self.see("LED batoh" if language == "cs" else "LED Backpack")
+        self.see(send_label)
         self.record("picker cancels without selecting or uploading")
         if hardware:
-            if "Batoh připojen" not in self.labels(self.tree()):
-                self.click("Připojit batoh")
-            self.see("Batoh připojen", timeout=40)
+            if "Panel připojen" not in self.labels(self.tree()):
+                self.click("Připojit panel")
+            self.see("Panel připojen", timeout=40)
             state_tree = self.wait(
                 lambda tree: backpack_panel_state(self.labels(tree)) is not None,
                 "backpack display state response", timeout=15)
@@ -522,10 +630,7 @@ class Smoke:
                         detail=f"brightness={panel_state[0]}/10; {panel_state[1]}")
             # Since v63 the clear action lives in the collapsed "Advanced" section.
             if "Smazat obsah batohu" not in self.labels(self.tree()):
-                for _ in range(3):  # the section sits below the fold on a normal screen
-                    if "Pokročilé" in self.labels(self.tree()):
-                        break
-                    self.adb("shell", "input", "swipe", "540", "1800", "540", "600")
+                self.scroll_to("Pokročilé")
                 self.click("Pokročilé")
             self.click("Smazat obsah batohu")
             self.see("Smazat obsah batohu?")
@@ -548,116 +653,77 @@ class Smoke:
         self.record(remaining, "manual", "See tools/APK_SMOKE.md")
         self.crash_check()
 
+    def open_language_settings(self):
+        """Open the More tab and scroll to the language choice; returns the hierarchy showing it."""
+        self.tab("navigation_more")
+        labels = self.labels(self.wait(
+            lambda tree: any(label in self.labels(tree) for label in UI_LABELS["more_section_tools"]),
+            "More screen"))
+        language = "cs" if UI_LABELS["more_section_tools"][0] in labels else "en"
+        return self.scroll_to(ui("home_settings_language", language))
+
     def locale_sweep(self, fixtures):
-        self.back()
-        self.click("Nastavení aplikace")
-        settings_tree = self.see("Nastavení")
+        settings_tree = self.open_language_settings()
         original_language = selected_app_language(settings_tree)
         if original_language not in {"system", "cs", "en"}:
             raise RuntimeError("Could not determine app language to restore after locale sweep")
         original_home_label = "Home" if "Home" in self.labels(settings_tree) else "Domů"
         try:
-            self.click("English")
-            self.wait(lambda tree: "App language" in self.labels(tree) or
-                      "Search GIFs" in self.labels(tree),
-                      "English locale applied", timeout=30)
-            if "App language" in self.labels(self.tree()):
-                self.back()
-            self.see("Search GIFs", timeout=20)
-            self.record("English home screen opens")
-
-            self.click("Categories")
-            self.see("Discover", timeout=30)
-            self.record("English categories screen opens")
-            self.click("Search")
-            self.see("Search GIFs…", timeout=30)
-            self.record("English search screen opens")
-            self.click("My Collection")
-            self.see("My Collection", timeout=30)
-            self.record("English collection screen opens")
-            valid_fixture = next((title for title, kind in fixtures if kind == "valid"), None)
-            if valid_fixture:
-                self.click(valid_fixture)
-                self.see("GIF preview loaded", timeout=20)
-                self.see("Edit for backpack", timeout=20)
-                self.record("English GIF detail screen opens")
-                self.click("Edit for backpack")
-                self.see("Edit GIF for backpack", timeout=20)
-                self.see("Result preview · 64 × 64", timeout=30)
-                self.see("Rotation", timeout=20)
-                self.record("English GIF editor screen opens")
-                self.back()
-                self.back()
-                self.see("My Collection", timeout=20)
-            self.click("Home")
-            self.click("Backpack")
-            self.see("LED Backpack", timeout=20)
-            self.see("Choose a GIF from your library", timeout=20)
-            self.record("English backpack screen opens")
+            for language, chip in (("en", "English"), ("cs", "Čeština")):
+                # The selected chip is not clickable, so only switch when another language is active.
+                if selected_app_language(self.open_language_settings()) != language:
+                    self.click(chip)
+                self.see(ui("more_section_tools", language), timeout=30)
+                self.record(f"{ {'en': 'English', 'cs': 'Czech'}[language] } More screen opens")
+                self.walk_main_screens(language, fixtures)
         finally:
             self.restore_app_language(original_language, original_home_label)
 
-        self.click("Kategorie")
-        self.see("Objevovat", timeout=30)
-        self.record("Czech categories screen opens")
-        self.click("Hledat")
-        self.see("Hledat GIFy...", timeout=30)
-        self.record("Czech search screen opens")
-        self.click("Moje sbírka")
-        self.see("Moje sbírka", timeout=30)
-        self.record("Czech collection screen opens")
+    def walk_main_screens(self, language, fixtures):
+        """Visit the tabs and the editor in one language; the harness is on a screen with the tab bar."""
+        names = {"cs": "Czech", "en": "English"}[language]
+        czech = language == "cs"
+        self.tab("navigation_search")
+        self.see(ui("search_categories_heading", language), timeout=30)
+        self.see("Hledat GIFy…" if czech else "Search GIFs…", timeout=30)
+        self.record(f"{names} search screen shows the categories")
+        self.tab("navigation_library")
+        self.see(ui("library_title", language), timeout=30)
+        self.record(f"{names} collection screen opens")
         valid_fixture = next((title for title, kind in fixtures if kind == "valid"), None)
         if valid_fixture:
+            edit = "Upravit pro panel" if czech else "Edit for panel"
             self.click(valid_fixture)
-            self.see("Náhled GIFu načten", timeout=20)
-            self.see("Upravit pro batoh", timeout=20)
-            self.record("Czech GIF detail screen opens")
-            self.click("Upravit pro batoh")
-            self.see("Upravit GIF pro batoh", timeout=20)
-            self.see("Náhled výsledku · 64 × 64", timeout=30)
-            self.see("Rotace", timeout=20)
-            self.record("Czech GIF editor screen opens")
+            self.see("Náhled GIFu načten" if czech else "GIF preview loaded", timeout=20)
+            self.see(edit, timeout=20)
+            self.record(f"{names} GIF detail screen opens")
+            self.click(edit)
+            self.see("Upravit GIF pro panel" if czech else "Edit GIF for panel", timeout=20)
+            self.see_matching(r"Náhled výsledku · \d+ × \d+" if czech else r"Result preview · \d+ × \d+", timeout=30)
+            self.see("Otočení" if czech else "Rotation", timeout=20)
+            self.record(f"{names} GIF editor screen opens")
             self.back()
             self.back()
-            self.see("Moje sbírka", timeout=20)
-        self.click("Domů")
-        self.click("Batoh")
-        self.see("LED batoh", timeout=20)
-        self.see("Vybrat GIF z knihovny", timeout=20)
-        self.record("Czech backpack screen opens")
+            self.see(ui("library_title", language), timeout=20)
+        self.tab("navigation_panel")
+        self.see(ui("send_action", language), timeout=20)
+        self.record(f"{names} backpack screen opens")
+        self.tab("navigation_home")
+        self.see(ui("home_search_hint", language), timeout=20)
+        self.record(f"{names} home dashboard opens")
 
     def restore_app_language(self, original_language, original_home_label):
-        labels = self.labels(self.tree())
-        if "App language" not in labels and "Jazyk aplikace" not in labels:
-            if "Home" in labels:
-                self.click("Home")
-            elif "Domů" in labels:
-                self.click("Domů")
-            else:
-                self.back()
-            labels = self.labels(self.tree())
-            if "App language" not in labels and "Jazyk aplikace" not in labels:
-                self.click("App settings" if "Home" in labels else "Nastavení aplikace")
-
-        english_ui = "App language" in self.labels(self.tree())
-        restore_label = {
-            "system": "System default" if english_ui else "Podle systému",
-            "cs": "Čeština",
-            "en": "English",
-        }[original_language]
-        self.see("App language" if english_ui else "Jazyk aplikace", timeout=20)
-        self.click(restore_label)
-        original_settings_title = "App language" if original_home_label == "Home" else "Jazyk aplikace"
-        restored_tree = self.wait(
-            lambda tree: original_home_label in self.labels(tree) or
-            original_settings_title in self.labels(tree),
-            "original locale restored", timeout=30)
-        if original_settings_title in self.labels(restored_tree):
-            self.back()
+        tree = self.open_language_settings()
+        english_ui = "Home" in self.labels(tree)
+        if selected_app_language(tree) != original_language:
+            self.click({
+                "system": "System default" if english_ui else "Podle systému",
+                "cs": "Čeština",
+                "en": "English",
+            }[original_language])
+        original = "en" if original_home_label == "Home" else "cs"
+        self.see(ui("more_section_tools", original), timeout=30)
         self.see(original_home_label, timeout=30)
-        labels = self.labels(self.tree())
-        if "App language" in labels or "Jazyk aplikace" in labels:
-            self.back()
         self.record("Original app language restored", detail=original_language)
 
 

@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -343,6 +344,16 @@ class LocalMediaRepositoryImpl @Inject constructor(
                 coroutine.ensureActive()
             }
         }
+
+    override suspend fun downloadedUri(workId: String): String? = try {
+        workManager.getWorkInfoByIdFlow(UUID.fromString(workId)).first()
+            ?.takeIf { it.state == androidx.work.WorkInfo.State.SUCCEEDED }
+            ?.outputData?.getString(DownloadWorker.KEY_RESULT_URI)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
 
     override fun observeDownload(workId: String): Flow<DownloadStatus> {
         return try {

@@ -9,25 +9,28 @@
     <string name="library_problem_too_large">The GIF is larger than 20 MB.</string>
     <string name="library_problem_corrupt">The GIF is damaged or uses unsupported features.</string>
     <string name="library_problem_unreadable">The file cannot be read (storage error).</string>
-    <string name="library_remove">Remove</string>
-    <string name="library_remove_description">Remove broken GIF from the library</string>
-    <string name="library_remove_title">Remove GIF from the library?</string>
+    <string name="library_remove">Delete</string>
+    <string name="library_remove_description">Delete broken GIF from the phone</string>
+    <string name="library_remove_title">Delete GIF from the phone?</string>
     <string name="library_remove_message">“%1$s” will be deleted from the phone (Pictures/GifPack folder). This cannot be undone.</string>
-    <string name="library_remove_confirm">Remove</string>
+    <string name="library_remove_confirm">Delete</string>
     <string name="library_remove_cancel">Cancel</string>
-    <string name="library_backpack_view">As on backpack</string>
-    <string name="library_backpack_view_hint">Pixel-exact 64×64 preview as the backpack shows it (first frame, centre crop).</string>
+    <string name="library_backpack_view">As on panel</string>
+    <string name="library_backpack_view_hint">Pixel-exact preview as the last connected panel shows it (first frame).</string>
     <string name="library_duplicates_action">Find duplicates</string>
     <string name="library_duplicates_scanning">Looking for duplicates…</string>
     <string name="library_duplicates_none">No duplicates found.</string>
     <string name="library_duplicates_failed">Could not search for duplicates.</string>
-    <string name="library_duplicates_summary">Groups found: %1$d. One copy per group is always kept (marked); you can delete the others.</string>
-    <string name="library_duplicates_keep">Keep: %1$s</string>
-    <string name="library_duplicates_delete">Delete selected (%1$d)</string>
     <string name="library_duplicates_close">Close</string>
-    <string name="library_duplicates_confirm_title">Delete duplicates?</string>
-    <string name="library_duplicates_confirm_message">%1$d copies will be deleted from the phone (Pictures/GifPack folder). This cannot be undone.</string>
     <string name="library_duplicates_confirm">Delete</string>
     <string name="library_duplicates_cancel">Cancel</string>
-    <string name="library_duplicates_delete_partial">Could not delete %1$d duplicates.</string>
+    <string name="library_duplicates_delete_partial">Duplicates that could not be deleted: %1$d.</string>
+    <plurals name="library_duplicates_simple_message">
+        <item quantity="one">Found %1$d duplicate GIF. Delete it and keep the original?</item>
+        <item quantity="other">Found %1$d duplicate GIFs. Delete them and always keep one?</item>
+    </plurals>
+    <plurals name="library_duplicates_result">
+        <item quantity="one">Deleted %1$d duplicate.</item>
+        <item quantity="other">Deleted %1$d duplicates.</item>
+    </plurals>
 </resources>

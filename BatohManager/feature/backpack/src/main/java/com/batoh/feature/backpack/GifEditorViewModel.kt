@@ -37,9 +37,15 @@ data class GifEditorUiState(
     val saving: Boolean = false,
     val savedUri: String? = null,
     val error: String? = null,
+    /** Panel size the preview was rendered at (the connected panel, else the last one, else 64x64). */
+    val panelWidth: Int = 64,
+    val panelHeight: Int = 64,
     /** Experimental programme bytes for the upload payload; defaults keep today's behaviour. */
     val playback: EditorPlaybackOptions = EditorPlaybackOptions()
 )
+
+/** Navigation request after saving: the saved copy's [uri], for the connected panel or all of [toMyPanels]. */
+data class EditorSendEvent(val uri: String, val toMyPanels: Boolean)
 
 @HiltViewModel
 class GifEditorViewModel @Inject constructor(
@@ -48,17 +54,33 @@ class GifEditorViewModel @Inject constructor(
     private val transfers: BackpackTransferManager,
     private val savedState: SavedStateHandle
 ) : AndroidViewModel(application) {
+    val connectedFamily = transfers.connectedFamily
+    val connectedPanel = transfers.connectedPanel
+    val uploadState = transfers.uploadState
+    val busy = transfers.busy
+    val myPanels = transfers.myPanels
     // Only the user's choices survive process death; GIF bytes and frames are re-read from the URI.
     private val _state = MutableStateFlow(
         GifEditorUiState(options = restoreOptions(), playback = restorePlayback())
     )
     val state = _state.asStateFlow()
-    private val _sendEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val _sendEvents = MutableSharedFlow<EditorSendEvent>(extraBufferCapacity = 1)
     val sendEvents = _sendEvents.asSharedFlow()
     private var inputUri: String? = null
     private var source: ByteArray? = null
     private var conversionJob: Job? = null
     private var saveJob: Job? = null
+
+    init {
+        // A panel of another size connecting while the editor is open re-renders the preview for it.
+        viewModelScope.launch {
+            connectedPanel.collect { spec ->
+                if (spec != null && inputUri != null && (spec.width to spec.height) != (_state.value.panelWidth to _state.value.panelHeight)) {
+                    startConversion()
+                }
+            }
+        }
+    }
 
     fun load(uri: String) {
         if (inputUri == uri) return
@@ -122,9 +144,10 @@ class GifEditorViewModel @Inject constructor(
         conversionJob?.cancel()
         val uri = inputUri ?: return
         val options = _state.value.options
+        val (width, height) = transfers.targetPanelSize()
         _state.value = _state.value.copy(
             stage = if (source == null) GifEditorStage.Loading else GifEditorStage.Rendering,
-            previewBytes = null, savedUri = null, error = null
+            previewBytes = null, savedUri = null, error = null, panelWidth = width, panelHeight = height
         )
         conversionJob = viewModelScope.launch {
             try {
@@ -145,7 +168,7 @@ class GifEditorViewModel @Inject constructor(
                     } ?: error("GIF cannot be loaded. Try importing it again.")
                     context.ensureActive()
                     loadedSource = bytes
-                    GifEditorProcessor.transform(bytes, options) { context.ensureActive() }
+                    GifEditorProcessor.transform(bytes, options, width, height) { context.ensureActive() }
                 }
                 ensureActive()
                 // Publish from Main only; a cancelled older render cannot replace a new source.
@@ -164,12 +187,14 @@ class GifEditorViewModel @Inject constructor(
      * Default playback: navigate with the saved URI exactly as before (Backpack screen builds the
      * payload with manufacturer defaults). Changed playback: build the payload here with
      * speed/light and start the upload, then open the Backpack screen to show its progress; that
-     * screen's own URI upload is ignored while this upload owns the transfer.
+     * screen's own URI upload is ignored while this upload owns the transfer. [toMyPanels] does the same for
+     * all of the user's picked panels in range.
      */
-    private fun dispatchSend(uri: String, gifBytes: ByteArray?) {
+    private fun dispatchSend(uri: String, gifBytes: ByteArray?, toMyPanels: Boolean) {
         val playback = _state.value.playback
+        val event = EditorSendEvent(uri, toMyPanels)
         if (playback.isDefault) {
-            _sendEvents.tryEmit(uri)
+            _sendEvents.tryEmit(event)
             return
         }
         val app = getApplication<Application>()
@@ -177,19 +202,19 @@ class GifEditorViewModel @Inject constructor(
             _state.value = _state.value.copy(error = localizedString(R.string.editor_playback_needs_bluetooth))
             return
         }
-        val payload = try {
-            playback.buildPayload(requireNotNull(gifBytes))
+        val before = transfers.uploadState.value
+        try {
+            if (toMyPanels) transfers.uploadGifBytesToMyPanels(requireNotNull(gifBytes), null, playback)
+            else transfers.uploadGifBytes(requireNotNull(gifBytes), null, playback)
         } catch (e: Exception) {
             _state.value = _state.value.copy(error = localizedString(R.string.editor_playback_payload_failed))
             return
         }
-        val before = transfers.uploadState.value
-        transfers.uploadPayload(payload)
         if (transfers.uploadState.value === before) {
             _state.value = _state.value.copy(error = localizedString(R.string.editor_playback_busy))
             return
         }
-        _sendEvents.tryEmit(uri)
+        _sendEvents.tryEmit(event)
     }
 
     private fun hasBluetoothPermissions(app: Application): Boolean {
@@ -207,11 +232,11 @@ class GifEditorViewModel @Inject constructor(
     private fun localizedString(id: Int): String =
         androidx.core.content.ContextCompat.getContextForLanguage(getApplication<Application>()).getString(id)
 
-    fun saveCopy(sendToBackpack: Boolean = false) {
+    fun saveCopy(sendToBackpack: Boolean = false, toMyPanels: Boolean = false) {
         val current = _state.value
         if (current.stage != GifEditorStage.Ready || current.saving || saveJob?.isCompleted == false) return
         current.savedUri?.let { uri ->
-            if (sendToBackpack) dispatchSend(uri, current.previewBytes)
+            if (sendToBackpack) dispatchSend(uri, current.previewBytes, toMyPanels)
             return
         }
         val bytes = current.previewBytes ?: return
@@ -222,7 +247,7 @@ class GifEditorViewModel @Inject constructor(
                     is Result.Success -> {
                         val uri = saved.data.toString()
                         _state.value = _state.value.copy(saving = false, savedUri = uri)
-                        if (sendToBackpack) dispatchSend(uri, bytes)
+                        if (sendToBackpack) dispatchSend(uri, bytes, toMyPanels)
                     }
                     is Result.Error -> throw saved.exception
                     is Result.Loading -> error("Saving did not finish")

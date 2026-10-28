@@ -53,4 +53,22 @@ class TextBannerLayoutTest {
         // ascent -30, descent 10 → 40 px line, 12 px margin top and bottom.
         assertEquals(42f, TextBannerLayout.baseline(-30f, 10f), 0.001f)
     }
+
+    @Test
+    fun plan_usesPanelWidth() {
+        val plan = TextBannerLayout.plan(100, 2, 80, panelWidth = 32)
+        assertEquals(66, plan.frameCount) // ceil(132 / 2)
+        assertEquals(32, plan.offsetX(0))
+    }
+
+    @Test
+    fun plan_widePanelStaysWithinFrameCap() {
+        val plan = TextBannerLayout.plan(60 * 40, 1, 80, panelWidth = 448)
+        assertTrue(plan.frameCount <= 300)
+    }
+
+    @Test
+    fun baselineCentresInPanelHeight() {
+        assertEquals(19f, TextBannerLayout.baseline(-10f, 4f, panelHeight = 32), 0.001f)
+    }
 }

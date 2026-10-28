@@ -1,5 +1,7 @@
 package com.batoh.feature.home
 
+import com.batoh.core.data.bluetooth.PanelSpec
+
 /** Coarse connection state of the backpack as shown on the home tile. */
 enum class BackpackLinkState { NOT_CONNECTED, CONNECTING, CONNECTED }
 
@@ -12,7 +14,9 @@ enum class BackpackLinkState { NOT_CONNECTED, CONNECTING, CONNECTED }
 data class HomeBackpackStatus(
     val state: BackpackLinkState = BackpackLinkState.NOT_CONNECTED,
     val deviceName: String? = null,
-    val firmwareVersion: Int? = null
+    val firmwareVersion: Int? = null,
+    /** Family and size of the connected panel; null until a connection is Ready and its type is known. */
+    val panel: PanelSpec? = null
 ) {
     companion object {
         /**
@@ -26,11 +30,14 @@ data class HomeBackpackStatus(
             else -> BackpackLinkState.NOT_CONNECTED
         }
 
-        fun from(status: String, deviceName: String?, firmwareVersion: Int?): HomeBackpackStatus =
-            HomeBackpackStatus(
-                state = linkStateOf(status),
+        fun from(status: String, deviceName: String?, firmwareVersion: Int?, panel: PanelSpec? = null): HomeBackpackStatus {
+            val state = linkStateOf(status)
+            return HomeBackpackStatus(
+                state = state,
                 deviceName = deviceName?.trim()?.takeIf { it.isNotEmpty() },
-                firmwareVersion = firmwareVersion?.takeIf { it >= 0 }
+                firmwareVersion = firmwareVersion?.takeIf { it >= 0 },
+                panel = panel.takeIf { state == BackpackLinkState.CONNECTED }
             )
+        }
     }
 }

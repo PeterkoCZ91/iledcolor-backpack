@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.batoh.core.data.bluetooth.PanelFamily
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -53,7 +54,7 @@ private fun GifChainError.message(): String = when (this) {
     GifChainError.Generic -> stringResource(R.string.chain_error_generic)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GifChainScreen(
     gifUris: String?,
@@ -64,12 +65,17 @@ fun GifChainScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val family by viewModel.connectedFamily.collectAsStateWithLifecycle(initialValue = null)
+    val connectedPanel by viewModel.connectedPanel.collectAsStateWithLifecycle()
+    val iPixel = family == PanelFamily.IPixel
+    val sendBlocked = iPixel && connectedPanel == null
     val sendCallback by rememberUpdatedState(onSendToBackpack)
     LaunchedEffect(gifUris) { viewModel.load(gifUris) }
     LaunchedEffect(viewModel) { viewModel.sendEvents.collect { sendCallback(it) } }
     val sequenceCallback by rememberUpdatedState(onSequenceStaged)
     LaunchedEffect(viewModel) { viewModel.sequenceEvents.collect { sequenceCallback() } }
-    val sequence = state.mode == ChainMode.Sequence
+    // Programme sequences are a backpack feature; an iPixel panel only gets the merged GIF.
+    val sequence = state.mode == ChainMode.Sequence && !iPixel
     val controlsEnabled = !state.saving
     val preview = remember(state.previewBytes, context) {
         state.previewBytes?.let { bytes ->
@@ -115,25 +121,28 @@ fun GifChainScreen(
 
             Text(stringResource(R.string.chain_settings_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
-            Text(stringResource(R.string.chain_mode_title), style = MaterialTheme.typography.labelLarge)
-            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    ChainMode.Merge to R.string.chain_mode_merge,
-                    ChainMode.Sequence to R.string.chain_mode_sequence
-                ).forEach { (mode, label) ->
-                    FilterChip(
-                        selected = state.mode == mode,
-                        enabled = controlsEnabled,
-                        onClick = { viewModel.setMode(mode) },
-                        label = { Text(stringResource(label)) },
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { role = Role.RadioButton }
-                    )
+            if (!iPixel) {
+                Text(stringResource(R.string.chain_mode_title), style = MaterialTheme.typography.labelLarge)
+                // FlowRow so long chip labels wrap instead of overflowing at large font scales.
+                FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        ChainMode.Merge to R.string.chain_mode_merge,
+                        ChainMode.Sequence to R.string.chain_mode_sequence
+                    ).forEach { (mode, label) ->
+                        FilterChip(
+                            selected = state.mode == mode,
+                            enabled = controlsEnabled,
+                            onClick = { viewModel.setMode(mode) },
+                            label = { Text(stringResource(label)) },
+                            modifier = Modifier.heightIn(min = 48.dp).semantics { role = Role.RadioButton }
+                        )
+                    }
                 }
             }
             if (sequence) {
                 Text(stringResource(R.string.chain_seq_hint), style = MaterialTheme.typography.bodyMedium)
             } else MergeSettings(state, viewModel, controlsEnabled)
-            if (!sequence) MergePreviewAndActions(state, viewModel, preview)
+            if (!sequence) MergePreviewAndActions(state, viewModel, preview, sendBlocked)
             else SequenceActions(state, viewModel)
         }
     }
@@ -194,11 +203,12 @@ private fun SequenceActions(state: GifChainUiState, viewModel: GifChainViewModel
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MergeSettings(state: GifChainUiState, viewModel: GifChainViewModel, controlsEnabled: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.chain_scale_title), style = MaterialTheme.typography.labelLarge)
-            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     GifScaleMode.Fit to R.string.chain_scale_fit,
                     GifScaleMode.CenterCrop to R.string.chain_scale_crop
@@ -258,7 +268,7 @@ private fun MergeSettings(state: GifChainUiState, viewModel: GifChainViewModel, 
 }
 
 @Composable
-private fun MergePreviewAndActions(state: GifChainUiState, viewModel: GifChainViewModel, preview: ImageRequest?) {
+private fun MergePreviewAndActions(state: GifChainUiState, viewModel: GifChainViewModel, preview: ImageRequest?, sendBlocked: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.chain_preview_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
@@ -295,7 +305,7 @@ private fun MergePreviewAndActions(state: GifChainUiState, viewModel: GifChainVi
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
             }
             state.status?.let { status ->
-                Text(stringResource(R.string.chain_info, status.frames, status.sizeKb),
+                Text(pluralStringResource(R.plurals.chain_info, status.frames, status.frames, status.sizeKb),
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 when (status.kind) {
                     ChainStatusKind.WARN -> Text(stringResource(R.string.chain_warn), color = MaterialTheme.colorScheme.tertiary,
@@ -308,16 +318,18 @@ private fun MergePreviewAndActions(state: GifChainUiState, viewModel: GifChainVi
             if (state.savedUri != null) {
                 Text(stringResource(R.string.chain_saved), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            if (sendBlocked) Text(stringResource(R.string.panel_send_unknown_type), color = MaterialTheme.colorScheme.error)
+            // Stacked full-width buttons: two weighted buttons break at large font scales.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { viewModel.save(sendToBackpack = false) },
                     enabled = state.canSave,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) { Text(stringResource(if (state.saving) R.string.chain_saving else R.string.chain_save)) }
                 Button(
                     onClick = { viewModel.save(sendToBackpack = true) },
-                    enabled = state.canSave,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    enabled = state.canSave && !sendBlocked,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) { Text(stringResource(R.string.chain_send)) }
             }
     }

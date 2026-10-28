@@ -31,11 +31,16 @@ data class TextBannerOptions(
 )
 
 /** Frame plan for one loop: text enters from the right edge and fully leaves on the left. */
-data class TextBannerPlan(val stepPx: Int, val frameCount: Int, val delayMs: Int) {
+data class TextBannerPlan(
+    val stepPx: Int,
+    val frameCount: Int,
+    val delayMs: Int,
+    val panelWidth: Int = TextBannerLayout.SIZE
+) {
     val durationMs: Long get() = frameCount.toLong() * delayMs
 
     /** X position of the text's left edge in [frame]; frame 0 starts just off the right edge. */
-    fun offsetX(frame: Int): Int = TextBannerLayout.SIZE - frame * stepPx
+    fun offsetX(frame: Int): Int = panelWidth - frame * stepPx
 }
 
 /** Pure layout math (no Android dependencies, unit-testable). */
@@ -50,24 +55,36 @@ object TextBannerLayout {
      * exceeds [maxFrames]; the last frame stops one step before the blank "text gone" state, which
      * makes the loop seamless (frame 0 is that blank state).
      */
-    fun plan(textWidthPx: Int, requestedStepPx: Int, delayMs: Int, maxFrames: Int = MAX_FRAMES): TextBannerPlan {
+    fun plan(
+        textWidthPx: Int,
+        requestedStepPx: Int,
+        delayMs: Int,
+        panelWidth: Int = SIZE,
+        maxFrames: Int = MAX_FRAMES
+    ): TextBannerPlan {
         require(maxFrames >= 1) { "maxFrames must be positive" }
-        val distance = SIZE + textWidthPx.coerceAtLeast(0)
+        val distance = panelWidth + textWidthPx.coerceAtLeast(0)
         val minStep = ceil(distance.toDouble() / maxFrames).toInt()
         val step = maxOf(1, requestedStepPx, minStep)
         val frames = ceil(distance.toDouble() / step).toInt().coerceIn(1, maxFrames)
-        return TextBannerPlan(step, frames, delayMs.coerceAtLeast(MIN_DELAY_MS))
+        return TextBannerPlan(step, frames, delayMs.coerceAtLeast(MIN_DELAY_MS), panelWidth)
     }
 
     /** Baseline that vertically centres a line with the given font ascent (negative) and descent. */
-    fun baseline(ascent: Float, descent: Float): Float = (SIZE - (descent - ascent)) / 2f - ascent
+    fun baseline(ascent: Float, descent: Float, panelHeight: Int = SIZE): Float =
+        (panelHeight - (descent - ascent)) / 2f - ascent
 }
 
 data class TextBannerResult(val gifBytes: ByteArray, val plan: TextBannerPlan)
 
-/** Renders a looping, horizontally scrolling 64×64 GIF with Canvas and the shared [GifEncoder]. */
+/** Renders a looping, horizontally scrolling GIF (64×64 by default) with Canvas and the shared [GifEncoder]. */
 object TextBannerRenderer {
-    fun render(options: TextBannerOptions, checkCancellation: () -> Unit = {}): TextBannerResult {
+    fun render(
+        options: TextBannerOptions,
+        width: Int = TextBannerLayout.SIZE,
+        height: Int = TextBannerLayout.SIZE,
+        checkCancellation: () -> Unit = {}
+    ): TextBannerResult {
         val text = options.text.trim()
         require(text.isNotEmpty()) { "Text is empty" }
         val paint = Paint().apply {
@@ -75,20 +92,19 @@ object TextBannerRenderer {
             isAntiAlias = false
             isSubpixelText = false
             color = options.textColor
-            textSize = options.size.textSizePx
+            textSize = options.size.textSizePx * height / TextBannerLayout.SIZE
             typeface = if (options.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
         }
-        val width = ceil(paint.measureText(text).toDouble()).toInt()
-        val plan = TextBannerLayout.plan(width, options.speed.stepPx, options.speed.delayMs)
+        val textWidth = ceil(paint.measureText(text).toDouble()).toInt()
+        val plan = TextBannerLayout.plan(textWidth, options.speed.stepPx, options.speed.delayMs, width)
         val metrics = paint.fontMetrics
-        val baseline = TextBannerLayout.baseline(metrics.ascent, metrics.descent)
-        val size = TextBannerLayout.SIZE
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val baseline = TextBannerLayout.baseline(metrics.ascent, metrics.descent, height)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val output = ByteArrayOutputStream()
         try {
             val encoder = GifEncoder().apply {
-                setSize(size, size)
+                setSize(width, height)
                 setRepeat(0)
                 setDelay(plan.delayMs)
             }

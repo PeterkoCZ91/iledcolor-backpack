@@ -8,6 +8,9 @@ before.
 The protocol is described in clean-room style: behaviour and byte layouts only. No code from the
 manufacturer app is reproduced.
 
+Sections 1–12 describe the backpack. Section 13 describes the second panel family GifPack
+supports, **iPixel Color** (`LED_BLE_*`), which uses a different, much simpler protocol.
+
 Related document: [device-capabilities.md](device-capabilities.md) describes the advertisement
 record that tells the app what a particular unit supports.
 
@@ -27,6 +30,7 @@ record that tells the app what a particular unit supports.
 10. [Command catalogue](#10-command-catalogue)
 11. [Pitfalls and corrected assumptions](#11-pitfalls-and-corrected-assumptions)
 12. [Open questions](#12-open-questions)
+13. [iPixel Color panels](#13-ipixel-color-panels)
 
 ---
 
@@ -471,7 +475,7 @@ pixels or a GIF first. [DER]
 
 ### 9.3 GIF programmes (what GifPack sends) [HW] [CAP]
 
-- The GIF must be exactly **64×64**. GifPack converts other sizes before upload. The
+- On the backpack the GIF must be exactly **64×64**. GifPack converts other sizes before upload. The
   manufacturer app rescales with a palette-preserving resize.
 - The file is sent byte for byte, extension blocks included, ending at the GIF trailer `3B`.
   Nothing is trimmed or re-encoded.
@@ -777,3 +781,88 @@ that made the panel reject every upload. They are listed here so nobody repeats 
 - The meaning of 0x07, of the 0x10 payload bytes p0 and p1, and of the item's stay-time value 4
   for GIF items.
 - The exact length of the 0x10 response on the tested unit. The app only requires at least 11 bytes.
+
+---
+
+## 13. iPixel Color panels
+
+iPixel Color panels advertise as `LED_BLE_XXXXXXXX` and are unrelated to the iledcolor protocol
+above (no `54` frames, no JieLi authentication, no handshake). The byte layouts were checked on
+two real panels (32 × 32, device type `0x81`, and 64 × 16, type `0x83`) and cross-checked against
+the open-source [pypixelcolor](https://github.com/lucagoc/pypixelcolor) project, which was used
+as a byte-layout reference only; no code was copied. Multi-byte integers here are
+**little-endian**. Tags are those of section 1.
+
+### 13.1 GATT [HW]
+
+| Service | Characteristic | Direction | Use |
+|---|---|---|---|
+| **00FA** | **FA02** | app → panel | All commands and upload data |
+| | **FA03** | panel → app (notify) | Device-info reply and upload acknowledgements |
+
+The panels also expose the JieLi OTA service `00AE`, which GifPack does not use. No pairing and no
+handshake was needed. Writes are made with response. GifPack itself cuts every message into
+pieces of `pieceSize(mtu) = clamp(mtu − 3, 20, 512)` bytes and writes them one after another, so
+no single write exceeds the 512-byte GATT attribute limit even at a large negotiated MTU (244-byte
+pieces at MTU 247 were verified; 512 is the cap at MTU 517).
+
+### 13.2 Device info and size [HW]
+
+Write `08 00 01 80 HH MM SS 00` (current hour, minute, second; language 0). This also sets the
+panel's clock. The panel answers on FA03, for example `0c 00 01 80 81 1b 31 00 00 01 00 01`.
+Byte 4 is the **device type**, which gives the panel size (table in
+[device-capabilities.md](device-capabilities.md#9-ipixel-color-advertisement)). Only types `0x81`
+and `0x83` are hardware-verified; the other sizes are [DER] from pypixelcolor. If the type
+differs from the one advertised, the info reply wins.
+
+### 13.3 Upload of an image or GIF [HW]
+
+The file is cut into windows of 12 KiB, and one message is written per window:
+
+```
+message = len16LE(frame length + 2) | frame
+frame   = kind 00 option | size32LE | crc32LE | tail | window bytes
+kind    = 02 for PNG (tail = 00 slot), 03 for GIF (tail = 02 slot)
+option  = 00 for the first window, 02 for the following ones
+size    = length of the whole file, crc32 = standard CRC-32 of the whole file
+slot    = 00 -> display only, nothing is stored
+```
+
+After each window the panel notifies `05 00 kk 00 cc`, where `kk` echoes the kind (02 PNG, 03 GIF)
+and `cc` is 0 or 1 (window accepted) or 3 (whole file stored); any other value is a rejection.
+
+Verified on both panels: one-window PNG (`... 03`), a ~1.5 KB animated GIF (`05 00 03 00 03`) and
+a ~41 KB GIF in 4 windows (code 1 after windows 0–2, code 3 after the last), 10–16 s at the
+default MTU 23.
+
+### 13.4 Settings [HW]
+
+Each setting is one short write on FA02; the panel answers on FA03 with `05 00 id xx 01`, where
+`id` is byte 2 of the command and a last byte of `01` means OK. GifPack waits up to 2 s for it.
+All four were verified on hardware on 2026-10-27.
+
+| Setting | Command | Values |
+|---|---|---|
+| Brightness | `05 00 04 80 LL` | `LL` = 0–100 % |
+| Rotation | `05 00 06 80 OO` | `OO` = quarter turns 0–3 (0°, 90°, 180°, 270°) |
+| Display on/off | `05 00 07 01 SS` | `SS` = `01` on, `00` off |
+| Clock face | `0B 00 06 01 style 24h date yy mm dd dow` | style 0–8; `24h`, `date` = `00`/`01`; `yy` = year mod 100, `dow` 1 = Monday |
+
+Rotation and the clock face share the answer id `06`; GifPack runs one setting at a time, so the
+answers cannot be confused. The time itself comes from the info command (13.2).
+
+### 13.5 What GifPack sends and never sends
+
+- Images, GIFs and the scrolling text banner are all sent as **GIF (kind 03)** to **slot 0**,
+  rendered at the panel's size first. The PNG form is documented because it was verified, but
+  GifPack does not use it.
+- The four settings of 13.4 are sent only when the user changes them on the Panel screen.
+- A numbered slot, a delete of a stored slot and the ROM wipe command are **never** sent, so content stored
+  by the vendor app is left alone.
+- The clock is set once per connection as a side effect of the info query.
+
+### 13.6 Not covered [DER] / unknown
+
+Timers, scoreboards, rhythm mode, schedules, numbered slots and the password are not implemented.
+Per-panel limits for GIF size and frame count are unknown;
+GifPack applies no iPixel-specific cap beyond its own decoder limits.

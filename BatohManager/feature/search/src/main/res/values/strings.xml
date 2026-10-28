@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="categories_title">Kategorie</string>
-    <string name="categories_back">Zpět</string>
     <string name="categories_pinned">Připnuté</string>
     <string name="categories_monthly_trending">Trendy tento měsíc</string>
     <string name="categories_recent">Nedávné</string>
     <string name="categories_discover">Objevovat</string>
     <string name="categories_retry">Zkusit znovu</string>
-    <string name="categories_pin">Připnout</string>
-    <string name="categories_unpin">Odepnout</string>
+    <string name="categories_pin">Připnout kategorii</string>
+    <string name="categories_unpin">Odepnout kategorii</string>
     <string name="category_pixel_art">Pixel Art</string>
     <string name="category_retro_8bit">Retro 8-bit</string>
     <string name="category_pixel_landscape">Pixel krajina</string>
@@ -43,18 +41,19 @@
     <string name="category_hypnotic">Hypnotické</string>
     <string name="category_geometric">Geometrické</string>
     <string name="category_kaleidoscope">Kaleidoskop</string>
-    <string name="category_christmas">Vánoční</string>
+    <string name="category_christmas">Vánoce</string>
     <string name="category_halloween">Halloween</string>
     <string name="category_hello">Hello</string>
     <string name="category_lol">LOL</string>
     <string name="search_title">Hledat</string>
     <string name="search_recent">Nedávno hledané</string>
+    <string name="search_categories_heading">Kategorie</string>
     <string name="search_back">Zpět</string>
     <string name="search_refresh">Obnovit</string>
     <string name="search_filters">Filtry</string>
-    <string name="search_clear">Smazat</string>
+    <string name="search_clear">Vymazat</string>
     <string name="filter_square_only">Jen čtverce ⬛</string>
-    <string name="search_hint">Hledat GIFy...</string>
+    <string name="search_hint">Hledat GIFy…</string>
     <string name="search_error_generic">Něco se pokazilo. Zkus to znovu.</string>
     <string name="search_error_missing_key">Pro tento zdroj chybí API klíč. Zadej ho v Nastavení → API klíče.</string>
     <string name="search_error_network">Nepodařilo se připojit. Zkontroluj internet a zkus to znovu.</string>
@@ -62,13 +61,12 @@
     <string name="search_error_server">Služba s GIFy teď neodpovídá. Zkus to za chvíli.</string>
     <string name="search_empty">Žádné výsledky.</string>
     <string name="search_retry">Zkusit znovu</string>
-    <string name="search_load_more">Načíst další GIFy</string>
     
     <string name="filter_title">Filtry</string>
     <string name="filter_source">Zdroj</string>
     <string name="filter_type">Typ obsahu</string>
     <string name="filter_aspect_ratio">Poměr stran (LED)</string>
-    <string name="filter_square">Čtverec (IDEÁLNÍ)</string>
+    <string name="filter_square">Čtverec (ideální)</string>
     <string name="filter_wide">Širokoúhlý</string>
     <string name="filter_tall">Na výšku</string>
     <string name="filter_all">Vše</string>

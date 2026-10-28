@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -33,6 +34,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import com.batoh.core.conversion.GifScaleMode
+import com.batoh.core.data.bluetooth.PanelFamily
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -40,13 +42,27 @@ fun GifEditorScreen(
     gifUri: String,
     onBack: () -> Unit,
     onSendToBackpack: (String) -> Unit,
+    onSendToMyPanels: (String) -> Unit,
     viewModel: GifEditorViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val family by viewModel.connectedFamily.collectAsStateWithLifecycle(initialValue = null)
+    val connectedPanel by viewModel.connectedPanel.collectAsStateWithLifecycle()
+    val iPixel = family == PanelFamily.IPixel
+    val sendBlocked = iPixel && connectedPanel == null
+    val upload by viewModel.uploadState.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val myPanels by viewModel.myPanels.collectAsStateWithLifecycle()
+    val activeUpload = upload.stage in setOf(
+        UploadStage.Preparing, UploadStage.Connecting, UploadStage.Sending, UploadStage.Finishing
+    )
     val sendCallback by rememberUpdatedState(onSendToBackpack)
+    val sendAllCallback by rememberUpdatedState(onSendToMyPanels)
     LaunchedEffect(gifUri) { viewModel.load(gifUri) }
-    LaunchedEffect(viewModel) { viewModel.sendEvents.collect { sendCallback(it) } }
+    LaunchedEffect(viewModel) {
+        viewModel.sendEvents.collect { if (it.toMyPanels) sendAllCallback(it.uri) else sendCallback(it.uri) }
+    }
     val processing = state.stage == GifEditorStage.Loading || state.stage == GifEditorStage.Rendering
     val controlsEnabled = !state.saving && state.stage != GifEditorStage.Loading
     val preview = remember(state.previewBytes, context) {
@@ -69,17 +85,19 @@ fun GifEditorScreen(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(stringResource(R.string.editor_preview_title), style = MaterialTheme.typography.titleMedium,
+            Text(stringResource(R.string.editor_preview_title, state.panelWidth, state.panelHeight), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
-            Box(Modifier.fillMaxWidth().heightIn(max = 320.dp).aspectRatio(1f).background(Color.Black)) {
+            Box(Modifier.fillMaxWidth().heightIn(max = 320.dp)
+                .aspectRatio(state.panelWidth.toFloat() / state.panelHeight).background(Color.Black)) {
                 if (preview != null) {
                     AsyncImage(model = preview, contentDescription = stringResource(R.string.editor_preview_description),
                         modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit, filterQuality = FilterQuality.None)
                 }
             }
             state.info?.let { info ->
-                Text(stringResource(
-                    R.string.editor_frame_info,
+                Text(pluralStringResource(
+                    R.plurals.editor_frame_info,
+                    info.frameCount,
                     info.frameCount,
                     info.durationMs / 1000.0,
                     when (val loopCount = info.loopCount) {
@@ -161,11 +179,13 @@ fun GifEditorScreen(
                     onClick = { viewModel.edit(state.options.copy(scaleMode = GifScaleMode.CenterCrop)) }, label = { Text(stringResource(R.string.editor_crop)) })
             }
             Text(stringResource(if (state.options.scaleMode == GifScaleMode.Fit) R.string.editor_fit_hint else R.string.editor_crop_hint), style = MaterialTheme.typography.bodySmall)
-            EditorPlaybackSection(
-                playback = state.playback,
-                enabled = !state.saving,
-                onChange = viewModel::setPlayback
-            )
+            if (!iPixel) {
+                EditorPlaybackSection(
+                    playback = state.playback,
+                    enabled = !state.saving,
+                    onChange = viewModel::setPlayback
+                )
+            }
             Text(stringResource(R.string.editor_copy_hint), style = MaterialTheme.typography.bodySmall)
             if (state.savedUri != null) {
                 Text(stringResource(R.string.editor_saved), color = MaterialTheme.colorScheme.primary,
@@ -174,8 +194,15 @@ fun GifEditorScreen(
             val outputReady = state.stage == GifEditorStage.Ready && !state.saving
             OutlinedButton(onClick = { viewModel.saveCopy() }, enabled = outputReady && state.savedUri == null,
                 modifier = Modifier.fillMaxWidth()) { Text(stringResource(if (state.saving) R.string.editor_saving else R.string.editor_save_copy)) }
-            Button(onClick = { viewModel.saveCopy(sendToBackpack = true) }, enabled = outputReady,
+            if (sendBlocked) Text(stringResource(R.string.panel_send_unknown_type), color = MaterialTheme.colorScheme.error)
+            Button(onClick = { viewModel.saveCopy(sendToBackpack = true) }, enabled = outputReady && !sendBlocked,
                 modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.editor_send)) }
+            // Only offered with picked panels; like the other send buttons it waits for a running transfer.
+            if (myPanels.isNotEmpty()) {
+                OutlinedButton(onClick = { viewModel.saveCopy(sendToBackpack = true, toMyPanels = true) },
+                    enabled = outputReady && !busy && !activeUpload,
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.multi_send_action)) }
+            }
         }
     }
 }

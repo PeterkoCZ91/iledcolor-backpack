@@ -1,5 +1,6 @@
 package com.batoh.feature.search
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -33,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.batoh.core.domain.model.*
@@ -55,13 +57,25 @@ fun SearchRoute(
     gridColumns: Int,
     onNavigateToDetail: (gifUrl: String, mp4Url: String) -> Unit,
     onBack: () -> Unit,
-    viewModel: SearchViewModel = hiltViewModel()
+    onSendToPanel: (String) -> Unit,
+    viewModel: SearchViewModel = hiltViewModel(),
+    categoriesViewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val saveStates by viewModel.saveStates.collectAsStateWithLifecycle()
     val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
+    val categoriesState by categoriesViewModel.uiState.collectAsStateWithLifecycle()
+    val sendingKeys by viewModel.sendingKeys.collectAsStateWithLifecycle()
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val currentOnSendToPanel by rememberUpdatedState(onSendToPanel)
+    // Delivered only while the screen is visible, so a finished download never navigates from the background.
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            viewModel.sendReady.collect { uri -> currentOnSendToPanel(uri) }
+        }
+    }
 
     SearchScreen(
         uiState = uiState,
@@ -69,19 +83,29 @@ fun SearchRoute(
         searchQuery = searchQuery,
         filter = filter,
         saveStates = saveStates,
+        sendingKeys = sendingKeys,
         searchHistory = searchHistory,
         onQueryChanged = viewModel::onQueryChanged,
         onSetGifSource = viewModel::setGifSource,
         onSetContentType = viewModel::setContentType,
         onSetAspectRatio = viewModel::setAspectRatio,
         onSaveGif = viewModel::saveGif,
+        onSendGif = viewModel::sendToPanel,
         onGifClick = { gif -> onNavigateToDetail(gif.originalUrl, gif.mp4Url) },
         onRetry = viewModel::retry,
         onLoadMore = viewModel::loadMore,
         onRetryLoadMore = viewModel::retryLoadMore,
         onBack = onBack,
         onHistoryItemClick = viewModel::onQueryChanged,
-        onDeleteHistoryItem = viewModel::deleteHistoryItem
+        onDeleteHistoryItem = viewModel::deleteHistoryItem,
+        categoriesState = categoriesState,
+        onCategoryClick = { category ->
+            // Same effect as opening a category: record usage and search for it.
+            categoriesViewModel.onCategoryOpened(category.nameEncoded)
+            viewModel.onQueryChanged(category.nameEncoded)
+        },
+        onToggleCategoryPin = { category -> categoriesViewModel.togglePinned(category.nameEncoded) },
+        onRetryCategories = categoriesViewModel::retry
     )
 }
 
@@ -94,18 +118,24 @@ fun SearchScreen(
     filter: GifFilter,
     saveStates: Map<String, GifSaveState>,
     searchHistory: List<String>,
+    sendingKeys: Set<String> = emptySet(),
     onQueryChanged: (String) -> Unit,
     onSetGifSource: (GifSource) -> Unit,
     onSetContentType: (GifType) -> Unit,
     onSetAspectRatio: (AspectRatio?) -> Unit,
     onSaveGif: (Gif) -> Unit,
     onGifClick: (Gif) -> Unit,
+    onSendGif: (Gif) -> Unit = {},
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     onRetryLoadMore: () -> Unit,
     onBack: () -> Unit,
     onHistoryItemClick: (String) -> Unit,
-    onDeleteHistoryItem: (String) -> Unit
+    onDeleteHistoryItem: (String) -> Unit,
+    categoriesState: CategoriesUiState = CategoriesUiState.Loading,
+    onCategoryClick: (GifCategory) -> Unit = {},
+    onToggleCategoryPin: (GifCategory) -> Unit = {},
+    onRetryCategories: () -> Unit = {}
 ) {
     var showFilterSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -236,7 +266,7 @@ fun SearchScreen(
                     FilterChip(
                         selected = filter.source == GifSource.GIPHY,
                         onClick = { onSetGifSource(GifSource.GIPHY) },
-                        label = { Text("Giphy") },
+                        label = { Text(stringResource(R.string.source_giphy)) },
                         leadingIcon = { if (filter.source == GifSource.GIPHY) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                     )
                 }
@@ -244,7 +274,7 @@ fun SearchScreen(
                     FilterChip(
                         selected = filter.source == GifSource.KLIPY,
                         onClick = { onSetGifSource(GifSource.KLIPY) },
-                        label = { Text("Klipy") },
+                        label = { Text(stringResource(R.string.source_klipy)) },
                         leadingIcon = { if (filter.source == GifSource.KLIPY) Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
                     )
                 }
@@ -269,7 +299,30 @@ fun SearchScreen(
                     .fillMaxSize()
                     .weight(1f)
             ) {
-                when (uiState) {
+                if (searchQuery.isBlank()) {
+                    // Initial / cleared state: browse categories instead of results.
+                    Column(Modifier.fillMaxSize()) {
+                        Text(
+                            text = stringResource(R.string.search_categories_heading),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .semantics { heading() }
+                        )
+                        CategoriesContent(
+                            uiState = categoriesState,
+                            gridColumns = gridColumns,
+                            onCategoryClick = { category ->
+                                keyboardController?.hide()
+                                onCategoryClick(category)
+                            },
+                            onTogglePin = onToggleCategoryPin,
+                            onRetry = onRetryCategories,
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                        )
+                    }
+                } else when (uiState) {
                     is SearchUiState.Loading -> {
                         ShimmerSkeletonGrid(gridColumns = gridColumns)
                     }
@@ -303,6 +356,8 @@ fun SearchScreen(
                                     saveState = saveStates[gif.downloadKey()],
                                     onClick = { onGifClick(gif) },
                                     onSaveGif = { onSaveGif(gif) },
+                                    sending = gif.downloadKey() in sendingKeys,
+                                    onSendToPanel = { onSendGif(gif) },
                                     modifier = Modifier.animateItemPlacement()
                                 )
                             }
@@ -394,12 +449,15 @@ fun SearchScreen(
                 onDismissRequest = { showFilterSheet = false },
                 sheetState = sheetState
             ) {
-                FilterContent(
-                    filter = filter,
-                    onSetGifSource = onSetGifSource,
-                    onSetContentType = onSetContentType,
-                    onSetAspectRatio = onSetAspectRatio
-                )
+                // The sheet is drawn edge to edge: keep its last controls above the system navigation bar.
+                Box(Modifier.navigationBarsPadding()) {
+                    FilterContent(
+                        filter = filter,
+                        onSetGifSource = onSetGifSource,
+                        onSetContentType = onSetContentType,
+                        onSetAspectRatio = onSetAspectRatio
+                    )
+                }
             }
         }
     }
@@ -442,7 +500,7 @@ fun FilterContent(
         Spacer(modifier = Modifier.height(16.dp))
         Text(stringResource(R.string.filter_type), style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.semantics { heading() })
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GifType.values().forEach { type ->
                 FilterChip(
                     selected = filter.type == type,
@@ -472,6 +530,11 @@ fun FilterContent(
                 onClick = { onSetAspectRatio(AspectRatio.WIDE) },
                 label = { Text(stringResource(R.string.filter_wide)) }
             )
+            FilterChip(
+                selected = filter.aspectRatio == AspectRatio.TALL,
+                onClick = { onSetAspectRatio(AspectRatio.TALL) },
+                label = { Text(stringResource(R.string.filter_tall)) }
+            )
         }
     }
 }
@@ -482,6 +545,8 @@ fun GifItem(
     saveState: GifSaveState?,
     onClick: () -> Unit,
     onSaveGif: () -> Unit,
+    sending: Boolean = false,
+    onSendToPanel: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -490,10 +555,6 @@ fun GifItem(
             .data(gif.thumbnailUrl)
             .size(256)
             .crossfade(true)
-            .listener(
-                onError = { _, result -> android.util.Log.e("CoilDebug", "FAIL: ${gif.thumbnailUrl} → ${result.throwable}") },
-                onSuccess = { _, _ -> android.util.Log.d("CoilDebug", "OK: ${gif.thumbnailUrl.take(80)}") }
-            )
             .build()
     }
 
@@ -514,14 +575,12 @@ fun GifItem(
         GifSaveStage.Error -> R.string.search_save_retry
         null -> R.string.search_save
     })
-    val sourceLabel = remember(gif.source) {
-        when (gif.source.lowercase()) {
-            "giphy" -> "Giphy"
-            "klipy" -> "Klipy"
-            "lospec" -> "Lospec"
-            "sticker" -> "Sticker"
-            else -> null
-        }
+    val sourceLabel = when (gif.source.lowercase()) {
+        "giphy" -> stringResource(R.string.source_giphy)
+        "klipy" -> stringResource(R.string.source_klipy)
+        "lospec" -> stringResource(R.string.source_lospec)
+        "sticker" -> stringResource(R.string.type_sticker)
+        else -> null
     }
     // Error text overlays the image; include it so a failed download is announced on the tile.
     val errorLabel = if (saveState?.stage == GifSaveStage.Error) stringResource(R.string.search_save_failed) else null
@@ -580,6 +639,19 @@ fun GifItem(
                         Spacer(Modifier.width(4.dp))
                     }
                     Text(saveLabel)
+                }
+            }
+            val sendDescription = stringResource(
+                if (sending) R.string.search_sending_a11y else R.string.search_send_a11y, title)
+            Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                shape = RoundedCornerShape(6.dp), modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                IconButton(onClick = onSendToPanel, enabled = !sending,
+                    modifier = Modifier.size(48.dp).semantics {
+                        contentDescription = sendDescription
+                        liveRegion = LiveRegionMode.Polite
+                    }) {
+                    if (sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Default.Send, contentDescription = null)
                 }
             }
             if (saveState?.stage == GifSaveStage.Error) {

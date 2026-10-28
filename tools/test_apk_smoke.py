@@ -49,21 +49,21 @@ class SmokeHarnessTests(unittest.TestCase):
     def test_see_matches_accessibility_description_with_state_suffix(self):
         tree = ET.fromstring(
             '<hierarchy><node package="io.github.peterkocz91.gifpack" '
-            'content-desc="Batoh, Nepřipojeno" /></hierarchy>'
+            'content-desc="Panel, Nepřipojeno" /></hierarchy>'
         )
         smoke = apk_smoke.Smoke()
         smoke.wait = lambda predicate, description, timeout=20: tree if predicate(tree) else None
-        self.assertIs(tree, smoke.see("Batoh"))
+        self.assertIs(tree, smoke.see("Panel"))
 
     def test_picker_labels_choose_current_czech_or_english_text(self):
         self.assertEqual("Collection", apk_smoke.Smoke.localized_label(["Collection"], "Knihovna", "Collection"))
         self.assertEqual("Knihovna", apk_smoke.Smoke.localized_label(["Knihovna"], "Knihovna", "Collection"))
 
     def test_picker_label_accepts_state_suffix_of_home_tile(self):
-        labels = ["Batoh, Nepřipojeno, zařízení example, firmware verze 14", "Knihovna"]
-        self.assertEqual("Batoh", apk_smoke.Smoke.localized_label(labels, "Batoh", "Backpack"))
+        labels = ["Panel, Nepřipojeno, zařízení example, firmware verze 14", "Knihovna"]
+        self.assertEqual("Panel", apk_smoke.Smoke.localized_label(labels, "Panel", "Panel"))
         with self.assertRaises(RuntimeError):
-            apk_smoke.Smoke.localized_label(["Batohy"], "Batoh", "Backpack")
+            apk_smoke.Smoke.localized_label(["Panely"], "Panel", "Panel")
 
     def test_clickable_parent_must_belong_to_app_and_be_enabled(self):
         for package, enabled in (("com.android.systemui", "true"),
@@ -180,6 +180,49 @@ class SmokeHarnessTests(unittest.TestCase):
             self.assertNotIn("abc", serialized)
             self.assertNotIn("/home/", serialized)
             self.assertNotIn("device-output", serialized)
+
+
+class UiLabelContractTests(unittest.TestCase):
+    """The labels the harness taps must exist in the app's own string resources."""
+
+    @staticmethod
+    def resource_strings(folder):
+        strings = {}
+        root = MODULE_PATH.parents[1] / "BatohManager"
+        for path in root.glob(f"**/src/main/res/{folder}/strings*.xml"):
+            for element in ET.parse(path).getroot().iter("string"):
+                strings[element.get("name")] = "".join(element.itertext())
+        return strings
+
+    def test_harness_labels_match_app_resources(self):
+        czech, english = self.resource_strings("values"), self.resource_strings("values-en")
+        for key, (cs, en) in apk_smoke.UI_LABELS.items():
+            self.assertEqual(czech.get(key), cs, f"{key} (cs) drifted from the app")
+            self.assertEqual(english.get(key), en, f"{key} (en) drifted from the app")
+
+    def test_selected_tab_is_detected_by_selected_non_clickable_ancestor(self):
+        pkg = apk_smoke.PACKAGE
+        selected = ET.fromstring(
+            f'<hierarchy><node package="{pkg}" selected="true" clickable="false">'
+            f'<node package="{pkg}" text="More"/></node></hierarchy>')
+        other = ET.fromstring(
+            f'<hierarchy><node package="{pkg}" selected="false" clickable="true">'
+            f'<node package="{pkg}" text="More"/></node></hierarchy>')
+        self.assertTrue(apk_smoke.Smoke.tab_is_selected(selected, "More"))
+        self.assertFalse(apk_smoke.Smoke.tab_is_selected(other, "More"))
+
+    def test_ui_picks_language(self):
+        self.assertEqual(apk_smoke.ui("navigation_more", "cs"), "Více")
+        self.assertEqual(apk_smoke.ui("navigation_more", "en"), "More")
+
+    def test_scroll_to_swipes_until_label_appears(self):
+        smoke = apk_smoke.Smoke()
+        empty = ET.fromstring('<hierarchy><node package="%s" text="x"/></hierarchy>' % apk_smoke.PACKAGE)
+        found = ET.fromstring('<hierarchy><node package="%s" text="Verze: 1"/></hierarchy>' % apk_smoke.PACKAGE)
+        with mock.patch.object(smoke, "tree", side_effect=[empty, empty, found]), \
+                mock.patch.object(smoke, "swipe_up") as swipe:
+            self.assertIs(smoke.scroll_to("Verze: 1"), found)
+            self.assertEqual(swipe.call_count, 2)
 
 
 if __name__ == "__main__":

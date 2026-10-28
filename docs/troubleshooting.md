@@ -13,7 +13,7 @@ anywhere.
 | Android 12+ asks for *Nearby devices* | That is the Bluetooth scan/connect permission. The app declares scanning as not used for location. |
 | Android 8–11 asks for *Location* | Android requires location permission for Bluetooth LE scanning on these versions. Location services may also need to be switched on for scans to return results. |
 | **Find device** lists nothing | Make sure the backpack is on and not connected to another phone or the manufacturer app. Turn Bluetooth off and on. Scans stop on their own; tap **Find device** again. |
-| Text banner or editor says Bluetooth is required | Sending from those screens needs the permission already granted — open the Backpack screen once and allow it. |
+| Text banner or editor says Bluetooth is required | Sending from those screens needs the permission already granted — open the Panel tab once and allow it. |
 
 ## Connection problems
 
@@ -68,9 +68,9 @@ negotiate 512–517. Data chunks are `MTU − 25` bytes (487 at MTU 512).
 
 | Symptom | Fix |
 | --- | --- |
-| Search or categories show an error, everything else works | No valid key for that service. Add `GIPHY_API_KEY` / `KLIPY_API_KEY` to `BatohManager/local.properties` before building, or enter your own key in **Settings → API keys**. |
+| Search or categories show an error, everything else works | No valid key for that service. Add `GIPHY_API_KEY` / `KLIPY_API_KEY` to `BatohManager/local.properties` before building, or enter your own key in **More → API keys**. |
 | **Lospec** source returns nothing | It is a Giphy pixel-art search and needs the Giphy key. |
-| Key entered in Settings does not help | The field must contain the exact key; an empty field falls back to the key built into the APK. Check the provider's dashboard for rate limits or a revoked key. |
+| Key entered in the app does not help | The field must contain the exact key; an empty field falls back to the key built into the APK. Check the provider's dashboard for rate limits or a revoked key. |
 
 Keys are never required for the collection, import, editor, text banner, video conversion
 or backpack upload.

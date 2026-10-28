@@ -3,9 +3,10 @@ package com.batoh.manager.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,8 +31,8 @@ import com.batoh.core.ui.navigation.Screen
 import com.batoh.feature.convert.ConvertRoute
 import com.batoh.feature.detail.DetailRoute
 import com.batoh.feature.home.HomeRoute
+import com.batoh.feature.home.MoreRoute
 import com.batoh.feature.library.LibraryRoute
-import com.batoh.feature.search.CategoriesRoute
 import com.batoh.feature.search.SearchRoute
 
 @Composable
@@ -64,7 +65,6 @@ fun BatohApp(
         }
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route.orEmpty()
-        val isOnSearchRoute = currentRoute.startsWith("search")
         LaunchedEffect(incomingGif.event, incomingGif.copiedUri) {
             if (incomingGif.event != 0L) {
                 val route = incomingGif.copiedUri?.let { Screen.Detail.createRoute(it) } ?: Screen.Library.route
@@ -73,11 +73,13 @@ fun BatohApp(
             }
         }
 
+        // Top-level tabs: the route prefix identifies the current tab, [BottomTab.target] is what a tap navigates to.
         val bottomItems = listOf(
-            Triple(Screen.Home.route, stringResource(com.batoh.manager.R.string.navigation_home), Icons.Default.Home),
-            Triple("search", stringResource(com.batoh.manager.R.string.navigation_search), Icons.Default.Search),
-            Triple(Screen.Categories.route, stringResource(com.batoh.manager.R.string.navigation_categories), Icons.Default.List),
-            Triple(Screen.Library.route, stringResource(com.batoh.manager.R.string.navigation_library), Icons.Default.Star)
+            BottomTab(Screen.Home.route, Screen.Home.route, stringResource(com.batoh.manager.R.string.navigation_home), Icons.Default.Home),
+            BottomTab("search", "search", stringResource(com.batoh.manager.R.string.navigation_search), Icons.Default.Search),
+            BottomTab("backpack", Screen.Backpack.createRoute(), stringResource(com.batoh.manager.R.string.navigation_panel), Icons.Default.Apps),
+            BottomTab(Screen.Library.route, Screen.Library.route, stringResource(com.batoh.manager.R.string.navigation_library), Icons.Default.PhotoLibrary),
+            BottomTab(Screen.More.route, Screen.More.route, stringResource(com.batoh.manager.R.string.navigation_more), Icons.Default.MoreHoriz)
         )
 
         Scaffold(
@@ -91,18 +93,13 @@ fun BatohApp(
                 }
             },
             bottomBar = {
-                val showBottomBar = currentRoute.startsWith(Screen.Home.route) ||
-                    currentRoute.startsWith("search") ||
-                    currentRoute.startsWith(Screen.Categories.route) ||
-                    currentRoute.startsWith(Screen.Library.route)
+                val showBottomBar = bottomItems.any { currentRoute.startsWith(it.prefix) }
 
                 if (showBottomBar) {
                     NavigationBar {
-                        bottomItems.forEach { (route, label, icon) ->
-                            val selected = when (route) {
-                                "search" -> isOnSearchRoute
-                                else -> currentRoute.startsWith(route)
-                            }
+                        bottomItems.forEach { (prefix, target, label, icon) ->
+                            val route = target
+                            val selected = currentRoute.startsWith(prefix)
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = {
@@ -147,18 +144,23 @@ fun BatohApp(
             ) {
                 composable(Screen.Home.route) {
             HomeRoute(
-                themeMode = themeMode,
-                gridColumns = gridColumns,
-                appLanguage = appLanguage,
-                onAppLanguageChanged = onAppLanguageChanged,
-                onThemeModeChanged = onThemeModeChanged,
-                        onGridColumnsChanged = onGridColumnsChanged,
                         onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
                         onNavigateToLibrary = { navController.navigate(Screen.Library.route) },
                         onNavigateToDetail = { url -> navController.navigate(Screen.Detail.createRoute(url)) },
                         onNavigateToConvert = { navController.navigate(Screen.Convert.route) },
                         onNavigateToBackpack = { navController.navigate(Screen.Backpack.createRoute()) },
-                        onNavigateToCategories = { navController.navigate(Screen.Categories.route) },
+                        onNavigateToTextBanner = { navController.navigate(Screen.TextBanner.route) }
+                    )
+                }
+                composable(Screen.More.route) {
+                    MoreRoute(
+                        themeMode = themeMode,
+                        gridColumns = gridColumns,
+                        appLanguage = appLanguage,
+                        onAppLanguageChanged = onAppLanguageChanged,
+                        onThemeModeChanged = onThemeModeChanged,
+                        onGridColumnsChanged = onGridColumnsChanged,
+                        onNavigateToConvert = { navController.navigate(Screen.Convert.route) },
                         onNavigateToTextBanner = { navController.navigate(Screen.TextBanner.route) }
                     )
                 }
@@ -190,6 +192,10 @@ fun BatohApp(
                             type = NavType.StringType
                             nullable = true
                             defaultValue = null
+                        },
+                        navArgument(Screen.Backpack.ARG_MY_PANELS) {
+                            type = NavType.BoolType
+                            defaultValue = false
                         }
                     ),
                     deepLinks = listOf(
@@ -220,6 +226,7 @@ fun BatohApp(
                         onNavigateToDetail = { gifUrl, mp4Url ->
                             navController.navigate(Screen.Detail.createRoute(gifUrl, mp4Url))
                         },
+                        onSendToPanel = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -250,22 +257,14 @@ fun BatohApp(
                         onSequenceStaged = { navController.navigate(Screen.Backpack.createRoute()) }
                     )
                 }
-                composable(Screen.Categories.route) {
-                    CategoriesRoute(
-                        gridColumns = gridColumns,
-                        onCategoryClick = { categoryName ->
-                            navController.navigate(Screen.Search.createRoute(initialQuery = categoryName))
-                        },
-                        onBack = { navController.popBackStack() }
-                    )
-                }
                 composable(Screen.GifEditor.route,
                     arguments = listOf(navArgument(Screen.GifEditor.ARG_GIF_URI) { type = NavType.StringType })
                 ) { entry ->
                     com.batoh.feature.backpack.GifEditorScreen(
                         gifUri = requireNotNull(entry.arguments?.getString(Screen.GifEditor.ARG_GIF_URI)),
                         onBack = { navController.popBackStack() },
-                        onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) }
+                        onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
+                        onSendToMyPanels = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri, toMyPanels = true)) }
                     )
                 }
                 composable(
@@ -280,9 +279,18 @@ fun BatohApp(
                 ) {
                     DetailRoute(onBack = { navController.popBackStack() },
                         onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
+                        onSendToMyPanels = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri, toMyPanels = true)) },
                         onEditGif = { uri -> navController.navigate(Screen.GifEditor.createRoute(uri)) })
                 }
             }
         }
     }
 }
+
+/** One bottom-bar tab; [prefix] matches the current route, [target] is navigated to on tap. */
+private data class BottomTab(
+    val prefix: String,
+    val target: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)

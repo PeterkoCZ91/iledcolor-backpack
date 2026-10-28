@@ -3,7 +3,6 @@ package com.batoh.core.conversion
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
-import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -30,7 +29,6 @@ class VideoToGifConverter @Inject constructor(
         const val TARGET_SIZE = 64       // backpack display resolution
         const val FRAME_DELAY_MS = 200   // 5 fps — matches iledeyes (200 ms/frame)
         const val MAX_FRAMES = 30        // cap to keep GIF small
-        private const val NQ_SAMPLE = 10 // NeuQuant quality factor
         private const val MAX_VIDEO_BYTES = 100L * 1024 * 1024
     }
 
@@ -69,20 +67,6 @@ class VideoToGifConverter @Inject constructor(
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(file.absolutePath)
-            extractAndEncode(retriever, onProgress)
-        } finally {
-            retriever.release()
-        }
-    }
-
-    /** Convert a content/file [uri] (e.g. from picker) to GIF bytes. */
-    suspend fun convertUri(
-        uri: Uri,
-        onProgress: suspend (Int) -> Unit = {}
-    ): ByteArray = withContext(Dispatchers.IO) {
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(context, uri)
             extractAndEncode(retriever, onProgress)
         } finally {
             retriever.release()

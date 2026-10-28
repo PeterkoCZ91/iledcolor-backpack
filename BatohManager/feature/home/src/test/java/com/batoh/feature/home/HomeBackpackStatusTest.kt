@@ -1,5 +1,7 @@
 package com.batoh.feature.home
 
+import com.batoh.core.data.bluetooth.PanelFamily
+import com.batoh.core.data.bluetooth.PanelSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -43,6 +45,13 @@ class HomeBackpackStatusTest {
         val status = HomeBackpackStatus.from("Disconnected", "  ", -1)
         assertNull(status.deviceName)
         assertNull(status.firmwareVersion)
+    }
+
+    @Test
+    fun panelIsKeptOnlyWhileConnected() {
+        val spec = PanelSpec(PanelFamily.IPixel, 64, 16, false)
+        assertEquals(spec, HomeBackpackStatus.from("Ready (MTU=517)", "LED_BLE_1", null, spec).panel)
+        assertNull(HomeBackpackStatus.from("Disconnected", "LED_BLE_1", null, spec).panel)
     }
 
     @Test

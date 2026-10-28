@@ -3,7 +3,7 @@
     <string name="library_select_title">Selected: %1$d</string>
     <string name="library_select_cancel">Cancel selection</string>
     <string name="library_select_chain">Join (%1$d)</string>
-    <string name="library_select_chain_hint">Select at least 2 GIFs to join. Long-press to start selecting.</string>
+    <string name="library_select_chain_hint">Select at least 2 GIFs to join. Tap more GIFs to add them.</string>
     <string name="library_select_max">You can join at most %1$d GIFs.</string>
     <string name="library_select_broken">A damaged GIF cannot be joined.</string>
     <string name="library_select_a11y_selected">selected, position %1$d</string>

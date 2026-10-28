@@ -8,7 +8,7 @@
     <string name="library_a11y_state_checking">checking the file</string>
     <string name="library_a11y_open_detail">open detail</string>
     <string name="library_a11y_more_actions">more options</string>
-    <string name="library_a11y_remove_broken">remove damaged GIF</string>
+    <string name="library_a11y_remove_broken">delete damaged GIF</string>
     <string name="library_retry">Try again</string>
     <string name="library_storage_permission_needed">Allow storage access to save GIFs on this Android version</string>
 </resources>

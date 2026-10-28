@@ -63,6 +63,8 @@ class GifChainViewModel @Inject constructor(
     private val saveGifBytes: SaveGifBytesUseCase,
     private val transfers: BackpackTransferManager
 ) : AndroidViewModel(application) {
+    val connectedFamily = transfers.connectedFamily
+    val connectedPanel = transfers.connectedPanel
     private val _state = MutableStateFlow(GifChainUiState())
     val state = _state.asStateFlow()
     private val _sendEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)

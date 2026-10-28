@@ -3,15 +3,26 @@
 This guide follows the app screen by screen. Labels are quoted as they appear in the English
 UI; the Czech UI has the same layout.
 
-Everything the backpack plays is a **64 × 64** animation. The app converts other GIF sizes
-for you; what you see in the 64 × 64 previews is what is sent.
+Everything is shown and sent at the **connected panel's size**: 64 × 64 for the backpack, or
+the size of the iPixel Color panel you picked (for example 32 × 32 or 64 × 16). Without a
+connection the size of the last panel is used (64 × 64 if there was none). The app converts
+other GIF sizes for you; what you see in the previews is what is sent.
 
-## Home and Settings
+## Navigation
 
-The home screen has tiles for **Search GIFs**, **Categories**, **My Collection**,
-**Video → GIF**, **Scrolling text** and **Backpack**.
+A bottom bar has five tabs: **Home**, **Search**, **Panel**, **Collection** and **More**.
 
-**Settings** (gear icon) holds:
+- **Home** is a dashboard: a panel status card (connection state and device name), a search
+  bar, quick actions for **Scrolling text** and **Video → GIF**, and your recent GIFs with
+  **Show all** to open the collection.
+- **Search** finds GIFs online; with an empty query it shows the categories.
+- **Panel** connects to and controls your panels (see [below](#panel-tab)).
+- **Collection** holds your saved GIFs.
+- **More** has the tools (**Video → GIF**, **Scrolling text**), the settings and **About**.
+
+### More: settings and About
+
+The settings are inline on the **More** tab:
 
 | Setting | Effect |
 | --- | --- |
@@ -21,14 +32,18 @@ The home screen has tiles for **Search GIFs**, **Categories**, **My Collection**
 | My interests | Tags used to suggest GIFs in search. |
 | API keys | Optional personal **Giphy** and **Klipy** keys. Empty uses the key built into the app, if any. See [API keys](../README.md#api-keys) and the [screenshot](images/api-keys.png). |
 
+**About** at the bottom of the tab shows the app description and the version.
+
 ## Search and categories
 
-1. Open **Search GIFs**, type a query and browse the grid. Results load page by page.
+1. Open the **Search** tab (or the search bar on Home), type a query and browse the grid. Results load page by page.
 2. **Filters**: source (**Giphy**, **Klipy**, **Lospec**), content type (GIF or sticker),
    content rating, and aspect ratio. **Square** is the default because it fits the panel
    without cropping. The **Lospec** source is a pixel-art mode: a Giphy search for square
    pixel-art results, so it needs the Giphy key.
-3. **Categories** lists curated categories plus your pinned, trending-this-month and
+   Every result tile has a **Send to panel** button: it saves the GIF to your collection and then
+   starts the same send flow as the Panel tab (including the *Where to send?* sheet).
+3. With an empty query the Search tab lists the **categories**: curated ones plus your pinned, trending-this-month and
    recently used ones. Pin a category to keep it at the top. If loading
    fails, use **Retry**.
 4. Open a result to reach its **detail** screen, or download it directly. Each download
@@ -39,14 +54,14 @@ while the rest of the app keeps working.
 
 ## Detail
 
-The detail screen shows the animated GIF and a pixel-exact **64 × 64 panel preview**
+The detail screen shows the animated GIF and a pixel-exact **panel preview** (at the connected panel's size)
 (nearest neighbour, centre crop, transparent pixels as black). Actions:
 
 - **Save to my collection** — downloads the original into the collection.
 - **Share** — hands the GIF to another app.
-- **Backpack 64×64** — converts and saves a 64 × 64 copy.
-- **Send to backpack** — opens the backpack screen and uploads.
-- **Edit for backpack** — opens the editor.
+- **Save for panel** — converts and saves a 64 × 64 copy in the collection (always 64 × 64; it is adapted to the panel's own size when you send it).
+- **Send to panel** — uploads to a panel. If there is not exactly one candidate panel, the app asks **Where to send?**; the GIF is always converted to the chosen panel's own size.
+- **Edit for panel** — opens the editor.
 
 A damaged file shows "Could not display the GIF" instead of crashing.
 
@@ -67,9 +82,9 @@ the system gallery.
     has been confirmed on hardware; above that, and above 8 programmes, a warning is shown
     because the backpack's real limit is unknown.
 - The **bin** icon on a tile deletes that GIF after one confirmation.
-- **Find duplicates** (next to *As on backpack*) groups GIFs with identical content. Each group
-  keeps one file; tick the extra copies you want to remove and confirm. Android may ask once more
-  for permission to delete files the app did not create.
+- **Find duplicates** finds GIFs with identical content and asks **Delete them and keep one of
+  each?** One file per group always stays. Android may ask once more for permission to delete
+  files the app did not create.
 - **Import GIF** opens the Android picker. The app saves its own copy, so the original can
   live anywhere (including cloud providers) and later be moved or deleted.
 - **Share to the app**: in a gallery or file manager choose *Share → GifPack* on a
@@ -100,12 +115,12 @@ Preparation can be cancelled; the original stays as it was.
 that is uploaded, next to the GIF. The defaults (100 / 100) match what the manufacturer's
 app sends. Whether other values visibly change playback speed or brightness on the panel has
 **not been verified yet**. They do not re-render the GIF and do not change the panel-wide
-brightness set on the backpack screen. Sending with non-default values needs the Bluetooth
+brightness set on the Panel tab. Sending with non-default values needs the Bluetooth
 permission granted first, and is refused while another upload or setting is in progress.
 
 ## Scrolling text
 
-**Scrolling text** turns a short message into a looping 64 × 64 GIF — a *new feature that
+**Scrolling text** (Home or More) turns a short message into a looping GIF at the connected panel's size (64 × 64 for the backpack) — a *new feature that
 has not yet been verified on the panel*.
 
 1. Type up to 60 characters.
@@ -116,17 +131,32 @@ has not yet been verified on the panel*.
    on the right and leaves on the left, and the loop is seamless. Long texts scroll in larger
    steps so one loop stays within 300 frames.
 5. **Save to library** or **Send to backpack** (upload progress is shown in place;
-   **Open backpack** jumps to the full backpack screen).
+   **Open backpack** jumps to the Panel tab). A banner saved to the library has the
+   size of the panel it was rendered for.
+
+### Prepared texts
+
+**Save as prepared text** keeps the message with its colours, size, speed and bold setting in a
+list (up to 30, newest first; identical entries are not added twice). Under **Prepared texts**,
+**Send** renders the text for the panel that is connected right now and uploads it with one
+tap, so the same list works on the backpack and on a 64 × 16 panel. **Delete** removes an entry
+(with **Undo**). The list lives only on the phone; nothing is stored inside the panel.
 
 ## Video → GIF
 
-Paste a link to an **MP4** file and tap **Convert & Save**. The app downloads it (up to
+Open it from Home or More, paste a link to an **MP4** file and tap **Convert & Save**. The app downloads it (up to
 100 MB), samples up to 30 frames, centre-crops them to 64 × 64 and saves the GIF to the
 collection. Progress is shown for both phases and the download can be cancelled. Use only
 videos you have the right to use. This flow is implemented but has not yet been verified in
 the public GitHub build, so treat it as experimental for now.
 
-## Backpack
+## Panel tab
+
+The **Panel** tab works with the iledcolor backpack and with iPixel Color
+(`LED_BLE_XXXXXXXX`) panels. Besides the connection and display controls it offers **Send a GIF**
+(from your phone or from your collection), **My panels**, the upload history
+and **Advanced**. The sections below describe the backpack; the iPixel differences are at the
+end.
 
 ### Connecting
 
@@ -152,7 +182,10 @@ scan; until then it says the details load when the backpack is found. See
 
 ### Uploading
 
-- **Choose a GIF from your library**, or start from the collection, detail, editor or
+- **Send a GIF** on the Panel tab opens *Send a GIF from…* with **From my phone** (system file picker)
+  and **From my collection** (your saved GIFs). When there is not exactly one candidate panel, a
+  *Where to send?* sheet follows; with two or more of your panels it has an **All my panels** row.
+  You can also start from the collection, detail, editor or
   banner screens.
 - The upload card shows the GIF, then *Preparing*, *Connecting*, a percentage while
   sending and *Finishing*. Leaving the screen does not stop the upload.
@@ -185,6 +218,45 @@ actually applied.
 GIFs on your phone are not affected, but nothing on the backpack can be recovered except by
 uploading again. The app asks for confirmation; there is no undo. Only use it when you
 really want an empty backpack — it is not a cleanup step for testing.
+
+### iPixel Color panels
+
+- **Nearby panels** lists every supported panel the app sees: family, size, name and signal.
+  Sizes other than 32 × 32 and 64 × 16 are marked *untested size*; a panel of an unknown type is
+  listed but nothing can be sent to it.
+- **Pick the panel in this list.** An iPixel panel is connected **only after you pick it**; the
+  app never connects to one on its own, on first use or when you tap Send while disconnected
+  (so it cannot take over a panel that belongs to someone else). After the first pick it is
+  reconnected as the last-used panel. **Switch panel** lets you change.
+- The device card shows family, size and whether that size was tested on hardware.
+- Uploads (images, GIFs, the test image, scrolling text and prepared texts) go only to the
+  panel's **display slot**: nothing the vendor app stored on the panel is deleted or replaced,
+  and the app has no delete command for these panels.
+- **Display** for an iPixel panel has its own controls: brightness 0–100 %, display on/off,
+  rotation (0°, 90°, 180°, 270°) and a **Clock** section (face 0–8, 24-hour format, show date,
+  **Show clock**). Each setting is sent when you change it and the panel confirms it; if it does
+  not, an error is shown and the setting in the app stays as it was.
+- Backpack-only controls are hidden: built-in programmes, clear contents, programme speed /
+  brightness / effect in the editor, sending as a sequence and the effect and playlist tests.
+  Joining GIFs into one GIF still works.
+- Large GIFs are sent in several windows; a 40 KB GIF takes roughly 10–16 seconds.
+
+### My panels and sending to all of them
+
+- **My panels** lists every panel you picked in *Nearby panels* (backpack or iPixel), with
+  whether it is in range. **Remove from my panels** takes it off the list; if it was the
+  last-used panel, the app forgets that too and goes back to finding the backpack on its own.
+- **Send to all my panels** (the **All my panels** row of the *Where to send?* sheet, in Detail, in the Editor and for the scrolling text
+  and each prepared text) sends the same content to every panel in *My panels* that is in range,
+  one after another. Each panel gets it converted for its own family and size; a text banner is
+  rendered separately for each size. Only panels you picked yourself are ever contacted — a
+  panel that is merely nearby, for example someone else's, never receives anything.
+- A quick scan comes first; panels that are not in range are listed as such and skipped. The
+  progress shows which panel is being sent, and the summary shows the result per panel. A
+  failing panel does not stop the run; **Cancel upload** stops the current panel's transfer and
+  skips the remaining panels.
+- The panel that was connected before is sent to last and stays connected; otherwise it is
+  reconnected at the end. Each panel's result also appears in the upload history.
 
 ### Upload history
 

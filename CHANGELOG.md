@@ -2,11 +2,15 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no tagged releases
-yet; debug builds are identified by their `versionCode` (currently 65).
+yet; debug builds are identified by their `versionCode` (currently 66).
 
 ## [Unreleased]
 
 ### Added
+- **iPixel Color panel support (v66).** GifPack now also finds, connects to and sends to iPixel Color `LED_BLE_*` panels next to the backpack: still images, GIFs and the scrolling text banner, converted to the panel's size. The panel size is read from the advertisement and confirmed by the panel's info reply. **Verified on hardware:** 32 × 32 (type `0x81`) and 64 × 16 (type `0x83`), PNG and GIF uploads including a ~41 KB, 4-window GIF; the other 18 sizes of the family are untested. An iPixel panel is connected only after you pick it in the new nearby-panels list, uploads go only to the display slot and nothing on the panel is deleted. iPixel panels get their own brightness (0–100 %), display on/off, rotation and clock-face settings, each confirmed by the panel (verified on hardware); backpack-only controls are hidden for these panels. Uploads are written in pieces of at most 512 bytes, so a large negotiated MTU no longer breaks them. Byte layouts follow the open-source pypixelcolor project as a reference (no code copied). See `docs/ble-protocol.md` section 13 and `docs/device-capabilities.md` section 9.
+- **My panels and "Send to all my panels" (v66).** Every panel you pick joins *My panels* (removable again). One tap sends an image, GIF, text banner or prepared text to each of them that is in range, one after another, converted for each panel's family and size, with a per-panel result and history entry. Only panels you picked are ever contacted, never other panels nearby. The previously connected panel comes last and stays connected.
+- **Prepared texts:** save scrolling-text banners with their options and send any of them to the connected panel with one tap; the text is rendered for that panel's size at send time.
+- Previews, the editor and the text banner use the connected panel's size (the last panel's size while disconnected, 64 × 64 if none); the "as on the panel" sampler now lives once in `core/conversion`.
 - **Find duplicates** in My Collection: groups GIFs with identical content (size first, then SHA-256 only for files of equal size) and offers to delete the extra copies; one file per group always stays and nothing is deleted without confirmation.
 - A trash icon on every collection tile deletes a GIF with one confirmation (the ⋮ menu is no longer needed for that).
 - The backpack screen says when Bluetooth is off and offers a button that turns it on instead of failing silently.

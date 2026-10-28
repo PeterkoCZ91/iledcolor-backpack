@@ -18,16 +18,33 @@ data class GifEditResult(val gifBytes: ByteArray, val info: GifInfo)
 
 /** Pixel edits are applied to composed animation frames, preserving each delay and loop count. */
 object GifEditorProcessor {
-    fun transform(bytes: ByteArray, options: GifEditOptions = GifEditOptions(), checkCancellation: () -> Unit = {}): GifEditResult {
+    /**
+     * Crop is the sensible default for similar aspect ratios; a source and panel whose aspect
+     * ratios differ by twofold or more (e.g. a square GIF on a 64×16 strip) would lose most of
+     * the picture, so [GifScaleMode.Fit] is used instead.
+     */
+    fun defaultScaleMode(srcWidth: Int, srcHeight: Int, width: Int, height: Int): GifScaleMode {
+        val source = srcWidth.toDouble() / srcHeight
+        val panel = width.toDouble() / height
+        return if (max(source, panel) / min(source, panel) >= 2.0) GifScaleMode.Fit else GifScaleMode.CenterCrop
+    }
+
+    fun transform(
+        bytes: ByteArray,
+        options: GifEditOptions = GifEditOptions(),
+        width: Int = 64,
+        height: Int = 64,
+        checkCancellation: () -> Unit = {}
+    ): GifEditResult {
         val frames = mutableListOf<Pair<IntArray, Int>>()
-        val source = SafeGifDecoder.decode(bytes, checkCancellation) { pixels, width, height, delay ->
+        val source = SafeGifDecoder.decode(bytes, checkCancellation) { pixels, sourceWidth, sourceHeight, delay ->
             checkCancellation()
-            frames += transformPixels(pixels, width, height, options) to delay
+            frames += transformPixels(pixels, sourceWidth, sourceHeight, options, width, height) to delay
         }
         val output = ByteArrayOutputStream()
         output.write("GIF89a".toByteArray(Charsets.US_ASCII))
-        output.short(64)
-        output.short(64)
+        output.short(width)
+        output.short(height)
         output.write(0xe6) // Global 128-color palette, matching the panel's GIF format.
         output.write(0)
         output.write(0)
@@ -52,25 +69,37 @@ object GifEditorProcessor {
             output.write(0x2c)
             output.short(0)
             output.short(0)
-            output.short(64)
-            output.short(64)
+            output.short(width)
+            output.short(height)
             output.write(if (frameIndex == 0) 0 else 0x86)
             if (frameIndex != 0) output.write(palette)
-            LzwEncoder(64, 64, indices, 7).encode(output)
+            LzwEncoder(width, height, indices, 7).encode(output)
         }
         output.write(0x3b)
-        return GifEditResult(output.toByteArray(), source.copy(width = 64, height = 64))
+        return GifEditResult(output.toByteArray(), source.copy(width = width, height = height))
     }
 
-    internal fun transformPixels(pixels: IntArray, width: Int, height: Int, options: GifEditOptions): IntArray {
+    internal fun transformPixels(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        options: GifEditOptions,
+        panelWidth: Int = 64,
+        panelHeight: Int = 64
+    ): IntArray {
         require(options.rotationDegrees in listOf(0, 90, 180, 270)) { "Rotation must be 0°, 90°, 180° or 270°" }
         val quarterTurn = options.rotationDegrees == 90 || options.rotationDegrees == 270
         val rotatedWidth = if (quarterTurn) height else width
         val rotatedHeight = if (quarterTurn) width else height
-        val span = if (options.scaleMode == GifScaleMode.CenterCrop) min(rotatedWidth, rotatedHeight) else max(rotatedWidth, rotatedHeight)
-        return IntArray(64 * 64) { index ->
-            val x = floor((index % 64 + 0.5) * span / 64.0 + (rotatedWidth - span) / 2.0).toInt()
-            val y = floor((index / 64 + 0.5) * span / 64.0 + (rotatedHeight - span) / 2.0).toInt()
+        // Source span covered by the panel on each axis; crop scales by the larger factor, fit by the smaller.
+        val widthFactor = panelWidth.toLong() * rotatedHeight
+        val heightFactor = panelHeight.toLong() * rotatedWidth
+        val scaleByWidth = if (options.scaleMode == GifScaleMode.CenterCrop) widthFactor >= heightFactor else widthFactor <= heightFactor
+        val spanX = if (scaleByWidth) rotatedWidth.toDouble() else panelWidth.toDouble() * rotatedHeight / panelHeight
+        val spanY = if (scaleByWidth) panelHeight.toDouble() * rotatedWidth / panelWidth else rotatedHeight.toDouble()
+        return IntArray(panelWidth * panelHeight) { index ->
+            val x = floor((index % panelWidth + 0.5) * spanX / panelWidth + (rotatedWidth - spanX) / 2.0).toInt()
+            val y = floor((index / panelWidth + 0.5) * spanY / panelHeight + (rotatedHeight - spanY) / 2.0).toInt()
             if (x !in 0 until rotatedWidth || y !in 0 until rotatedHeight) {
                 0xff000000.toInt()
             } else {

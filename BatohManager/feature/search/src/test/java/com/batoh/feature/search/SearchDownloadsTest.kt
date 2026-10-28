@@ -68,4 +68,72 @@ class SearchDownloadsTest {
         yield()
         assertEquals(GifSaveStage.Success, downloads.states.value[gif().downloadKey()]?.stage)
     }
+
+    @Test fun sendWaitsForSaveThenEmitsLocalUriOnce() = runBlocking {
+        val status = MutableStateFlow(DownloadStatus.PENDING)
+        var saves = 0
+        val downloads = SearchDownloads(this, { _, _ -> saves++; Result.Success("work") }, { status },
+            resultUri = { id -> "content://media/$id" })
+        val received = mutableListOf<String>()
+        val collector = launch { downloads.sendReady.collect { received += it } }
+        downloads.saveAndSend(gif())
+        downloads.saveAndSend(gif())
+        yield()
+        assertEquals(setOf(gif().downloadKey()), downloads.sending.value)
+        assertTrue(received.isEmpty())
+        status.value = DownloadStatus.SUCCESS
+        yield(); yield()
+        assertEquals(listOf("content://media/work"), received)
+        assertEquals(1, saves)
+        assertTrue(downloads.sending.value.isEmpty())
+        collector.cancel()
+    }
+
+    @Test fun alreadySavedGifIsSentWithoutSavingAgain() = runBlocking {
+        var saves = 0
+        val downloads = SearchDownloads(this, { _, _ -> saves++; Result.Success("work") },
+            { flowOf(DownloadStatus.SUCCESS) }, resultUri = { "content://media/1" })
+        val received = mutableListOf<String>()
+        val collector = launch { downloads.sendReady.collect { received += it } }
+        downloads.save(gif())
+        yield()
+        downloads.saveAndSend(gif())
+        yield(); yield()
+        assertEquals(listOf("content://media/1"), received)
+        assertEquals(1, saves)
+        collector.cancel()
+    }
+
+    @Test fun failedSaveCancelsSendAndUnresolvableUriIsAnError() = runBlocking {
+        val failed = SearchDownloads(this, { _, _ -> Result.Success("work") }, { flowOf(DownloadStatus.FAILED) },
+            resultUri = { "content://media/1" })
+        failed.saveAndSend(gif())
+        yield(); yield()
+        assertTrue(failed.sending.value.isEmpty())
+        assertEquals(GifSaveStage.Error, failed.states.value[gif().downloadKey()]?.stage)
+
+        val noUri = SearchDownloads(this, { _, _ -> Result.Success("work") }, { flowOf(DownloadStatus.SUCCESS) },
+            resultUri = { null })
+        noUri.saveAndSend(gif())
+        yield(); yield()
+        assertTrue(noUri.sending.value.isEmpty())
+        assertEquals(GifSaveStage.Error, noUri.states.value[gif().downloadKey()]?.stage)
+    }
+
+    @Test fun enqueueErrorClearsSendingAndPlainSaveNeverSends() = runBlocking {
+        val downloads = SearchDownloads(this, { _, _ -> Result.Error(Exception("offline"), "No connection") },
+            { flowOf(DownloadStatus.SUCCESS) }, resultUri = { "content://media/1" })
+        downloads.saveAndSend(gif())
+        yield()
+        assertTrue(downloads.sending.value.isEmpty())
+
+        val plain = SearchDownloads(this, { _, _ -> Result.Success("work") }, { flowOf(DownloadStatus.SUCCESS) },
+            resultUri = { "content://media/1" })
+        val received = mutableListOf<String>()
+        val collector = launch { plain.sendReady.collect { received += it } }
+        plain.save(gif())
+        yield(); yield()
+        assertTrue(received.isEmpty())
+        collector.cancel()
+    }
 }

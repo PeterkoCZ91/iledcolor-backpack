@@ -27,16 +27,18 @@ class HomeViewModel @Inject constructor(
     val backpackStatus: StateFlow<HomeBackpackStatus> = combine(
         bluetoothManager.connectionStatus,
         bluetoothManager.deviceName,
-        bluetoothManager.advertisement
-    ) { status, name, adv ->
-        HomeBackpackStatus.from(status, name, adv?.versionCode)
+        bluetoothManager.advertisement,
+        bluetoothManager.connectedPanel
+    ) { status, name, adv, panel ->
+        HomeBackpackStatus.from(status, name, adv?.versionCode, panel)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = HomeBackpackStatus.from(
             bluetoothManager.connectionStatus.value,
             bluetoothManager.deviceName.value,
-            bluetoothManager.advertisement.value?.versionCode
+            bluetoothManager.advertisement.value?.versionCode,
+            bluetoothManager.connectedPanel.value
         )
     )
 

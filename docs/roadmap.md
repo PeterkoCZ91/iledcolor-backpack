@@ -1,7 +1,7 @@
 # Roadmap
 
-GifPack already covers the main path — find or make a GIF, fit it to 64 × 64 and get it
-onto the backpack with a confirmed result. The remaining work is mostly **verification on
+GifPack already covers the main path — find or make a GIF, fit it to the panel (64 × 64
+backpack, or an iPixel Color panel) and get it onto the panel with a confirmed result. The remaining work is mostly **verification on
 real hardware** and a few features that the protocol allows but the app does not use yet.
 Items are capability-driven: a feature the backpack does not advertise stays hidden rather
 than guessed.
@@ -19,7 +19,7 @@ the CI artifact is built without API keys.
 | Task | State |
 | --- | --- |
 | Video → GIF on Android | Instrumentation test and the https URL flow passed on phones; still marked experimental until the owner confirms it on the panel. |
-| First-run / API-key guidance and screenshots | Done: About and Settings → API keys screenshots are in the README and user guide. |
+| First-run / API-key guidance and screenshots | Done: screenshots of every tab, including More → API keys with About, are in the README and user guide. |
 | Preflight of the working tree and history | Done (see above). |
 
 ## Next steps
@@ -33,6 +33,9 @@ the CI artifact is built without API keys.
 | 5 | **Error states and accessibility.** Each screen's error state, TalkBack, large fonts and touch targets. | Code pass done on all screens (descriptions, headings, 48 dp targets, toggle/slider semantics, announced errors with a recovery action). A manual TalkBack and large-font pass on a phone is still to do. |
 | 6 | **Collection name safety.** Case-insensitive name collisions, rollback of a legacy-path rename and completing the save when `importGif` is cancelled. | Implemented and unit-tested (name rules, rename rollback, non-cancellable commit). Done when checked on a device, including a pre-Android 10 phone for the legacy path. |
 | 7 | **Measure capacity safely.** Find the practical upload limit step by step, watching the panel, without using "clear all" as cleanup. | Largest confirmed upload: 453 KB / 96 frames. |
+| 8 | **Cancel while connecting to several panels.** | Cancelling *Send to all my panels* during connecting must leave a panel that was not connected before disconnected (otherwise restore the previous one) and write the history correctly. Not yet checked on hardware. |
+| 9 | **First write after a fresh iPixel connection.** The first quick send failed once at packet 1 of 2 right after connecting; the retry succeeded and a repeat run of 8 rounds (10 transfers, fresh and reused connections) all completed. | Watch for a repeat; if it recurs add one bounded automatic retry like the one for GATT 133. |
+| 10 | **Static images in quick send.** Only GIFs can be picked today. | JPG / PNG to a one-frame GIF, if the existing converter can do it without new dependencies. |
 
 ## Protocol features not yet used
 
@@ -48,6 +51,9 @@ the CI artifact is built without API keys.
 Not known bugs or blockers:
 
 - An overview of edited copies in the collection (search, sort, rename and a count / size summary are done).
+- Search no longer needs the trending request while the category list is shown on an empty query; skip it to save traffic.
+- Default names of saved GIFs still start with `batoh_`; a neutral `gif_` prefix would suit all panel types.
+- A manual TalkBack pass over the new tabs and the More screen (part of item 5).
 - Category filtering, if pinned / trending / recent prove insufficient in daily use.
 - Continue uploads while the phone is locked — needs a foreground service with a visible
   notification; only if users need it.
@@ -77,6 +83,10 @@ Not required for local development or debug testing.
 
 ## Done recently
 
+- **Navigation rebuilt into five tabs (Home, Search, Panel, Collection, More):** Home is a dashboard (panel status, search bar, quick actions, recent GIFs); categories live inside Search when the query is empty; settings, API keys and About are inline on More instead of dialogs. All screens were reviewed for copy, plurals (Czech one/few/many/other), 48 dp targets, large fonts and system navigation-bar insets; generic texts say "panel" and show the panel's real size.
+- **Quick send:** one **Send a GIF** button on the Panel tab (*From my phone* / *From my collection*), a **Send to panel** button on Search results, and a *Where to send?* sheet that appears only when there is not exactly one candidate panel; the GIF is always converted to the chosen panel's own size. Checked on hardware: backpack 64 × 64, iPixel Color 32 × 32 and 64 × 16, *Send to all my panels* (2 of 2), brightness and the scrolling-text banner. `tools/panel_send_check.py` repeats such sends and counts completed transfers from the app log.
+- **Duplicate deletion simplified:** one *Find duplicates* action and one confirmation that keeps the first copy of each group.
+- **Smoke harness:** the labels it taps are kept in one table that a unit test compares with the app's string resources; the locale test also checks plurals, placeholders and house style.
 - **Localized error messages (v62):** search, categories, downloads, the GIF editor, the text banner and backpack commands no longer fall back to English or raw exception text; search and categories tell a missing API key, no connection and a failing service apart. A failed share no longer makes the next language switch jump to the collection. Smoke harness with `--fixtures --import --locale-sweep` passes on the test phone; the offline search message was checked by hand.
 - **Downloadable APK:** pre-release `v65` (earlier `v64`, `v63`, `v62`, `v61`) on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
 - **Send as a sequence:** several GIFs from the collection, each sent as its own programme; the backpack plays them in turn (two programmes, 181 KB, checked on the panel). Maximum number of programmes and total capacity still unknown.
@@ -87,7 +97,7 @@ Not required for local development or debug testing.
 - Library items whose file is broken show the reason and offer *Remove*.
 - Screenshots in the README; the repository was published with a clean history and CI.
 - First connection without a remembered backpack finds the first one advertising nearby.
-- "Already on backpack" status verified; the home tile shows the backpack's connection state and name.
+- "Already on backpack" status verified; the home status card shows the backpack's connection state and name.
 - Upload failures show a typed reason with a hint, in the upload card and in the history.
 - Clean install, first connection without a stored address and a test-image upload confirmed by the backpack, checked on a second phone (2026-10-07).
 - Video → GIF instrumentation test passed on a device; the URL (https) → download → preview → save-to-collection flow was verified by hand on a second phone (still experimental until the owner confirms).

@@ -1,5 +1,7 @@
 package com.batoh.feature.backpack
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -94,5 +96,7 @@ internal fun BackpackGifPicker(
                 }
             }
         }
+        // Keep the grid's last row above the system navigation bar (the sheet is drawn edge to edge).
+        Spacer(Modifier.navigationBarsPadding())
     }
 }

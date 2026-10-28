@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_search_button">Hledat GIFy</string>
-    <string name="home_categories_button">Kategorie</string>
-    <string name="home_favorites_button">Oblíbené</string>
-    <string name="home_library_button">Moje sbírka</string>
     <string name="home_convert_button">Video → GIF</string>
-    <string name="home_info_content_description">Informace o aplikaci</string>
-    <string name="home_settings_content_description">Nastavení aplikace</string>
-    <string name="home_info_title">O aplikaci</string>
-    <string name="home_settings_title">Nastavení</string>
     <string name="home_settings_theme">Režim zobrazení</string>
     <string name="home_settings_theme_system">Systém</string>
     <string name="home_settings_theme_light">Světlý</string>
@@ -22,21 +14,28 @@
     <string name="home_interest_group_fun">Zábava</string>
     <string name="home_interest_group_nature">Příroda</string>
     <string name="home_interest_group_symbols">Symboly</string>
-    <string name="home_settings_grid_density">Hustota gridu</string>
-    <string name="home_info_body">GifPack pomáhá najít, upravit a uložit GIFy pro LED batoh 64×64. GIFy můžeš importovat z galerie, převádět videa a upravit ořez či otočení před nahráním přes Bluetooth. Online vyhledávání Giphy a Klipy vyžaduje vlastní API klíče, které zadáš v Nastavení → API klíče.</string>
-    <string name="home_info_ok">OK</string>
+    <string name="home_settings_grid_density">Hustota mřížky</string>
+    <string name="home_info_body">GifPack pomáhá najít, upravit a uložit GIFy pro LED batoh nebo panely iPixel Color. GIFy můžeš importovat z galerie, převádět videa a upravit ořez či otočení před nahráním přes Bluetooth. Online vyhledávání Giphy a Klipy vyžaduje vlastní API klíče, které zadáš v záložce Více → API klíče.</string>
     <string name="home_settings_interests">Moje zájmy</string>
     <string name="home_settings_interests_hint">GIFy podle tvých zájmů se zobrazí ve vyhledávání</string>
-    <string name="home_search_icon_description">Lupa</string>
-    <string name="home_library_icon_description">Galerie</string>
     <string name="home_settings_grid_2col">2 sloupce</string>
     <string name="home_settings_grid_3col">3 sloupce</string>
     <string name="home_settings_api_keys">API klíče</string>
     <string name="home_settings_klipy_api_key">Klipy API klíč</string>
-    <string name="home_settings_klipy_api_key_hint">Vlož vlastní klíč z partner.klipy.com. Veřejná APK ho neobsahuje; bez klíče nepůjde online vyhledávání Klipy.</string>
+    <string name="home_settings_klipy_api_key_hint">Vlož vlastní klíč z partner.klipy.com. Veřejná verze aplikace ho neobsahuje; bez klíče nepůjde online vyhledávání Klipy.</string>
     <string name="home_settings_giphy_api_key">Giphy API klíč</string>
-    <string name="home_settings_giphy_api_key_hint">Vlož vlastní klíč z developers.giphy.com. Veřejná APK ho neobsahuje; bez klíče nepůjde online vyhledávání Giphy.</string>
-    <string name="home_backpack_button">Batoh</string>
+    <string name="home_settings_giphy_api_key_hint">Vlož vlastní klíč z developers.giphy.com. Veřejná verze aplikace ho neobsahuje; bez klíče nepůjde online vyhledávání Giphy.</string>
+    <string name="home_backpack_button">Panel</string>
     <string name="home_info_version">Verze: %1$s</string>
     <string name="app_name">GifPack</string>
+    <string name="home_panel_family_backpack">Batoh</string>
+    <string name="home_panel_family_ipixel">iPixel Color</string>
+    <string name="home_panel_summary">%1$s · %2$d × %3$d</string>
+    <string name="home_info_version_unknown">Neznámá</string>
+    <string name="more_title">Více</string>
+    <string name="more_section_tools">Nástroje</string>
+    <string name="more_section_settings">Nastavení</string>
+    <string name="more_section_about">O aplikaci</string>
+    <string name="home_search_hint">Hledej GIFy…</string>
+    <string name="home_recent_show_all">Zobrazit vše</string>
 </resources>

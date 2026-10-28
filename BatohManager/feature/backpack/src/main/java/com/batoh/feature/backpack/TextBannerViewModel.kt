@@ -1,5 +1,6 @@
 package com.batoh.feature.backpack
 
+import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,7 +11,6 @@ import com.batoh.core.conversion.TextBannerPlan
 import com.batoh.core.conversion.TextBannerRenderer
 import com.batoh.core.conversion.TextBannerSize
 import com.batoh.core.conversion.TextBannerSpeed
-import com.batoh.core.data.bluetooth.BackpackPayload
 import com.batoh.core.domain.usecase.SaveGifBytesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -21,6 +21,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,13 +38,17 @@ data class TextBannerUiState(
     /** String resource id of the last error (resolved in the UI so the app language applies). */
     val errorRes: Int? = null,
     /** True once this screen started an upload; the shared upload state is shown only then. */
-    val uploadRequested: Boolean = false
+    val uploadRequested: Boolean = false,
+    /** Panel size the banner is rendered (and saved) at: the connected panel, else the last one, else 64x64. */
+    val panelWidth: Int = 64,
+    val panelHeight: Int = 64
 )
 
 @HiltViewModel
 class TextBannerViewModel @Inject constructor(
     private val saveGifBytes: SaveGifBytesUseCase,
     private val transfers: BackpackTransferManager,
+    application: Application,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     // Typed inputs survive process death; generated GIF bytes are never persisted, only re-rendered.
@@ -51,11 +56,25 @@ class TextBannerViewModel @Inject constructor(
     val state = _state.asStateFlow()
     val uploadState = transfers.uploadState
     val busy = transfers.busy
+    val connectedFamily = transfers.connectedFamily
+    val connectedPanel = transfers.connectedPanel
+    val myPanels = transfers.myPanels
+    private val preparedPreferences = application.getSharedPreferences("prepared_texts", android.content.Context.MODE_PRIVATE)
+    private val _preparedTexts = MutableStateFlow(PreparedTexts.decode(preparedPreferences.getString(PREPARED_KEY, null)))
+    val preparedTexts: StateFlow<List<PreparedText>> = _preparedTexts.asStateFlow()
     private var renderJob: Job? = null
     private var saveJob: Job? = null
 
     init {
         if (_state.value.options.text.isNotBlank()) startRender(debounce = false)
+        // A panel of another size connecting while the screen is open re-renders the banner for it.
+        viewModelScope.launch {
+            connectedPanel.collect { spec ->
+                if (spec != null && !_state.value.saving && (spec.width to spec.height) != (_state.value.panelWidth to _state.value.panelHeight)) {
+                    startRender(debounce = false)
+                }
+            }
+        }
     }
 
     fun update(options: TextBannerOptions) {
@@ -71,6 +90,8 @@ class TextBannerViewModel @Inject constructor(
     private fun startRender(debounce: Boolean = true) {
         renderJob?.cancel()
         val options = _state.value.options
+        val (width, height) = transfers.targetPanelSize()
+        _state.value = _state.value.copy(panelWidth = width, panelHeight = height)
         if (options.text.isBlank()) {
             _state.value = _state.value.copy(stage = TextBannerStage.Empty, previewBytes = null, plan = null,
                 savedUri = null, errorRes = null)
@@ -82,7 +103,7 @@ class TextBannerViewModel @Inject constructor(
                 if (debounce) delay(RENDER_DEBOUNCE_MS)
                 val result = withContext(Dispatchers.Default) {
                     val context = currentCoroutineContext()
-                    TextBannerRenderer.render(options) { context.ensureActive() }
+                    TextBannerRenderer.render(options, width, height) { context.ensureActive() }
                 }
                 ensureActive()
                 _state.value = _state.value.copy(stage = TextBannerStage.Ready, previewBytes = result.gifBytes, plan = result.plan)
@@ -120,26 +141,85 @@ class TextBannerViewModel @Inject constructor(
         }
     }
 
-    /** Wraps the GIF into a programme payload and hands it to the shared transfer manager. */
+    /** Hands the GIF to the shared transfer manager (a backpack gets it as a programme payload). */
     fun sendToBackpack() {
         val current = _state.value
         if (current.stage != TextBannerStage.Ready) return
         val bytes = current.previewBytes ?: return
         try {
-            val payload = BackpackPayload.fromGif(bytes)
-            _state.value = current.copy(uploadRequested = true, errorRes = null)
             // History shows the typed text instead of a generic "Program" label
-            transfers.uploadPayload(payload, name = "„${current.options.text.trim().take(24)}“")
+            transfers.uploadGifBytes(bytes, name = "„${current.options.text.trim().take(24)}“")
+            _state.value = current.copy(uploadRequested = true, errorRes = null)
         } catch (e: Exception) {
             android.util.Log.w("TextBanner", "Building the payload failed", e)
             _state.value = current.copy(errorRes = R.string.text_banner_error_payload)
         }
     }
 
+    /** Sends the banner to all of my panels in range; the manager renders it at each panel's own size. */
+    fun sendToMyPanels() {
+        val current = _state.value
+        if (current.stage != TextBannerStage.Ready || current.options.text.isBlank()) return
+        transfers.uploadBannerToMyPanels(current.options, name = "„${current.options.text.trim().take(24)}“")
+        _state.value = current.copy(uploadRequested = true, errorRes = null)
+    }
+
+    /** Like [sendToMyPanels] for a prepared text. */
+    fun sendPreparedToMyPanels(id: Long) {
+        val item = _preparedTexts.value.firstOrNull { it.id == id } ?: return
+        transfers.uploadBannerToMyPanels(item.options, name = "„${item.options.text.trim().take(24)}“")
+        _state.value = _state.value.copy(uploadRequested = true, errorRes = null)
+    }
+
     fun cancelUpload() = transfers.cancelUpload()
+
+    /** Adds the current options to the prepared list (blank text and duplicates are ignored). */
+    fun savePrepared() {
+        val options = _state.value.options
+        // Ids come from the clock; bump past any existing one so two quick saves never collide.
+        val id = maxOf(System.currentTimeMillis(), (_preparedTexts.value.maxOfOrNull { it.id } ?: 0L) + 1)
+        persistPrepared(PreparedTexts.add(_preparedTexts.value, PreparedText(id, options)))
+    }
+
+    fun deletePrepared(id: Long) = persistPrepared(PreparedTexts.remove(_preparedTexts.value, id))
+
+    /** Undo of [deletePrepared]: puts [item] back at [index] (clamped to the list). */
+    fun restorePrepared(item: PreparedText, index: Int) {
+        val list = _preparedTexts.value
+        if (list.any { it.id == item.id }) return
+        persistPrepared(list.toMutableList().apply { add(index.coerceIn(0, size), item) }.take(PreparedTexts.MAX))
+    }
+
+    /** Renders the saved banner at the connected panel's size and uploads it, like [sendToBackpack]. */
+    fun sendPrepared(id: Long) {
+        val item = _preparedTexts.value.firstOrNull { it.id == id } ?: return
+        val (width, height) = transfers.targetPanelSize()
+        _state.value = _state.value.copy(errorRes = null)
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.Default) {
+                    val context = currentCoroutineContext()
+                    TextBannerRenderer.render(item.options, width, height) { context.ensureActive() }
+                }
+                transfers.uploadGifBytes(result.gifBytes, name = "„${item.options.text.trim().take(24)}“")
+                _state.value = _state.value.copy(uploadRequested = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("TextBanner", "Sending a prepared text failed", e)
+                _state.value = _state.value.copy(errorRes = R.string.text_banner_error_payload)
+            }
+        }
+    }
+
+    private fun persistPrepared(list: List<PreparedText>) {
+        _preparedTexts.value = list
+        preparedPreferences.edit().putString(PREPARED_KEY, PreparedTexts.encode(list)).apply()
+    }
 
     private companion object {
         const val RENDER_DEBOUNCE_MS = 250L
+        const val PREPARED_KEY = "items"
     }
 }
 

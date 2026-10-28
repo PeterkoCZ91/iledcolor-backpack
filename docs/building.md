@@ -58,7 +58,7 @@ The full check used before handing over a build adds every module's unit tests:
 
 The debug APK is written to `BatohManager/app/build/outputs/apk/debug/app-debug.apk`. The
 version comes from `app/build.gradle.kts` (`versionCode`, `versionName = "v<versionCode>"`);
-current debug builds are `versionCode 64`.
+current debug builds are `versionCode 66`.
 
 ## API keys
 
@@ -78,7 +78,7 @@ GIPHY_API_KEY=<your-giphy-key>
 KLIPY_API_KEY=<your-klipy-key>
 ```
 
-Users can also enter their own keys at runtime in **Settings → API keys**; a non-empty value
+Users can also enter their own keys at runtime in **More → API keys**; a non-empty value
 there overrides the compiled-in key. A key compiled into an APK can be extracted from it, so
 do not share APKs built with a personal key. Never commit `local.properties`.
 

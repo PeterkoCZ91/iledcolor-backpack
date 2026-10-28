@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,17 +48,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.key
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import com.batoh.core.common.LastPanelSize
 
 @Composable
 fun DetailRoute(
     onBack: () -> Unit,
     onSendToBackpack: (String) -> Unit,
+    onSendToMyPanels: (String) -> Unit,
     onEditGif: (String) -> Unit,
     viewModel: DetailViewModel = hiltViewModel()
 ) {
@@ -73,6 +77,7 @@ fun DetailRoute(
         onSaveClick = viewModel::onSaveClick,
         onConvertForBackpackClick = viewModel::onConvertForBackpackClick,
         onSendToBackpack = { onSendToBackpack(viewModel.gifUrl) },
+        onSendToMyPanels = { onSendToMyPanels(viewModel.gifUrl) },
         onEditGif = { onEditGif(viewModel.gifUrl) },
         onBack = onBack
     )
@@ -88,10 +93,13 @@ fun DetailScreen(
     onSaveClick: () -> Unit,
     onConvertForBackpackClick: () -> Unit,
     onSendToBackpack: () -> Unit,
+    onSendToMyPanels: () -> Unit,
     onEditGif: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    // Last connected panel (64×64 if none), sampled with the scale mode its send uses.
+    val (panelWidth, panelHeight) = remember { LastPanelSize.read(context) }
     var previewError by remember(gifUrl) { mutableStateOf(false) }
     var previewLoaded by remember(gifUrl) { mutableStateOf(false) }
     // Bumped by the "reload preview" recovery action to recreate the image request.
@@ -124,6 +132,7 @@ fun DetailScreen(
                 onSaveClick = onSaveClick,
                 onConvertForBackpackClick = onConvertForBackpackClick,
                 onSendToBackpack = onSendToBackpack,
+                onSendToMyPanels = onSendToMyPanels,
                 onEditGif = onEditGif,
                 previewLoaded = previewLoaded
             )
@@ -181,7 +190,7 @@ fun DetailScreen(
                     }
                 }
 
-                // 64×64 minipreview — pixel-exact first frame as the backpack shows it
+                // Panel-sized minipreview — pixel-exact first frame as the last connected panel shows it
                 if (mp4Url.isNotBlank() || (isLocal && previewLoaded)) {
                     Box(
                         modifier = Modifier
@@ -193,22 +202,22 @@ fun DetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
-                            model = remember(gifUrl) {
+                            model = remember(gifUrl, panelWidth, panelHeight) {
                                 ImageRequest.Builder(context)
                                     .data(gifUrl)
                                     .decoderFactory(coil.decode.BitmapFactoryDecoder.Factory())
                                     .size(512)
                                     .allowHardware(false)
-                                    .transformations(PanelPreviewTransformation())
+                                    .transformations(PanelPreviewTransformation(panelWidth, panelHeight))
                                     .build()
                             },
-                            contentDescription = stringResource(R.string.detail_backpack_preview_description),
+                            contentDescription = stringResource(R.string.detail_backpack_preview_description, panelWidth, panelHeight),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit,
                             filterQuality = androidx.compose.ui.graphics.FilterQuality.None
                         )
                         Text(
-                            text = "64×64",
+                            text = "$panelWidth×$panelHeight",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.8f),
                             modifier = Modifier
@@ -234,6 +243,7 @@ private fun DetailActionBar(
     onSaveClick: () -> Unit,
     onConvertForBackpackClick: () -> Unit,
     onSendToBackpack: () -> Unit,
+    onSendToMyPanels: () -> Unit,
     onEditGif: () -> Unit,
     previewLoaded: Boolean
 ) {
@@ -241,11 +251,16 @@ private fun DetailActionBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // Large font / small screen: scroll the actions instead of squeezing the preview out.
+                .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.55f).dp)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             if (isLocal) {
                 Button(onClick = onSendToBackpack, enabled = previewLoaded,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_send_to_backpack)) }
+                androidx.compose.material3.OutlinedButton(onClick = onSendToMyPanels, enabled = previewLoaded,
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_send_to_my_panels)) }
                 androidx.compose.material3.OutlinedButton(onClick = onEditGif, enabled = previewLoaded,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_edit_for_backpack)) }
                 // No early return here: return@Column from an inline composable lambda

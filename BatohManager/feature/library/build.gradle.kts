@@ -33,6 +33,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:common"))
     implementation(project(":core:domain"))
+    implementation(project(":core:conversion"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

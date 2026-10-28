@@ -26,7 +26,7 @@ repository owner completes the one-time setup below.
   the APK signature, deletes the keystore and creates a GitHub Release with
   `GifPack-<tag>.apk` and a `.sha256` file.
 - Release builds contain **no API keys**: the workflow never sets `GIPHY_API_KEY` /
-  `KLIPY_API_KEY`, so users enter their own in **Settings → API keys**. Do not add those as
+  `KLIPY_API_KEY`, so users enter their own in **More → API keys**. Do not add those as
   repository secrets or variables, or they would be compiled into a public APK.
 
 ## One-time setup (repository owner)

@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -79,6 +78,7 @@ class LibraryViewModel @Inject constructor(
     private val _deleteConsent = MutableStateFlow<IntentSender?>(null)
     val deleteConsent = _deleteConsent.asStateFlow()
     private var pendingDelete: Gif? = null
+    private var pendingDuplicateCount = 0
     private val _duplicates = MutableStateFlow<DuplicateScanState?>(null)
     val duplicates = _duplicates.asStateFlow()
     private var duplicateJob: kotlinx.coroutines.Job? = null
@@ -243,6 +243,7 @@ class LibraryViewModel @Inject constructor(
         _duplicates.value = null
         if (gifs.isEmpty() || pendingDelete != null) return
         viewModelScope.launch {
+            val total = gifs.size
             val needConsent = ArrayList<Gif>()
             var failed = 0
             for (gif in gifs) {
@@ -256,13 +257,13 @@ class LibraryViewModel @Inject constructor(
                 try {
                     _deleteConsent.value = MediaStore.createDeleteRequest(getApplication<Application>().contentResolver,
                         needConsent.map { Uri.parse(it.originalUrl) }).intentSender
+                    pendingDuplicateCount = needConsent.size
                     return@launch
                 } catch (e: Exception) {
                     failed += needConsent.size
                 }
             }
-            _actionMessage.value = if (failed == 0) localizedString(R.string.library_delete_success)
-                else localizedString(R.string.library_duplicates_delete_partial, failed)
+            _actionMessage.value = duplicatesResultMessage(total - failed, failed)
         }
     }
 
@@ -371,7 +372,20 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun deleteConsentLaunched() { _deleteConsent.value = null }
+    private fun duplicatesResultMessage(deleted: Int, failed: Int): String {
+        val context = ContextCompat.getContextForLanguage(getApplication<Application>())
+        val done = context.resources.getQuantityString(R.plurals.library_duplicates_result, deleted, deleted)
+        return if (failed == 0) done else done + " " + context.getString(R.string.library_duplicates_delete_partial, failed)
+    }
+
     fun deleteConsentResult(approved: Boolean) {
+        val dupCount = pendingDuplicateCount
+        pendingDuplicateCount = 0
+        if (dupCount > 0) {
+            _actionMessage.value = if (approved) duplicatesResultMessage(dupCount, 0)
+                else localizedString(R.string.library_delete_cancelled)
+            return
+        }
         val gif = pendingDelete
         pendingDelete = null
         if (!approved) _actionMessage.value = localizedString(R.string.library_delete_cancelled)

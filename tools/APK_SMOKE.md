@@ -12,7 +12,7 @@ python3 tools/apk_smoke.py --serial DEVICE_SERIAL
 
 Results: `artifacts/apk-smoke/<time>.json` in the project (git-ignored). Exit 0 = the automatic checks passed, exit 1 = a failure. Every step starts from a fresh UIAutomator XML dump, checks the package and looks for a specific text/label; coordinates are derived from the control it found. Waits have a timeout.
 
-The script stops the app process and opens a new task so that it starts without an active backpack connection. Run it only after in-progress downloads/uploads have finished. It does not uninstall the app, delete its data, change GIFs or write any content to the backpack. `--apk` explicitly allows an update install that keeps data. It checks Home, the version against the real APK metadata, settings, the library, the backpack controls, the collapsed diagnostics and opening/cancelling the picker from its own library. It reads the crash buffer from the start of its own run; older crashes from before the test are ignored. It does not store raw logs, XML or the serial number.
+The script stops the app process and opens a new task so that it starts without an active backpack connection. Run it only after in-progress downloads/uploads have finished. It does not uninstall the app, delete its data, change GIFs or write any content to the backpack. `--apk` explicitly allows an update install that keeps data. It checks the Home dashboard and the five-tab bottom bar (Home, Search, Panel, My collection, More), the More tab (tool rows open full-screen routes and Back returns, settings are inline, the version against the real APK metadata), the library, the backpack controls, the collapsed diagnostics and opening/cancelling the picker from its own library. The labels it taps are listed once in `UI_LABELS` in `apk_smoke.py`; `python3 -m unittest discover -s tools` compares them with the app's string resources, so a copy change fails offline before it can fail on a phone. It reads the crash buffer from the start of its own run; older crashes from before the test are ignored. It does not store raw logs, XML or the serial number.
 
 Optional check with a real backpack:
 
@@ -28,7 +28,7 @@ English walk-through of the screens:
 python3 tools/apk_smoke.py --fixtures --locale-sweep
 ```
 
-Reads the language selected in settings, walks the main screens in English, restores the original choice and also verifies the Czech categories, search, collection and backpack screens. A valid fixture GIF is opened in both the detail and the editor in both languages. Cleanup removes only the exact URIs inserted by this run. No backpack needs to be connected.
+Reads the language selected on the More tab, walks the main screens (Search with its categories, collection, detail, editor, Panel, Home) in English, restores the original choice and also verifies the Czech categories, search, collection and backpack screens. A valid fixture GIF is opened in both the detail and the editor in both languages. Cleanup removes only the exact URIs inserted by this run. No backpack needs to be connected.
 
 ## Manual check
 
@@ -38,7 +38,7 @@ Reads the language selected in settings, walks the main screens in English, rest
 4. On the next upload press "Zrušit nahrávání" (Cancel upload), then "Zkusit znovu" (Try again). Verify that the old transfer does not overlap with the new one and that retry reconnects the backpack.
 5. Switch the backpack off during a transfer: an error is shown, not a false "Hotovo". Switch it on again and repeat.
 6. Verify the unknown display state, loading the status, brightness and the display switch. Try clearing the contents only deliberately, once you have the GIFs saved on the phone.
-7. In the app settings switch the language to **English** and walk through the home screen, categories, search, library, editor and backpack. Close and reopen the app; the choice must persist. Then select **Podle systému** (System default). On Android 13+ also check the language in the system app info.
+7. On the **More** tab switch the language to **English** and walk through the Home dashboard, Search (with the categories), Collection, the editor and the Panel tab. Close and reopen the app; the choice must persist. Then select **Podle systému** (System default). On Android 13+ also check the language in the system app info.
 
 Visual quality and playback on the backpack are not confirmed by merely opening the UI. The default run creates no test GIFs and deletes no existing files.
 

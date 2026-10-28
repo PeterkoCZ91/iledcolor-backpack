@@ -10,7 +10,7 @@
     <string name="chain_need_two">Select at least 2 GIFs to join.</string>
     <string name="chain_settings_title">Settings</string>
     <string name="chain_scale_title">Fitting</string>
-    <string name="chain_scale_fit">Fit whole</string>
+    <string name="chain_scale_fit">Fit entire image</string>
     <string name="chain_scale_crop">Crop</string>
     <string name="chain_pause_label">Pause between GIFs: %1$d ms</string>
     <string name="chain_pause_description">Pause between GIFs in milliseconds</string>
@@ -23,17 +23,20 @@
     <string name="chain_cancel_render">Cancel joining</string>
     <string name="chain_cancelled">Joining was cancelled.</string>
     <string name="chain_render_again">Join again</string>
-    <string name="chain_info">%1$d frames, estimated size %2$d KB</string>
-    <string name="chain_warn">Over 96 frames or 453 KB: not verified on the backpack. The upload may fail.</string>
+        <plurals name="chain_info">
+        <item quantity="one">%1$d frame, estimated size %2$d kB</item>
+        <item quantity="other">%1$d frames, estimated size %2$d kB</item>
+    </plurals>
+    <string name="chain_warn">Over 96 frames or 453 kB: not verified on the panel. The upload may fail.</string>
     <string name="chain_block">The result exceeds the app limit and cannot be saved or sent.</string>
     <string name="chain_save">Save to collection</string>
-    <string name="chain_send">Send to backpack</string>
+    <string name="chain_send">Send to panel</string>
     <string name="chain_saving">Saving…</string>
     <string name="chain_saved">Saved to your collection.</string>
     <string name="chain_error_empty">No GIF is selected.</string>
     <string name="chain_error_source_unreadable">GIF %1$d could not be loaded. Remove it or import it again.</string>
     <string name="chain_error_source_invalid">GIF %1$d cannot be processed. Remove it from the chain.</string>
-    <string name="chain_error_source_too_large">GIF %1$d (or their total size) is too large.</string>
+    <string name="chain_error_source_too_large">GIF %1$d, or the total size, is too large.</string>
     <string name="chain_error_inputs_too_large">The selected GIFs are too large together.</string>
     <string name="chain_error_too_many_frames">The chain has more than %1$d frames. Remove a GIF.</string>
     <string name="chain_error_too_large">The joined GIF would be larger than 20 MB. Remove a GIF.</string>

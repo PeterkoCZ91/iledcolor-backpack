@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_search_button">Search GIFs</string>
-    <string name="home_categories_button">Categories</string>
-    <string name="home_favorites_button">Favorites</string>
-    <string name="home_library_button">My Collection</string>
     <string name="home_convert_button">Video → GIF</string>
-    <string name="home_info_content_description">About the app</string>
-    <string name="home_settings_content_description">App settings</string>
-    <string name="home_info_title">About</string>
-    <string name="home_settings_title">Settings</string>
-    <string name="home_settings_theme">Display Mode</string>
+    <string name="home_settings_theme">Display mode</string>
     <string name="home_settings_theme_system">System</string>
     <string name="home_settings_theme_light">Light</string>
     <string name="home_settings_theme_dark">Dark</string>
@@ -22,21 +14,28 @@
     <string name="home_interest_group_fun">Fun</string>
     <string name="home_interest_group_nature">Nature</string>
     <string name="home_interest_group_symbols">Symbols</string>
-    <string name="home_settings_grid_density">Grid Density</string>
-    <string name="home_info_body">GifPack helps you find, edit and save GIFs for a 64×64 LED backpack. Import GIFs from your gallery, convert videos, and adjust cropping or rotation before sending over Bluetooth. Online Giphy and Klipy search needs your own API keys, added in Settings → API Keys.</string>
-    <string name="home_info_ok">OK</string>
-    <string name="home_settings_interests">My Interests</string>
+    <string name="home_settings_grid_density">Grid density</string>
+    <string name="home_info_body">GifPack helps you find, edit and save GIFs for an LED backpack or iPixel Color panels. Import GIFs from your gallery, convert videos, and adjust cropping or rotation before sending over Bluetooth. Online Giphy and Klipy search needs your own API keys, added under More → API keys.</string>
+    <string name="home_settings_interests">My interests</string>
     <string name="home_settings_interests_hint">GIFs based on your interests will appear in Search</string>
-    <string name="home_search_icon_description">Search</string>
-    <string name="home_library_icon_description">Gallery</string>
     <string name="home_settings_grid_2col">2 columns</string>
     <string name="home_settings_grid_3col">3 columns</string>
-    <string name="home_settings_api_keys">API Keys</string>
-    <string name="home_settings_klipy_api_key">Klipy API Key</string>
-    <string name="home_settings_klipy_api_key_hint">Enter your own key from partner.klipy.com. Public APKs do not include one; Klipy search needs a key.</string>
-    <string name="home_settings_giphy_api_key">Giphy API Key</string>
-    <string name="home_settings_giphy_api_key_hint">Enter your own key from developers.giphy.com. Public APKs do not include one; Giphy search needs a key.</string>
-    <string name="home_backpack_button">Backpack</string>
+    <string name="home_settings_api_keys">API keys</string>
+    <string name="home_settings_klipy_api_key">Klipy API key</string>
+    <string name="home_settings_klipy_api_key_hint">Enter your own key from partner.klipy.com. Public builds do not include one; Klipy search needs a key.</string>
+    <string name="home_settings_giphy_api_key">Giphy API key</string>
+    <string name="home_settings_giphy_api_key_hint">Enter your own key from developers.giphy.com. Public builds do not include one; Giphy search needs a key.</string>
+    <string name="home_backpack_button">Panel</string>
     <string name="home_info_version">Version: %1$s</string>
     <string name="app_name">GifPack</string>
+    <string name="home_panel_family_backpack">Backpack</string>
+    <string name="home_panel_family_ipixel">iPixel Color</string>
+    <string name="home_panel_summary">%1$s · %2$d × %3$d</string>
+    <string name="home_info_version_unknown">Unknown</string>
+    <string name="more_title">More</string>
+    <string name="more_section_tools">Tools</string>
+    <string name="more_section_settings">Settings</string>
+    <string name="more_section_about">About</string>
+    <string name="home_search_hint">Search GIFs…</string>
+    <string name="home_recent_show_all">Show all</string>
 </resources>

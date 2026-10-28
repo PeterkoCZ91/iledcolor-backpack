@@ -46,7 +46,7 @@ class SequencePluralsTest {
 
     @Test fun englishFormsForOneAndMany() {
         val en = load("values-en").getValue("backpack_sequence_name")
-        assertEquals("Sequence (1 programme)", en.getValue("one").format(1))
-        assertEquals("Sequence (5 programmes)", en.getValue("other").format(5))
+        assertEquals("Sequence (1 program)", en.getValue("one").format(1))
+        assertEquals("Sequence (5 programs)", en.getValue("other").format(5))
     }
 }
