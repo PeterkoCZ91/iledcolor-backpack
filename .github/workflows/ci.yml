@@ -15,12 +15,12 @@ jobs:
       run:
         working-directory: BatohManager
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - name: Build, lint and unit tests
         run: >
           ./gradlew --console=plain
@@ -33,7 +33,7 @@ jobs:
       # CI has no local.properties, so this APK contains no API keys; users enter their own
       # Giphy / Klipy keys in Settings. Signed with the runner's throw-away debug key.
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gifpack-debug-${{ github.sha }}
           path: BatohManager/app/build/outputs/apk/debug/app-debug.apk
@@ -43,8 +43,8 @@ jobs:
   python-tools:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Tool and localisation tests
