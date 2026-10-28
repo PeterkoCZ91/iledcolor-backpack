@@ -839,7 +839,7 @@ default MTU 23.
 
 Each setting is one short write on FA02; the panel answers on FA03 with `05 00 id xx 01`, where
 `id` is byte 2 of the command and a last byte of `01` means OK. GifPack waits up to 2 s for it.
-All four were verified on hardware on 2026-10-27.
+All four were verified on hardware on 2026-10-27. The clock-face command is acknowledged, but the panel drew no clock on the tested 64 × 16 unit, so GifPack no longer exposes it (*Send clock* uploads a GIF instead).
 
 | Setting | Command | Values |
 |---|---|---|
@@ -856,7 +856,7 @@ answers cannot be confused. The time itself comes from the info command (13.2).
 - Images, GIFs and the scrolling text banner are all sent as **GIF (kind 03)** to **slot 0**,
   rendered at the panel's size first. The PNG form is documented because it was verified, but
   GifPack does not use it.
-- The four settings of 13.4 are sent only when the user changes them on the Panel screen.
+- The brightness, rotation and display settings of 13.4 are sent only when the user changes them on the Panel screen.
 - A numbered slot, a delete of a stored slot and the ROM wipe command are **never** sent, so content stored
   by the vendor app is left alone.
 - The clock is set once per connection as a side effect of the info query.

@@ -59,6 +59,21 @@ repository; evidence is given as file references. Effort: **S** about a day, **M
   publishing and never publish a personal build.
 - Repository text is English; Czech is a secondary UI language.
 
+### Status at the end of 28 October 2026
+
+Local working tree, nothing committed or pushed yet. Build, lint, 440+ JVM tests and the Python tests pass.
+
+| State | Items |
+| --- | --- |
+| Done and checked on hardware | A1–A5 (a PNG; JPEG not yet), B1, B2, B7, C3 (presets only; the night-mode switch and the "remember brightness" switch were dropped as redundant), clock for the backpack as a *Send clock* button (see below), F2, F3, F5, F9, F4 (R8 build) |
+| Done, not yet checked on hardware | B3, B4, B5, B6, C5 (direction), D1 (static *Panel* shortcut only), D2 (video and JPEG), F8 (one `selected` state added; the rest was already described) |
+| Open | B8 (needs two panels in range), C1, D1 (widget, tile), D3, E, F1 (needs the owner), F6, F7, F10 |
+| Dropped | C2 (a clock action on Home; the iPixel clock face command is accepted by the panel but did not draw a clock on the tested 64 × 16 unit, so the button was removed), C6 (see below), C4, C7, C8 (low value or risk) |
+
+- **Clock.** The backpack has no clock item (see [BLE protocol](ble-protocol.md) §9.2), so *Send clock* renders the current time into a small two-frame GIF at the connected panel's size and sends it through the normal upload path. It shows the time of sending and does not update.
+- **C6, faster upload.** Captures of the manufacturer app show strict stop-and-wait (about 60 ms per chunk, a 73-chunk upload in about 5.5 s) and GifPack with a window of 2 is already faster. A test from a PC with windows 1–4 completed without errors, but its link was too slow to say anything about the window itself. No further work planned.
+- **Capability bits.** The tested backpack advertises `funCode` `0x0044` (GIF file and password only; no time, no rotation). Bit `0x0200` enables the manufacturer app's *Music* tile (rhythm, command `0x04`); the unit does not advertise it. No unused feature was found.
+
 ### A. Fewer send paths (each S)
 
 | # | Work | Evidence and notes |
@@ -68,6 +83,8 @@ repository; evidence is given as file references. Effort: **S** about a day, **M
 | A3 | **After Video → GIF offer *Send to panel*** (and *Edit*); today the result screen only offers *To collection* and *Convert another*. | `ConvertScreen.kt` ~l.333–364; needs a callback in `BatohApp.kt`. |
 | A4 | **Shared GIF from another app goes straight to the send step**, or to Detail with one main action; keep the import queue. The share target accepts only `image/gif`. | `BatohApp.kt` incoming-GIF effect, `IncomingImportController.kt`, manifest. |
 | A5 | **JPG / PNG in *From my phone*** as a one-frame GIF (item 10 above). | Check whether the converter can do it without new dependencies. |
+
+Implementation update (28 October 2026, local working tree): A1–A5 are implemented. The phone smoke test passed for sharing into the send step, both UI languages and the existing GIF flows. A PNG picked from the phone reached the send flow. A later all-panel check reported 2/3: both iPixel panels had new transfer log entries, while the backpack was out of range. The older 3/3 UI-only report is invalid as hardware evidence. PNG and JPEG still need a trustworthy per-panel device check. These changes have not been released.
 
 ### B. Reliable sending from every screen (each M unless noted)
 
@@ -82,6 +99,8 @@ repository; evidence is given as file references. Effort: **S** about a day, **M
 | B7 | **The upload card shows "Done — image is on the panel" twice** (S). | `BackpackScreen.kt` upload card. |
 | B8 | **Open hardware checks:** cancelling *Send to all my panels* while connecting (item 8) and the one failed first write after a fresh iPixel connection (item 9). | See the table above. |
 
+Implementation update (28 October 2026, local working tree): B1 adds a shared permission/Bluetooth-on gate to send entry points, B2 remembers the last individual panel but checks live candidates before offering it, and B7 removes the duplicate success text. The phone UI smoke passed in both languages, and separate 32 × 32 / 64 × 16 iPixel sends passed with new transfer logs. The Bluetooth-off prompt and backpack send still need device checks. The all-panel test was tightened after an old 3/3 UI summary failed to prove a backpack transfer.
+
 ### C. Features the protocols allow (verify on hardware first)
 
 | # | Work | Certainty, effort |
@@ -95,12 +114,14 @@ repository; evidence is given as file references. Effort: **S** about a day, **M
 | C7 | Built-in programmes only on a unit that reports a count above 0; the password only as a read-only notice. | Low value, high risk for the password. |
 | C8 | A pixel drawing editor is UI only and has no protocol reason. | L, low priority. |
 
+Local implementation update (28 October 2026): a four-message scrolling-text loop now renders as one repeating GIF, with ten seconds per message. It is sent through the existing panel transfer path and uses iPixel slot 0. The exact timing and appearance still need a visual check on a 64 × 16 panel.
+
 ### D. Faster ways to the panel
 
 | # | Work | Evidence and notes |
 | --- | --- | --- |
 | D1 | **Launcher shortcuts, a Quick Settings tile and a widget** *Send to panel*. The manifest has only the share target and the `gifpack://backpack` link; no `shortcuts.xml`, tile service or widget exists. | S–M. |
-| D2 | **Share target for video and `image/*`** (feeds Video → GIF and A5). | S. |
+| D2 | **Share target for video and `image/*`** (feeds Video → GIF and A5). Implementation update (28 October 2026): implemented for `video/*`, `image/png` and `image/jpeg` (`IncomingMediaViewModel`); a shared PNG was verified on a phone with a panel, video and JPEG still need a device check. A share while the Panel screen is open used to be ignored (same-route navigation); fixed. Open question: whether the extra share types are worth keeping next to *Send a GIF → From my phone*. | S. |
 | D3 | **Intent API for Tasker / MacroDroid** with an explicit saved panel, and scheduled sends. Reliability depends on the phone being in BLE range. | M. |
 | D4 | **Home Assistant / MQTT:** point to the existing community integration instead of building a bridge. | Low priority. |
 
@@ -118,14 +139,16 @@ repository; evidence is given as file references. Effort: **S** about a day, **M
 | --- | --- | --- |
 | F1 | **Signed release:** create the keystore, back it up, add the five secrets and tag the first signed release. The workflow exists. | [releasing](releasing.md); needs the owner. S. |
 | F2 | **CI test list is incomplete.** `ci.yml` and `release.yml` run a module list that lacks `:core:domain` (2 test files), `:core:network` (1), `:feature:home` (2) and `:feature:convert` (1). `feature:detail`, `core:common` and `core:ui` have no tests. | `ci.yml` l.26–30, `release.yml` l.47–51. S. |
-| F3 | **Dependabot and dependency review.** No `dependabot.yml`. Versions: AGP 8.2.0, Kotlin 1.9.22, Compose BOM 2024.02.02, Hilt 2.50, Room 2.6.1, media3 1.3.0, compileSdk and targetSdk 34 (Play will want a newer target). | `gradle/libs.versions.toml`. S for the bot, M for upgrades. |
-| F4 | **Release shrinking.** `isMinifyEnabled = false` and the referenced `proguard-rules.pro` does not exist. Enable R8 and resource shrinking, check Moshi / Hilt / Room on a device, and build `assembleRelease` in CI for pull requests. | `app/build.gradle.kts` l.52–55. M. |
-| F5 | **Manifest housekeeping:** remove `requestLegacyExternalStorage`; `jvmTarget` 1.8 to 17. Backup rules already exclude the API-key preferences. | `AndroidManifest.xml`, `data_extraction_rules.xml`. S. |
+| F3 | **Dependabot and dependency review.** No `dependabot.yml`. Versions: AGP 8.2.0, Kotlin 1.9.22, Compose BOM 2024.02.02, Hilt 2.50, Room 2.6.1, media3 1.3.0, compileSdk and targetSdk 34 (Play will want a newer target). Implementation update (28 October 2026): `.github/dependabot.yml` added (Gradle and GitHub Actions, weekly, grouped, limited open pull requests); upgrades are still open. | `gradle/libs.versions.toml`. S for the bot, M for upgrades.  |
+| F4 | **Release shrinking.** `isMinifyEnabled = false` and the referenced `proguard-rules.pro` does not exist. Enable R8 and resource shrinking, check Moshi / Hilt / Room on a device, and build `assembleRelease` in CI for pull requests. | `app/build.gradle.kts` l.52–55. M. Implementation update (28 October 2026): R8 and resource shrinking are enabled with a documented `proguard-rules.pro`; a signed `assembleRelease` build installed on a phone passed the smoke test and a live search, with no crash. Still open: the other network paths (Klipy, Lospec, downloads) under R8 and an `assembleRelease` job in CI. | `app/build.gradle.kts`. M. |
+| F5 | **Manifest housekeeping:** remove `requestLegacyExternalStorage`; `jvmTarget` 1.8 to 17. Backup rules already exclude the API-key preferences. Implementation update (28 October 2026): `requestLegacyExternalStorage` removed; `jvmTarget` and `compileOptions` set to 17 in all modules. | `AndroidManifest.xml`, `data_extraction_rules.xml`. S.  |
 | F6 | **UI tests.** `androidTest` holds only `VideoToGifInstrumentedTest`; UI flows are covered by the ADB smoke script alone. Add Compose tests for the key screens and an optional emulator job. | M. |
 | F7 | **BLE state machine tests** (fake GATT: disconnect mid-transfer, permission revoked, `SecurityException`). `BluetoothLeManager.kt` (~1250 lines), `BackpackTransferManager.kt` (~1100) and `BackpackScreen.kt` (~880) are large and worth splitting. | M–L. |
 | F8 | **Accessibility:** about 31 `contentDescription = null` to review and a manual TalkBack pass. | S–M. |
-| F9 | **Store metadata:** rationale for `READ_MEDIA_IMAGES` and `BLUETOOTH_SCAN` (`neverForLocation`) in [privacy](privacy.md), the data-safety form, F-Droid metadata. | S. |
+| F9 | **Store metadata:** rationale for `READ_MEDIA_IMAGES` and `BLUETOOTH_SCAN` (`neverForLocation`) in [privacy](privacy.md), the data-safety form, F-Droid metadata. Implementation update (28 October 2026): permission rationale added to the privacy notice and [privacy](privacy.md); data-safety form and F-Droid metadata still open. | S.  |
 | F10 | **Performance** (startup, GIF decode, large collections) is not measured; a macrobenchmark and baseline profile would show it. | L. |
+
+Local implementation update: F2 now includes the previously omitted modules in both CI and release workflow unit-test commands. The workflows have been syntax-checked locally; CI execution follows a push.
 
 ## Protocol features not yet used
 

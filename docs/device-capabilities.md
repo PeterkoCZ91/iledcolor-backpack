@@ -72,10 +72,12 @@ Example (synthetic, taken from the app's unit tests):
 | `0x0020` | Border | Offers frame and border styles |
 | `0x0040` | Password | Offers the 0x0E / 0x0F password commands |
 | `0x0100` | Rotation | Offers rotation and mirror (0x0B) |
-| `0x0200` | (unknown) | Purpose not determined |
+| `0x0200` | Music | Enables the manufacturer app's *Music* tile (rhythm, command `0x04`); the tested unit does not advertise it |
 | `0x0400` | GIF text | Text is uploaded as a rendered GIF file (item type 7) instead of raw frames |
 | `0x0800` | Left unit | For paired "linkage" displays (0x11) |
 | `0x1000` | Right unit | For paired "linkage" displays (0x11) |
+
+The manufacturer app uploads strictly stop-and-wait (about 60 ms per chunk) [CAP]; GifPack's default window of 2 is already faster.
 
 ## 4. Colour type
 

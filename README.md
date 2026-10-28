@@ -50,8 +50,8 @@ How picking a panel works:
   vendor app is deleted or overwritten, and GifPack never sends a delete or clear command to it.
 - Images, GIFs and the scrolling text are converted to the connected panel's size automatically
   (a square GIF on a 64 × 16 panel is fitted with black bars). The editor and the previews use that
-  size too. An iPixel panel has its own brightness, display on/off, rotation and clock-face
-  settings; backpack-only controls (built-in programmes, programme speed/effect, sending as a
+  size too. An iPixel panel has its own brightness, display on/off and rotation
+  settings; *Send clock* sends the current time as a small GIF to either panel family; backpack-only controls (built-in programmes, programme speed/effect, sending as a
   sequence, clearing) are hidden for it.
 - Every panel you pick joins **My panels**. The **All my panels** row of the *Where to send?* sheet (and **Send to all my panels** in Detail, the Editor and the text screen) sends the same image, GIF or
   text to each of them that is in range, one after another, converted for each panel's size. Only
@@ -83,7 +83,7 @@ and the wire format in the [BLE protocol](docs/ble-protocol.md) reference.
 | Programme speed and brightness | Two sliders (0–255, default 100) written into the uploaded programme | **Experimental** — effect on the panel not verified |
 | Scrolling text | Renders text (up to 60 characters, 9 colours, 3 sizes, 3 speeds, bold) into a looping GIF at the connected panel's size (64 × 64 by default) to save or send | **New** — not yet verified on the panel |
 | Prepared texts | Save up to 30 banner texts with their options and send any of them to the connected panel with one tap; the text is rendered for that panel's size at send time | **New** — unit-tested |
-| iPixel Color panels | Discover `LED_BLE_*` panels, read their size, send images, GIFs and text banners to the display slot; brightness, display on/off, rotation and clock face | **Verified** on 32 × 32 and 64 × 16 (other sizes untested) |
+| iPixel Color panels | Discover `LED_BLE_*` panels, read their size, send images, GIFs and text banners to the display slot; brightness, display on/off and rotation | **Verified** on 32 × 32 and 64 × 16 (other sizes untested) |
 | Send to all my panels | Sends one image, GIF, text banner or prepared text to every picked panel in range in turn, each converted for its own family and size, with a per-panel result | **New** — unit-tested planning |
 | Video → GIF | Downloads an MP4 from a URL (up to 100 MB) and converts it to a 64 × 64 GIF (up to 30 frames) | Experimental; the URL flow and the converter test passed on a phone |
 | Backpack upload | Scan / connect, upload with progress, cancel and retry; distinguishes "uploaded", "already on backpack", "not enough space" and "rejected" | **Verified** (small GIF and a 453 KB, 96-frame GIF) |
@@ -182,7 +182,7 @@ from it — do not distribute builds with your personal key.
 
 - One backpack model and firmware have been tested. Of the iPixel Color family only the 32 × 32
   and 64 × 16 sizes have been tested; the other sizes are accepted but unverified, and iPixel
-  panels support images, GIFs and text only (no brightness, clock or timers).
+  panels support images, GIFs and text only (no timers; its clock-face command is acknowledged but drew nothing, so it is not used).
 - The backpack's storage capacity and the largest safe programme size are unknown; 453 KB is
   the largest upload confirmed so far.
 - The status query reads display settings only — not free memory, model or firmware.

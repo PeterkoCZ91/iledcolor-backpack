@@ -7,10 +7,18 @@ yet; debug builds are identified by their `versionCode` (currently 66).
 ## [Unreleased]
 
 ### Added
+- **Brightness presets** *Dim / Normal / Bright* on the Panel tab: backpack levels 2 / 5 / 10 of 1–10, iPixel 10 / 50 / 100 %. Nothing runs on a timer.
+- **Send clock** button for both panel families: renders the current time as a two-frame GIF at the panel's size and sends it through the normal upload. It is static and shows the time of sending.
+- **Scrolling text:** a direction chooser (left or right), a target-size chooser with a custom width × height, and a four-text loop (400 frames, 10 s per text); prepared texts keep their direction.
+- **Sharing from other apps:** a GIF is imported and sent, a PNG or JPEG becomes a one-frame GIF that is sent (not saved to the collection), a video is converted to a GIF, saved and sent. A share while the Panel screen is open now works. A static *Panel* launcher shortcut opens the Panel tab.
+- **Failures on every screen:** a message with *Try again* and *Choose another panel* outside the Panel screen; a send preflight (permissions and the Bluetooth prompt) before every send; the last chosen single panel is remembered; Home shows *Connect your first panel* when no panel is saved.
+- **Collection:** *Select all* and *Delete (N)* with one confirmation; a *Clear search* button on an empty result. The in-app GIF picker has a search field and a *Will be resized* badge for non-square GIFs.
+- **Local cache:** Giphy / Klipy search, trending and categories are served from the cache for 30 minutes without calling the API, category previews are fetched once per app run, and the image loader has an explicit 25 % memory and 256 MB disk cache.
+- Build: R8 and resource shrinking with proguard rules (checked on a locally signed release build), a Dependabot configuration, a permission rationale in `PRIVACY.md`.
 - **Five tabs (v66):** Home, Search, Panel, Collection and More. Home is a dashboard; categories live inside Search; the settings, API keys and About are inline on More instead of dialogs.
 - **One *Send a GIF* button** on the Panel tab (from the phone or from the collection), followed by a *Where to send?* step when there is not exactly one candidate panel; the GIF is always converted to the chosen panel's own size. Every search result has a *Send to panel* button.
 - Pre-release `v66` is on the releases page (CI debug build without API keys).
-- **iPixel Color panel support (v66).** GifPack now also finds, connects to and sends to iPixel Color `LED_BLE_*` panels next to the backpack: still images, GIFs and the scrolling text banner, converted to the panel's size. The panel size is read from the advertisement and confirmed by the panel's info reply. **Verified on hardware:** 32 × 32 (type `0x81`) and 64 × 16 (type `0x83`), PNG and GIF uploads including a ~41 KB, 4-window GIF; the other 18 sizes of the family are untested. An iPixel panel is connected only after you pick it in the new nearby-panels list, uploads go only to the display slot and nothing on the panel is deleted. iPixel panels get their own brightness (0–100 %), display on/off, rotation and clock-face settings, each confirmed by the panel (verified on hardware); backpack-only controls are hidden for these panels. Uploads are written in pieces of at most 512 bytes, so a large negotiated MTU no longer breaks them. Byte layouts follow the open-source pypixelcolor project as a reference (no code copied). See `docs/ble-protocol.md` section 13 and `docs/device-capabilities.md` section 9.
+- **iPixel Color panel support (v66).** GifPack now also finds, connects to and sends to iPixel Color `LED_BLE_*` panels next to the backpack: still images, GIFs and the scrolling text banner, converted to the panel's size. The panel size is read from the advertisement and confirmed by the panel's info reply. **Verified on hardware:** 32 × 32 (type `0x81`) and 64 × 16 (type `0x83`), PNG and GIF uploads including a ~41 KB, 4-window GIF; the other 18 sizes of the family are untested. An iPixel panel is connected only after you pick it in the new nearby-panels list, uploads go only to the display slot and nothing on the panel is deleted. iPixel panels get their own brightness (0–100 %), display on/off and rotation settings, each confirmed by the panel (verified on hardware); backpack-only controls are hidden for these panels. Uploads are written in pieces of at most 512 bytes, so a large negotiated MTU no longer breaks them. Byte layouts follow the open-source pypixelcolor project as a reference (no code copied). See `docs/ble-protocol.md` section 13 and `docs/device-capabilities.md` section 9.
 - **My panels and "Send to all my panels" (v66).** Every panel you pick joins *My panels* (removable again). One tap sends an image, GIF, text banner or prepared text to each of them that is in range, one after another, converted for each panel's family and size, with a per-panel result and history entry. Only panels you picked are ever contacted, never other panels nearby. The previously connected panel comes last and stays connected.
 - **Prepared texts:** save scrolling-text banners with their options and send any of them to the connected panel with one tap; the text is rendered for that panel's size at send time.
 - Previews, the editor and the text banner use the connected panel's size (the last panel's size while disconnected, 64 × 64 if none); the "as on the panel" sampler now lives once in `core/conversion`.
@@ -52,6 +60,9 @@ yet; debug builds are identified by their `versionCode` (currently 66).
 - Experimental *Effect test* diagnostic (buttons 0, 1, 2, 3, 5, 6, 7) that uploads a labelled test GIF with a chosen effect byte. On the tested backpack the byte has no visible effect on GIF items; results in `docs/device-capabilities.md`.
 
 ### Changed
+- The iPixel clock-face section (style, 24 h, date, *Show clock*) was removed from the Panel screen: the panel acknowledged the command but drew no clock on the tested 64 × 16 unit. *Send clock* replaces it.
+- Default names of saved GIFs start with `gif_`; Search no longer loads trending results for an empty query.
+- Build and CI: `jvmTarget` 17, the CI and release workflows run more module tests, and log masking also covers prefixed key names.
 - Diagnostics: the four action buttons are laid out in two rows so their labels fit on narrow screens.
 - UI consistency: the collection has one name ("Moje sbírka" / "My Collection") and one star icon in the
   bottom bar, the Text banner and GIF editor use the same back arrow as the other screens, the Giphy / Klipy
@@ -67,6 +78,7 @@ yet; debug builds are identified by their `versionCode` (currently 66).
   instead of falling back to a built-in device address.
 
 ### Fixed
+- Sharing a GIF while the Panel screen is open is no longer ignored.
 - Search and categories show a dedicated "too many requests" message when the GIF service answers HTTP 429 (key rate limit) instead of the generic "service not responding".
 - A `gifpack://backpack` link now also navigates when the app is already open (the new intent was never handed to the navigation controller).
 - The Scrolling text screen and the GIF editor keep their inputs (text, colours, speed, size, rotation, mirror, Fit / Crop, playback) after the system kills the app process.

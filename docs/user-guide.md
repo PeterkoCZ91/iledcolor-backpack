@@ -52,6 +52,13 @@ The settings are inline on the **More** tab:
 Online search needs the network and a valid key; without one the search shows an error,
 while the rest of the app keeps working.
 
+## When sending fails
+
+Before every send the app checks the permissions and offers to turn Bluetooth on. If a send
+fails on a screen other than Panel, a message offers **Try again** or **Choose another panel**.
+The last single panel you chose is remembered, and Home shows **Connect your first panel**
+until a panel is saved.
+
 ## Detail
 
 The detail screen shows the animated GIF and a pixel-exact **panel preview** (at the connected panel's size)
@@ -81,6 +88,7 @@ the system gallery.
     turn. The screen shows the number of programmes and the total size. Only 453 KB in total
     has been confirmed on hardware; above that, and above 8 programmes, a warning is shown
     because the backpack's real limit is unknown.
+- **Select all** selects every GIF; **Delete (N)** removes the selected GIFs after one confirmation. A search with no result offers **Clear search**.
 - The **bin** icon on a tile deletes that GIF after one confirmation.
 - **Find duplicates** finds GIFs with identical content and asks **Delete them and keep one of
   each?** One file per group always stays. Android may ask once more for permission to delete
@@ -89,7 +97,9 @@ the system gallery.
   live anywhere (including cloud providers) and later be moved or deleted.
 - **Share to the app**: in a gallery or file manager choose *Share → GifPack* on a
   GIF. The app imports a copy and opens its detail. Several shares in a row are imported in
-  order; rotating the phone does not import twice.
+  order; rotating the phone does not import twice. A shared PNG or JPEG becomes a one-frame
+  GIF that is sent to the panel but not saved to the collection; a shared video is converted to a
+  GIF, saved and sent. Sharing also works while the Panel screen is open.
 - A GIF that cannot be previewed is marked as such. Malformed files are rejected at import.
 
 Import limits: 20 MiB per file and 600 frames. These protect the phone; they say nothing
@@ -126,7 +136,7 @@ has not yet been verified on the panel*.
 1. Type up to 60 characters.
 2. Choose **Text color** and **Background color** (white, black, red, orange, yellow,
    green, cyan, blue, magenta). The app warns when both are the same.
-3. Choose **Font size** (small, medium, large), **Speed** (slow, normal, fast) and **Bold font**.
+3. Choose the **Direction** (to the left or to the right), the **Panel size** (automatic, or a custom width × height) and then **Font size** (small, medium, large), **Speed** (slow, normal, fast) and **Bold font**.
 4. The preview re-renders as you type and shows frames, duration and size. The text enters
    on the right and leaves on the left, and the loop is seamless. Long texts scroll in larger
    steps so one loop stays within 300 frames.
@@ -168,7 +178,8 @@ end.
 3. Next time, **Connect backpack** reconnects to the last device directly.
 4. After connecting, the app performs the session handshake, reads the panel state and asks
    how many built-in programmes exist. If the backpack advertises clock support, the clock
-   is set; the tested backpack does not, so the step is skipped.
+   is set; the tested backpack does not, so the step is skipped. **Send clock** (Panel tab)
+   instead sends the current time as a small GIF; it is static and shows the time of sending.
 
 **Disconnect backpack** closes the connection (not available during an upload).
 
@@ -203,6 +214,8 @@ Shown once connected:
 
 | Control | Effect |
 | --- | --- |
+| **Brightness presets** | **Dim / Normal / Bright**: backpack levels 2 / 5 / 10 of 1–10, iPixel 10 / 50 / 100 %. |
+| **Send clock** | Renders the current time as a two-frame GIF at the panel's size and sends it like any other GIF. Static: it shows the time of sending. |
 | **Refresh display status** | Re-reads screen state and brightness from the backpack. |
 | Brightness | 1 (dimmest) to 10 (brightest), applied when you release the slider. *Unknown* until the state has been read. Verified on hardware. |
 | Screen switch | Turns the panel on or off. Verified on hardware. |
@@ -233,8 +246,8 @@ really want an empty backpack — it is not a cleanup step for testing.
   panel's **display slot**: nothing the vendor app stored on the panel is deleted or replaced,
   and the app has no delete command for these panels.
 - **Display** for an iPixel panel has its own controls: brightness 0–100 %, display on/off,
-  rotation (0°, 90°, 180°, 270°) and a **Clock** section (face 0–8, 24-hour format, show date,
-  **Show clock**). Each setting is sent when you change it and the panel confirms it; if it does
+  rotation (0°, 90°, 180°, 270°). There is no clock-face section: the panel acknowledged that
+  command but drew no clock on the tested 64 × 16 unit, so use **Send clock** instead. Each setting is sent when you change it and the panel confirms it; if it does
   not, an error is shown and the setting in the app stays as it was.
 - Backpack-only controls are hidden: built-in programmes, clear contents, programme speed /
   brightness / effect in the editor, sending as a sequence and the effect and playlist tests.
