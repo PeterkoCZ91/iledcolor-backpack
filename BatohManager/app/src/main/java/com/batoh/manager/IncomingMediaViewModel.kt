@@ -82,7 +82,7 @@ class IncomingMediaViewModel @Inject constructor(
                 throw e
             } catch (e: Throwable) {
                 // OutOfMemoryError on a huge video is not an Exception.
-                android.util.Log.w("IncomingMedia", "shared item failed: ${e.javaClass.simpleName}: ${e.message}")
+                android.util.Log.w("IncomingMedia", "shared item failed: ${e.javaClass.simpleName}")
                 val tooLarge = e is VideoTooLargeException || e is OutOfMemoryError ||
                     (e is IOException && e.message == TOO_LARGE)
                 _state.value = IncomingMediaState(
