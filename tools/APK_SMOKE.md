@@ -54,6 +54,12 @@ The valid GIF is 64×64 with two coloured animated phases. The malformed one has
 
 The `finally` block removes **only the exact URIs of the records inserted by this run**, even if the test fails. Other GIFs are not deleted. Killing the process with kill -9 or unplugging the phone can prevent the cleanup; the JSON report flags a cleanup failure. The default run without `--fixtures` leaves GIFs untouched.
 
+## Static image and multi-panel checks
+
+`tools/static_image_send_check.py` inserts one generated PNG into the phone's MediaStore, picks it through **From my phone**, and sends its one-frame GIF to all picked panels in range. `--image photo.jpg` checks a local JPG instead. It reads the picker hierarchy and taps only the uniquely named test item. Its `finally` block removes that exact MediaStore URI; the report contains only the format and per-panel counts.
+
+`tools/panel_send_check.py --rounds 1 --all-only` sends a collection GIF to all picked panels currently in range. It requires a fresh active-transfer state, checks each result row, and compares reported sends with new iPixel or backpack transfer log entries. Already-present results and unknown panel families are marked unverified. The script does not assume a fixed number of nearby panels. Both scripts really upload and should be run only when the intended panels are switched on.
+
 ## Explicitly sending a test GIF to the backpack
 
 ```sh
@@ -78,6 +84,6 @@ This variant adds its own valid 64×64 GIF with 96 frames, starts a real upload,
 python3 tools/apk_smoke.py --fixtures --import
 ```
 
-`--import` requires `--fixtures`. Using a real `ACTION_SEND` with a URI grant it tests a cold start of the app with a valid GIF and then sharing a malformed GIF into the running app. The valid file must create exactly one own copy and open the detail with a loaded preview and the send/edit buttons; the malformed one must show an error and create no copy. The script finds added copies only by this run's unique prefix and stores their exact URIs for cleanup. It deletes no other GIFs. `--fixtures --import --upload` can be combined.
+`--import` requires `--fixtures`. Using a real `ACTION_SEND` with a URI grant it tests a cold start of the app with a valid GIF and then sharing a malformed GIF into the running app. The valid file must create exactly one own copy and open the send step; the malformed one must show an error and create no copy. The script finds added copies only by this run's unique prefix and stores their exact URIs for cleanup. It deletes no other GIFs. `--fixtures --import --upload` can be combined.
 
 Also verify the "Importovat GIF" (Import GIF) button with the Android picker manually: pick a GIF outside the GifPack folder, revoke the app's broad photo access (Android 10+) and verify that the picker grant produces an own copy. Cancelling the picker creates no file.

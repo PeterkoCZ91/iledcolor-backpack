@@ -119,6 +119,7 @@ UI_LABELS = {
     "search_categories_heading": ("Kategorie", "Categories"),
     "library_title": ("Moje sbírka", "My collection"),
     "send_action": ("Odeslat GIF", "Send a GIF"),
+    "send_target_title": ("Kam poslat?", "Where to send?"),
     "send_source_title": ("Odeslat GIF z…", "Send a GIF from…"),
     "send_source_collection": ("Ze sbírky", "From my collection"),
     "incoming_import_success": ("GIF byl importován do sbírky", "GIF imported into your collection"),
@@ -181,7 +182,7 @@ class Smoke:
         if detail:
             entry["detail"] = detail
         self.checks.append(entry)
-        print(f"{status}: {name}")
+        print(f"{datetime.datetime.now().strftime('%H:%M:%S')} {status}: {name}", flush=True)
 
     def tree(self):
         self.adb("shell", "rm", "-f", self.dump_path)
@@ -211,7 +212,9 @@ class Smoke:
 
     def wait(self, predicate, description, timeout=20):
         self.current_step = description
+        started = time.monotonic()
         deadline = time.monotonic() + timeout
+        next_notice = started + 10
         while time.monotonic() < deadline:
             try:
                 tree = self.tree()
@@ -219,6 +222,9 @@ class Smoke:
                     return tree
             except (ET.ParseError, subprocess.TimeoutExpired):
                 pass
+            if time.monotonic() >= next_notice:
+                print("Still checking the phone UI…", flush=True)
+                next_notice += 10
             time.sleep(0.4)
         raise RuntimeError(f"UI timeout: {description} (unlock phone and handle permission dialogs manually)")
 
@@ -514,10 +520,14 @@ class Smoke:
             try:
                 if kind == "valid":
                     self.see_any(UI_LABELS["incoming_import_success"])
-                    self.see_any(UI_LABELS["detail_preview_loaded"])
-                    self.see_any(UI_LABELS["detail_send_to_backpack"])
-                    self.see_any(UI_LABELS["detail_edit_for_backpack"])
-                    self.record("cold ACTION_SEND imports valid GIF and opens send/edit detail")
+                    send_states = ("Příprava GIFu…", "Preparing GIF…", "Připojování panelu…",
+                                   "Connecting to panel…", "Odesílání:", "Uploading:",
+                                   "Hotovo — obrázek je v panelu", "Done — image is on the panel",
+                                   "Nahrávání selhalo", "Upload failed")
+                    self.wait(lambda tree: any(label in self.labels(tree) for label in UI_LABELS["send_target_title"])
+                              or any(label.startswith(send_states) for label in self.labels(tree)),
+                              "shared GIF reaches target choice or upload state", timeout=30)
+                    self.record("cold ACTION_SEND imports valid GIF and opens the send step")
                 else:
                     self.wait(lambda tree: has_shared_import_error(self.labels(tree)), "malformed import error")
                     self.see_any(UI_LABELS["library_title"])
@@ -532,10 +542,12 @@ class Smoke:
             if kind == "malformed" and added:
                 raise RuntimeError("Malformed import unexpectedly copied data into the library")
             self.crash_check()
+            if kind == "valid" and any(label in self.labels(self.tree()) for label in UI_LABELS["send_target_title"]):
+                self.back()  # Dismiss only the target sheet, if it opened.
             # Close the persistent status banner through its app-labelled action.
             self.click_key("common_close")
             if kind == "valid":
-                self.back()
+                self.tab("navigation_library")
                 self.see_any(UI_LABELS["library_title"])
         self.record("import validation creates only valid copy; malformed creates no row")
 
@@ -764,7 +776,7 @@ def main():
         report["error"] = "Smoke run failed"
         report["error_type"] = type(error).__name__
         report["last_step"] = getattr(smoke, "current_step", "unknown")
-        print(report["error"], file=sys.stderr)
+        print(f"{report['error']} ({report['error_type']}); see last_step in the report", file=sys.stderr, flush=True)
         try:
             smoke.crash_check()
         except (RuntimeError, subprocess.SubprocessError, OSError) as crash_error:
@@ -778,7 +790,7 @@ def main():
         args.output.mkdir(parents=True, exist_ok=True)
         destination = args.output / (datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".json")
         destination.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-        print(f"Report: {destination.resolve()}")
+        print(f"Report: {destination.resolve()}", flush=True)
         try:
             smoke.adb("shell", "rm", "-f", smoke.dump_path)
         except (RuntimeError, subprocess.SubprocessError, OSError):
