@@ -47,8 +47,10 @@ jobs:
           ./gradlew --console=plain
           :app:testDebugUnitTest
           :feature:backpack:testDebugUnitTest :feature:search:testDebugUnitTest
-          :feature:library:testDebugUnitTest :core:conversion:testDebugUnitTest
+          :feature:library:testDebugUnitTest :feature:home:testDebugUnitTest
+          :feature:convert:testDebugUnitTest :core:conversion:testDebugUnitTest
           :core:data:testDebugUnitTest :core:storage:testDebugUnitTest
+          :core:domain:testDebugUnitTest :core:network:testDebugUnitTest
 
       - name: Decode keystore
         if: env.HAS_SIGNING == 'true'

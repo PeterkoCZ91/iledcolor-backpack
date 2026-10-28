@@ -113,7 +113,23 @@ These are owner decisions, not covered by the prepared setup:
 
 - Distribution channel (GitHub Releases only, F-Droid, Google Play) and its policies.
 - Target API review (`targetSdk` is 34; Google Play requires newer levels over time).
-- Whether to enable code shrinking (`isMinifyEnabled`) — needs keep rules and testing.
 - Hardening items listed in [privacy](privacy.md): excluding API keys from backup, removing
   the unused `READ_MEDIA_VIDEO` permission, stripping BLE debug logs in release.
 - Store listing: privacy policy URL ([PRIVACY.md](../PRIVACY.md)) and data-safety answers.
+
+## Code shrinking (R8)
+
+Release builds use `isMinifyEnabled` and `isShrinkResources` with `app/proguard-rules.pro`.
+The rules cover reflective Moshi (`KotlinJsonAdapterFactory`, DTOs in `core.data.remote.model`)
+and Retrofit's generic return types. Room, Hilt, WorkManager, Coil and OkHttp rely on their own
+consumer rules. After an `assembleRelease` install, exercise on a device:
+
+- Search and browse with a Giphy or Klipy key (Moshi parsing of results and categories).
+- Lospec palette fetch in the editor.
+- GIF download (WorkManager `DownloadWorker`), library list and reopen after restart (Room).
+- Animated GIF previews (Coil) and theme switching (persisted enum).
+- Backpack scan, connect, upload and playlist (BLE paths, `PanelFamily` restore).
+- Video-to-GIF conversion and text loop rendering.
+
+If a feature fails only in release, check `adb logcat` for `NoSuchMethodException` or
+Moshi "Missing type parameter" errors and widen the matching keep rule.

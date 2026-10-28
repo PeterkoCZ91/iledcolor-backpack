@@ -60,6 +60,23 @@ clipboard only when you tap *Copy*, and it may contain your backpack's Bluetooth
 | Nearby devices (Bluetooth scan / connect); location on Android 11 and older | Finding and connecting to the backpack. |
 | Photos and videos (Android 13+), storage (Android 12 and older) | Showing and saving the GIFs in `Pictures/GifPack`. |
 
+Why each sensitive permission is requested:
+
+- **Photos (`READ_MEDIA_IMAGES`, Android 13+).** Needed to list the GIFs GifPack saved in
+  `Pictures/GifPack` (a MediaStore query limited to that folder and to the `image/gif`
+  type). The app does not request video or audio access; videos and images you want to convert
+  or import are picked by you through the system picker. On Android 12 and older the
+  equivalent legacy storage permissions are requested instead (read up to Android 12, write
+  only up to Android 10).
+- **Nearby devices (`BLUETOOTH_SCAN`, Android 12+).** Declared with `neverForLocation`: it
+  is used only to find your backpack, and GifPack derives no location from scan results.
+  `BLUETOOTH_CONNECT` is used to connect to the backpack and send the GIFs you choose.
+- **Location (Android 11 and older only).** Android requires it for any Bluetooth scan on
+  those versions; it is declared with a maximum SDK of 30 and never read.
+- **Internet and API keys.** The network is used only for the online features listed above.
+  The Giphy and Klipy API keys identify the app to those services, not you; keys you type in
+  Settings stay in app-private storage and are excluded from backups.
+
 ## Your choices
 
 - Use the app offline: the library, import, editor, scrolling text and backpack upload work

@@ -96,6 +96,19 @@ shares (`ACTION_SEND` with `image/gif`) are copied into the collection.
 
 No foreground service, no background location, no contacts, camera or microphone.
 
+Rationale for the permissions store reviewers ask about:
+
+- `READ_MEDIA_IMAGES`: `LocalMediaRepositoryImpl` queries MediaStore only for `image/gif` rows
+  in `Pictures/GifPack`; `READ_MEDIA_VIDEO` is deliberately not declared. Videos and images to
+  import are chosen through the system picker (no permission needed).
+- `BLUETOOTH_SCAN` with `neverForLocation` (declared in `feature/backpack`): scan results are
+  used only to find the backpack; no location is derived, so the location permission is
+  declared with `maxSdkVersion="30"` only.
+- `INTERNET` and API keys: Giphy / Klipy search and downloads only; keys are described in the
+  API keys section and excluded from backups.
+- `requestLegacyExternalStorage` is not set; on Android 10 the collection is written through
+  MediaStore with a relative path.
+
 ## Third-party libraries with network or data access
 
 OkHttp / Retrofit / Moshi (HTTP and JSON), Coil (image loading and cache), WorkManager
