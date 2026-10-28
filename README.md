@@ -16,7 +16,7 @@ manufacturer app for one job — getting the animation you want onto the panel �
 library, an editor and previews at the connected panel's resolution, a scrolling-text
 generator with prepared texts, and an upload that reports what the panel actually confirmed.
 
-> **Project status:** debug builds only (versionCode 66); there is no store listing or
+> **Project status:** debug builds only (versionCode 67); there is no store listing or
 > signed release. **Download:** the APK is on the
 > [releases page](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) (pre-release, no
 > login, no API keys inside). GIF upload, several programmes played in turn, joining GIFs, the
@@ -237,7 +237,7 @@ copied); the parts marked verified were checked on real panels.
 animované GIFy a posílá je přes Bluetooth LE do **LED batohu 64 × 64 kompatibilního
 s iledcolor** nebo do panelů **iPixel Color** (`LED_BLE_*`, např. 32 × 32 a 64 × 16).
 
-> **Stav projektu:** zatím jen debug buildy (versionCode 66), bez vydání v obchodě.
+> **Stav projektu:** zatím jen debug buildy (versionCode 67), bez vydání v obchodě.
 > **APK ke stažení** je na stránce
 > [Releases](https://github.com/PeterkoCZ91/iledcolor-backpack/releases) (předběžné vydání, bez
 > přihlášení, bez API klíčů). Nahrání GIFu, střídání více programů, spojování GIFů, běžící text,
