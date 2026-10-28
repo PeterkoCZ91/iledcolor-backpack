@@ -37,6 +37,96 @@ the CI artifact is built without API keys.
 | 9 | **First write after a fresh iPixel connection.** The first quick send failed once at packet 1 of 2 right after connecting; the retry succeeded and a repeat run of 8 rounds (10 transfers, fresh and reused connections) all completed. | Watch for a repeat; if it recurs add one bounded automatic retry like the one for GATT 133. |
 | 10 | **Static images in quick send.** Only GIFs can be picked today. | JPG / PNG to a one-frame GIF, if the existing converter can do it without new dependencies. |
 
+## Backlog from the October 2026 review
+
+Collected after the five-tab rework from four independent read-only reviews (user journeys,
+protocol features, release readiness, reach and hardware). Claims were checked against the
+repository; evidence is given as file references. Effort: **S** about a day, **M** a few days,
+**L** more. Suggested order: **A**, then B1, B2, B7 and the open hardware checks, then F1 and F2.
+
+### Ground rules for any follow-up work
+
+- A panel is used only after the user picked it in the app. Never scan-and-send to everything
+  in range, never flash firmware or OTA, never set a panel password without a recovery design.
+- Never send the commands that erase a panel: backpack clear-all (`0x02`), iPixel slot delete and
+  ROM wipe (see [BLE protocol](ble-protocol.md) §10.3 and §13.5). iPixel uploads go to slot 0 only.
+- Every single-GIF send goes through the one send decision (`SendTargetPlan`) and is converted to
+  the chosen panel's own size; do not add a second path.
+- Something counts as verified only after a check on hardware. Use `tools/panel_send_check.py`
+  (counts completed transfers from the app log) and `tools/apk_smoke.py`; the label table in
+  `apk_smoke.py` is compared with the app's strings by a unit test.
+- Public APKs come only from CI and contain no API keys; check a build with a key scan before
+  publishing and never publish a personal build.
+- Repository text is English; Czech is a secondary UI language.
+
+### A. Fewer send paths (each S)
+
+| # | Work | Evidence and notes |
+| --- | --- | --- |
+| A1 | **One send action in Detail.** Merge *Send to panel* and *Send to all my panels* into *Send to panel…* that opens the existing *Where to send?* sheet (*All my panels* stays inside it). | `DetailScreen.kt` ~l.260–264 has two send buttons plus *Edit*; `SendTargetSheet.kt`. |
+| A2 | **Same for Scrolling text:** *Send* and *Send to all my panels* become one action. | `TextBannerScreen.kt` ~l.243–269. |
+| A3 | **After Video → GIF offer *Send to panel*** (and *Edit*); today the result screen only offers *To collection* and *Convert another*. | `ConvertScreen.kt` ~l.333–364; needs a callback in `BatohApp.kt`. |
+| A4 | **Shared GIF from another app goes straight to the send step**, or to Detail with one main action; keep the import queue. The share target accepts only `image/gif`. | `BatohApp.kt` incoming-GIF effect, `IncomingImportController.kt`, manifest. |
+| A5 | **JPG / PNG in *From my phone*** as a one-frame GIF (item 10 above). | Check whether the converter can do it without new dependencies. |
+
+### B. Reliable sending from every screen (each M unless noted)
+
+| # | Work | Evidence and notes |
+| --- | --- | --- |
+| B1 | **Shared send preflight:** Bluetooth on, permission and the enable prompt before every send and before the chooser. Only the Panel screen enables Bluetooth today; the text banner only asks for permission and nothing in Search or Detail checks it. | `BackpackScreen.kt` ~l.196, 376–379; `TextBannerScreen.kt` ~l.100–118. |
+| B2 | **Remember the last target.** With several panels offer *Send to <name>* as the main action and *Another panel…* second; show the target name and range state in Detail and Search. | `SendTargetSheet.kt`, my-panels store. |
+| B3 | **First-run guide.** There is no onboarding in the code. A Home card *Connect your first panel*: permission, Bluetooth, scan, pick, saved to *My panels*. | `HomeScreen.kt`, `BackpackScreen.kt` / view model. |
+| B4 | **Failure everywhere:** a message with *Try again* and *Choose another panel*, and an offer of another panel when the panel is out of range. Today the detail is shown only on the Panel screen. | `BackpackTransferManager.kt`, `BatohApp.kt`. |
+| B5 | **Text banner:** choose the target panel while composing (preview in the right aspect ratio) and let the user enter a size for an unknown type instead of only showing an error. | `TextBanner*.kt`, `TextBannerRenderer.kt`. |
+| B6 | **Panel tab is one long scroll** (nearby, my panels, display, history, diagnostics); consider sections. | `BackpackScreen.kt`. |
+| B7 | **The upload card shows "Done — image is on the panel" twice** (S). | `BackpackScreen.kt` upload card. |
+| B8 | **Open hardware checks:** cancelling *Send to all my panels* while connecting (item 8) and the one failed first write after a fresh iPixel connection (item 9). | See the table above. |
+
+### C. Features the protocols allow (verify on hardware first)
+
+| # | Work | Certainty, effort |
+| --- | --- | --- |
+| C1 | **Playlist limits.** *Send as sequence* exists for the backpack; the number of programmes and the capacity above 453 KB are unknown, and the "not enough space" status has not been seen. | Protocol verified, limits unknown. S, hardware. |
+| C2 | **iPixel clock:** quick access from Home and clock as default content. | Verified on hardware ([BLE protocol](ble-protocol.md) §13.4). S. |
+| C3 | **Brightness presets and a night mode** (iPixel 0–100 %, backpack 1–10); automatic dimming by time is phone-side logic. | Commands verified. S–M. |
+| C4 | **Saved panel profiles** (brightness, rotation, clock, last content). iPixel has no state read, so restoring means sending the saved values again. | Settings verified. M. |
+| C5 | **Text banner direction and speed** in the renderer (no protocol change); native text effects only after tests (the effect byte was ignored for GIF items). | Renderer S; native M–L. |
+| C6 | **Faster upload** with several chunks in flight (community code uses 32). Window 4 aborted on a repeated ACK earlier, so measure and keep a stop-and-wait fallback. | M, hardware. |
+| C7 | Built-in programmes only on a unit that reports a count above 0; the password only as a read-only notice. | Low value, high risk for the password. |
+| C8 | A pixel drawing editor is UI only and has no protocol reason. | L, low priority. |
+
+### D. Faster ways to the panel
+
+| # | Work | Evidence and notes |
+| --- | --- | --- |
+| D1 | **Launcher shortcuts, a Quick Settings tile and a widget** *Send to panel*. The manifest has only the share target and the `gifpack://backpack` link; no `shortcuts.xml`, tile service or widget exists. | S–M. |
+| D2 | **Share target for video and `image/*`** (feeds Video → GIF and A5). | S. |
+| D3 | **Intent API for Tasker / MacroDroid** with an explicit saved panel, and scheduled sends. Reliability depends on the phone being in BLE range. | M. |
+| D4 | **Home Assistant / MQTT:** point to the existing community integration instead of building a bridge. | Low priority. |
+
+### E. More hardware
+
+- **Verify the remaining iPixel sizes.** The code table lists 20 device types `0x80`–`0x93` (for
+  example 64 × 64, 32 × 16, 96 × 16, 128 × 32, up to 448 × 32); only `0x81` (32 × 32) and `0x83`
+  (64 × 16) are marked verified (`IPixelProtocol.kt`). Needs testers with the units, little code.
+- **Older iledcolor units** (a 16 × 32 panel, mono panels with a column-wise 1 bpp format, a
+  different frame generation): see the research notes; needs units, M.
+
+### F. Quality and release (verified against the repository)
+
+| # | Work | Evidence |
+| --- | --- | --- |
+| F1 | **Signed release:** create the keystore, back it up, add the five secrets and tag the first signed release. The workflow exists. | [releasing](releasing.md); needs the owner. S. |
+| F2 | **CI test list is incomplete.** `ci.yml` and `release.yml` run a module list that lacks `:core:domain` (2 test files), `:core:network` (1), `:feature:home` (2) and `:feature:convert` (1). `feature:detail`, `core:common` and `core:ui` have no tests. | `ci.yml` l.26–30, `release.yml` l.47–51. S. |
+| F3 | **Dependabot and dependency review.** No `dependabot.yml`. Versions: AGP 8.2.0, Kotlin 1.9.22, Compose BOM 2024.02.02, Hilt 2.50, Room 2.6.1, media3 1.3.0, compileSdk and targetSdk 34 (Play will want a newer target). | `gradle/libs.versions.toml`. S for the bot, M for upgrades. |
+| F4 | **Release shrinking.** `isMinifyEnabled = false` and the referenced `proguard-rules.pro` does not exist. Enable R8 and resource shrinking, check Moshi / Hilt / Room on a device, and build `assembleRelease` in CI for pull requests. | `app/build.gradle.kts` l.52–55. M. |
+| F5 | **Manifest housekeeping:** remove `requestLegacyExternalStorage`; `jvmTarget` 1.8 to 17. Backup rules already exclude the API-key preferences. | `AndroidManifest.xml`, `data_extraction_rules.xml`. S. |
+| F6 | **UI tests.** `androidTest` holds only `VideoToGifInstrumentedTest`; UI flows are covered by the ADB smoke script alone. Add Compose tests for the key screens and an optional emulator job. | M. |
+| F7 | **BLE state machine tests** (fake GATT: disconnect mid-transfer, permission revoked, `SecurityException`). `BluetoothLeManager.kt` (~1250 lines), `BackpackTransferManager.kt` (~1100) and `BackpackScreen.kt` (~880) are large and worth splitting. | M–L. |
+| F8 | **Accessibility:** about 31 `contentDescription = null` to review and a manual TalkBack pass. | S–M. |
+| F9 | **Store metadata:** rationale for `READ_MEDIA_IMAGES` and `BLUETOOTH_SCAN` (`neverForLocation`) in [privacy](privacy.md), the data-safety form, F-Droid metadata. | S. |
+| F10 | **Performance** (startup, GIF decode, large collections) is not measured; a macrobenchmark and baseline profile would show it. | L. |
+
 ## Protocol features not yet used
 
 - **Clock sync decision.** The tested backpack does not advertise time support, and the
@@ -83,12 +173,13 @@ Not required for local development or debug testing.
 
 ## Done recently
 
+- **Pre-release v66** (CI debug build without API keys, key-scan checked): iPixel Color panels, the five-tab UI, one *Send a GIF* button with *Where to send?*, a send button on search results, simpler duplicate cleanup and reviewed Czech and English texts.
 - **Navigation rebuilt into five tabs (Home, Search, Panel, Collection, More):** Home is a dashboard (panel status, search bar, quick actions, recent GIFs); categories live inside Search when the query is empty; settings, API keys and About are inline on More instead of dialogs. All screens were reviewed for copy, plurals (Czech one/few/many/other), 48 dp targets, large fonts and system navigation-bar insets; generic texts say "panel" and show the panel's real size.
 - **Quick send:** one **Send a GIF** button on the Panel tab (*From my phone* / *From my collection*), a **Send to panel** button on Search results, and a *Where to send?* sheet that appears only when there is not exactly one candidate panel; the GIF is always converted to the chosen panel's own size. Checked on hardware: backpack 64 × 64, iPixel Color 32 × 32 and 64 × 16, *Send to all my panels* (2 of 2), brightness and the scrolling-text banner. `tools/panel_send_check.py` repeats such sends and counts completed transfers from the app log.
 - **Duplicate deletion simplified:** one *Find duplicates* action and one confirmation that keeps the first copy of each group.
 - **Smoke harness:** the labels it taps are kept in one table that a unit test compares with the app's string resources; the locale test also checks plurals, placeholders and house style.
 - **Localized error messages (v62):** search, categories, downloads, the GIF editor, the text banner and backpack commands no longer fall back to English or raw exception text; search and categories tell a missing API key, no connection and a failing service apart. A failed share no longer makes the next language switch jump to the collection. Smoke harness with `--fixtures --import --locale-sweep` passes on the test phone; the offline search message was checked by hand.
-- **Downloadable APK:** pre-release `v65` (earlier `v64`, `v63`, `v62`, `v61`) on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
+- **Downloadable APK:** pre-release `v66` (earlier `v65`, `v64`, `v63`, `v62`, `v61`) on the releases page, a CI debug build without API keys (verified keyless); README, docs and changelog link to it. Still no signed release: that needs the owner's keystore and the five repository secrets.
 - **Send as a sequence:** several GIFs from the collection, each sent as its own programme; the backpack plays them in turn (two programmes, 181 KB, checked on the panel). Maximum number of programmes and total capacity still unknown.
 - Join GIFs into one programme (multi-select in the collection, order, pause, preview, size warning): a 33-frame / 95 KB result was saved and confirmed by the backpack on the second phone. Panel output not yet checked by eye.
 - Collection: search (case- and accent-insensitive), remembered sort order, rename of own GIFs, count / size summary.
