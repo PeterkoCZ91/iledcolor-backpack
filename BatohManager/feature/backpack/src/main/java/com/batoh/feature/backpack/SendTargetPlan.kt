@@ -30,6 +30,10 @@ data class ConnectedPanel(val address: String, val name: String?, val spec: Pane
 
 /** Pure selection of the send targets; JVM-tested. */
 object SendTargetPlan {
+    /** A remembered panel is offered directly only if this send's fresh candidate list includes it. */
+    fun preferred(candidates: List<SendTarget>, rememberedAddress: String?): SendTarget? =
+        if (candidates.size < 2) null else candidates.firstOrNull { it.address == rememberedAddress }
+
     /**
      * Candidates: the [connected] panel plus [myPanels] that advertise ([advertising], a fresh quick scan).
      * A panel that is merely advertising and not mine is never a candidate; a connected one always is (the app

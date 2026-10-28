@@ -9,6 +9,8 @@
     <string name="detail_converting">Converting… %1$d%%</string>
     <string name="detail_converted">Saved for panel</string>
     <string name="detail_send_to_backpack">Send to panel</string>
+    <string name="detail_last_target_check">Last panel: %1$s · range checked when sending</string>
+    <string name="detail_last_target_unknown">unknown</string>
     <string name="detail_edit_for_backpack">Edit for panel</string>
     <string name="detail_download_failed">Download failed</string>
     <string name="detail_unknown_status">Unknown download status</string>
@@ -19,5 +21,4 @@
     <string name="detail_preview_loaded">GIF preview loaded</string>
     <string name="detail_preview_description">GIF preview</string>
     <string name="detail_preview_failed">Could not display the GIF. The file may be damaged; try downloading it again.</string>
-    <string name="detail_send_to_my_panels">Send to all my panels</string>
 </resources>

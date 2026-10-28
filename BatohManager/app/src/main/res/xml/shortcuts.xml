@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Opens the Panel tab only. The link carries no test flag and nothing is sent automatically. -->
+    <shortcut
+        android:shortcutId="panel"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_panel_short"
+        android:shortcutLongLabel="@string/shortcut_panel_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="gifpack://backpack"
+            android:targetPackage="io.github.peterkocz91.gifpack"
+            android:targetClass="com.batoh.manager.MainActivity" />
+    </shortcut>
+</shortcuts>

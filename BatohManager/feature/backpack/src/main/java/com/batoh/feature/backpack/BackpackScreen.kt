@@ -11,6 +11,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +29,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
 import com.batoh.core.common.Result
+import com.batoh.core.common.LastSendTarget
 import com.batoh.core.domain.usecase.GetLocalGifsUseCase
 import com.batoh.core.data.bluetooth.BackpackAdvertisement
 import com.batoh.core.data.bluetooth.MyPanel
@@ -41,6 +44,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -74,6 +78,7 @@ class BackpackViewModel @Inject constructor(
     val myPanels = transfers.myPanels
     private var pendingGifUri = savedStateHandle.get<String>(Screen.Backpack.ARG_GIF_URI)
     private val pendingToMyPanels = savedStateHandle.get<Boolean>(Screen.Backpack.ARG_MY_PANELS) == true
+    fun hasPendingSend(): Boolean = pendingGifUri != null || transfers.hasStagedSequence()
 
     fun onPermissionsGranted(): Boolean {
         if (transfers.startStagedSequence()) return true
@@ -115,7 +120,8 @@ class BackpackViewModel @Inject constructor(
                         _chooser.value = SendChooser.Hidden
                         sendTo(uri, decision.target)
                     }
-                    is SendDecision.Choose -> _chooser.value = SendChooser.Choosing(uri, decision.targets, decision.offerAll)
+                    is SendDecision.Choose -> _chooser.value = SendChooser.Choosing(uri, decision.targets,
+                        decision.offerAll, LastSendTarget.read(getApplication<Application>())?.address)
                 }
             } finally {
                 if (_chooser.value is SendChooser.Scanning) _chooser.value = SendChooser.Hidden
@@ -124,6 +130,7 @@ class BackpackViewModel @Inject constructor(
     }
 
     private fun sendTo(uri: Uri, target: SendTarget) {
+        LastSendTarget.remember(getApplication<Application>(), target.address, target.name)
         _sendNotice.value = target
         transfers.uploadGifToPanel(uri, target.address)
     }
@@ -177,12 +184,28 @@ class BackpackViewModel @Inject constructor(
     fun ipixelBrightness(level: Int) = transfers.ipixelBrightness(level)
     fun ipixelRotation(quarterTurns: Int) = transfers.ipixelRotation(quarterTurns)
     fun ipixelScreen(on: Boolean) = transfers.ipixelScreen(on)
-    fun ipixelClock(style: Int, use24h: Boolean, showDate: Boolean) = transfers.ipixelClock(style, use24h, showDate)
     fun refreshPanelState() = transfers.refreshPanelState()
     fun cancelUpload() = transfers.cancelUpload()
     fun retryUpload() = transfers.retryUpload()
     fun playBuiltIn(id: Int) = transfers.playBuiltIn(id)
     fun clearUploadHistory() = transfers.clearUploadHistory()
+
+    /** Sends the current time as a small GIF at the connected panel's size (64x64 when the size is unknown). */
+    fun sendClock() {
+        val spec = transfers.connectedPanel.value
+        val gif = com.batoh.core.conversion.ClockGifRenderer.render(
+            java.time.LocalTime.now(), spec?.width ?: 64, spec?.height ?: 64)
+        transfers.uploadGifBytes(gif, name = getApplication<Application>().getString(R.string.clock_send))
+    }
+
+    /** One tap on Dim / Normal / Bright: sends the level for this panel family. */
+    fun applyBrightnessPreset(preset: BrightnessPreset, family: PanelFamily) {
+        val level = BrightnessPresets.level(preset, family)
+        when (family) {
+            PanelFamily.Backpack -> transfers.setBrightness(level)
+            PanelFamily.IPixel -> transfers.ipixelBrightness(level)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -214,6 +237,7 @@ fun BackpackScreen(
     val snackbarHost = remember { SnackbarHostState() }
     val connectedAddress = remember(status) { viewModel.connectedAddress() }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val sendPreflight = rememberSendPreflight()
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     var permissionsGranted by remember { mutableStateOf(false) }
     var showLibraryPicker by remember { mutableStateOf(false) }
@@ -255,11 +279,14 @@ fun BackpackScreen(
             androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
                 !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(host, it)
         }
-        if (permissionsGranted) viewModel.onPermissionsGranted()
+        if (permissionsGranted) {
+            if (viewModel.hasPendingSend()) sendPreflight.request { viewModel.onPermissionsGranted() }
+            else viewModel.onPermissionsGranted()
+        }
     }
-    // System picker for a GIF from the gallery or any other document provider; the panel's own size is used.
+    // System picker for a GIF or still image; the panel's own size is used after conversion.
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.requestSend(uri)
+        if (uri != null) sendPreflight.request { viewModel.requestSend(uri) }
     }
     val sendingTo = sendNotice?.let { target ->
         val name = target.name ?: stringResource(R.string.backpack_unknown_device)
@@ -273,15 +300,19 @@ fun BackpackScreen(
         }
     }
     (chooser as? SendChooser.Choosing)?.let { choosing ->
-        SendTargetSheet(choosing, onPick = viewModel::chooseTarget, onAll = viewModel::chooseAllMyPanels,
-            onRetry = viewModel::retryChooser, onDismiss = viewModel::dismissChooser)
+        SendTargetSheet(choosing, onPick = { target -> sendPreflight.request { viewModel.chooseTarget(target) } },
+            onAll = { sendPreflight.request(viewModel::chooseAllMyPanels) },
+            onRetry = { sendPreflight.request(viewModel::retryChooser) }, onDismiss = viewModel::dismissChooser)
     }
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 val wasGranted = permissionsGranted
-                if (checkPermissions() && !wasGranted) viewModel.onPermissionsGranted()
+                if (checkPermissions() && !wasGranted && !sendPreflight.isWaitingForSystem()) {
+                    if (viewModel.hasPendingSend()) sendPreflight.request { viewModel.onPermissionsGranted() }
+                    else viewModel.onPermissionsGranted()
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -289,10 +320,11 @@ fun BackpackScreen(
     }
     LaunchedEffect(Unit) {
         if (!checkPermissions()) launcher.launch(permissions.toTypedArray())
+        else if (viewModel.hasPendingSend()) sendPreflight.request { viewModel.onPermissionsGranted() }
         else viewModel.onPermissionsGranted()
     }
     LaunchedEffect(autoTest, permissionsGranted) {
-        if (autoTest && permissionsGranted) viewModel.autoConnectAndUpload()
+        if (autoTest && permissionsGranted) sendPreflight.request(viewModel::autoConnectAndUpload)
     }
     LaunchedEffect(panelState?.brightness) {
         panelState?.let { brightness = it.brightness.toFloat().coerceIn(1f, 10f) }
@@ -300,7 +332,7 @@ fun BackpackScreen(
     LaunchedEffect(activeUpload) { if (activeUpload) { showLibraryPicker = false; showSourceSheet = false } }
     if (showSourceSheet && !activeUpload) {
         SendSourceSheet(
-            onPhone = { showSourceSheet = false; galleryLauncher.launch(arrayOf("image/gif")) },
+            onPhone = { showSourceSheet = false; galleryLauncher.launch(arrayOf("image/gif", "image/jpeg", "image/png")) },
             onCollection = { showSourceSheet = false; showLibraryPicker = true },
             onDismiss = { showSourceSheet = false }
         )
@@ -312,7 +344,7 @@ fun BackpackScreen(
             onDismiss = { showLibraryPicker = false },
             onSelect = { gif ->
                 showLibraryPicker = false
-                viewModel.requestSend(Uri.parse(gif.originalUrl))
+                sendPreflight.request { viewModel.requestSend(Uri.parse(gif.originalUrl)) }
             }
         )
     }
@@ -357,7 +389,7 @@ fun BackpackScreen(
             )
             if (iPixel) IPixelDeviceCard(deviceName, connectedPanel)
             else BackpackDeviceCard(deviceName, advertisement)
-            if (!permissionsGranted) {
+            if (!permissionsGranted || sendPreflight.permissionDenied) {
                 Text(stringResource(R.string.backpack_bluetooth_permission), color = MaterialTheme.colorScheme.error)
                 val openSettings = {
                     context.startActivity(android.content.Intent(
@@ -373,16 +405,17 @@ fun BackpackScreen(
                     TextButton(onClick = openSettings) { Text(stringResource(R.string.backpack_open_permission_settings)) }
                 }
             }
-            if (permissionsGranted && !bluetoothEnabled) {
+            if ((permissionsGranted && !bluetoothEnabled) || sendPreflight.bluetoothOff) {
                 Text(stringResource(R.string.backpack_bluetooth_off), color = MaterialTheme.colorScheme.error)
                 Button(onClick = {
-                    context.startActivity(android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                    if (sendPreflight.bluetoothOff) sendPreflight.retry()
+                    else context.startActivity(android.content.Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE))
                 }) { Text(stringResource(R.string.backpack_turn_on_bluetooth)) }
             }
-            val sendEnabled = permissionsGranted && !busy && !activeUpload && !sendBlocked && chooser == SendChooser.Hidden
+            val sendEnabled = !busy && !activeUpload && !sendBlocked && chooser == SendChooser.Hidden
             val sendLabel = stringResource(R.string.send_action_a11y)
             Button(
-                onClick = { showSourceSheet = true },
+                onClick = { sendPreflight.request { showSourceSheet = true } },
                 enabled = sendEnabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { contentDescription = sendLabel }
             ) { Text(stringResource(R.string.send_action), style = MaterialTheme.typography.titleMedium) }
@@ -411,7 +444,7 @@ fun BackpackScreen(
                                         UploadStage.Connecting -> stringResource(R.string.backpack_connecting)
                                         UploadStage.Sending -> stringResource(R.string.backpack_upload_progress, (upload.progress.coerceIn(0f, 1f) * 100).toInt())
                                         UploadStage.Finishing -> stringResource(R.string.backpack_upload_finishing)
-                                        UploadStage.Success -> stringResource(
+                                        UploadStage.Success -> upload.message ?: stringResource(
                                             if (upload.isSequence) R.string.backpack_sequence_success else R.string.backpack_upload_success)
                                         UploadStage.Error -> stringResource(R.string.backpack_upload_failed)
                                         UploadStage.Cancelled -> stringResource(R.string.backpack_upload_cancelled)
@@ -426,7 +459,9 @@ fun BackpackScreen(
                         if (failure != null && upload.multi == null) {
                             UploadFailureDetails(failure)
                         } else {
-                            upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                            if (upload.stage != UploadStage.Success) {
+                                upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                            }
                         }
                         if (activeUpload) {
                             if (upload.stage == UploadStage.Sending) {
@@ -436,8 +471,8 @@ fun BackpackScreen(
                                 Text(stringResource(R.string.backpack_cancel_upload))
                             }
                         } else {
-                            OutlinedButton(onClick = viewModel::retryUpload,
-                                enabled = permissionsGranted && !busy && !sendBlocked, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(onClick = { sendPreflight.request(viewModel::retryUpload) },
+                                enabled = !busy && !sendBlocked, modifier = Modifier.fillMaxWidth()) {
                                 Text(stringResource(if (upload.stage == UploadStage.Success) R.string.backpack_upload_again else R.string.common_retry))
                             }
                         }
@@ -488,6 +523,9 @@ fun BackpackScreen(
                 Slider(value = brightness, onValueChange = { brightness = it }, valueRange = 1f..10f,
                     steps = 8, enabled = controlsEnabled && panelState != null,
                     onValueChangeFinished = { viewModel.setBrightness(kotlin.math.round(brightness).toInt()) })
+                BrightnessPresetSection(PanelFamily.Backpack, kotlin.math.round(brightness).toInt(),
+                    controlsEnabled && panelState != null, viewModel)
+                ClockSendButton(controlsEnabled, viewModel)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(when {
                         panelState == null -> R.string.backpack_screen_unknown
@@ -521,7 +559,8 @@ fun BackpackScreen(
                 val count = builtInCount ?: 0
                 if (count > 0) {
                     Divider()
-                    BuiltInProgramsSection(count, controlsEnabled, viewModel::playBuiltIn)
+                    BuiltInProgramsSection(count, controlsEnabled,
+                        onPlay = { id -> sendPreflight.request { viewModel.playBuiltIn(id) } })
                 }
             }
             if (isReady && iPixel) {
@@ -559,7 +598,7 @@ fun BackpackScreen(
             if (showBleLog) {
                 Text(stringResource(R.string.backpack_connection_status, status), style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = viewModel::sendTestImage, enabled = controlsEnabled,
+                    OutlinedButton(onClick = { sendPreflight.request(viewModel::sendTestImage) }, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_test_upload)) }
                     OutlinedButton(onClick = viewModel::dumpBackpackInfo, enabled = controlsEnabled,
                         modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_info_action)) }
@@ -568,7 +607,7 @@ fun BackpackScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(onClick = viewModel::queryPasswordStatus, enabled = controlsEnabled,
                             modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_password_status_action)) }
-                        OutlinedButton(onClick = viewModel::sendPlaylistTest, enabled = controlsEnabled,
+                        OutlinedButton(onClick = { sendPreflight.request(viewModel::sendPlaylistTest) }, enabled = controlsEnabled,
                             modifier = Modifier.weight(1f)) { Text(stringResource(R.string.backpack_playlist_test_action)) }
                     }
                 }
@@ -583,7 +622,7 @@ fun BackpackScreen(
                     Text(stringResource(R.string.backpack_effect_test_title), style = MaterialTheme.typography.labelMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
                         listOf(0, 1, 2, 3, 5, 6, 7).forEach { code ->
-                            OutlinedButton(onClick = { viewModel.sendEffectTest(code) }, enabled = controlsEnabled,
+                            OutlinedButton(onClick = { sendPreflight.request { viewModel.sendEffectTest(code) } }, enabled = controlsEnabled,
                                 contentPadding = PaddingValues(0.dp), modifier = Modifier.weight(1f)) { Text(code.toString()) }
                         }
                     }
@@ -644,19 +683,43 @@ private fun BackpackDeviceCard(name: String?, adv: BackpackAdvertisement?) {
     }
 }
 
-/** iPixel brightness, display, rotation and clock; the panel cannot report its state, so the last set values are shown. */
+/** Dim / Normal / Bright chips. */
+@Composable
+private fun BrightnessPresetSection(family: PanelFamily, currentLevel: Int, enabled: Boolean, viewModel: BackpackViewModel) {
+    val selected = BrightnessPresets.presetFor(currentLevel, family)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf(
+            BrightnessPreset.Dim to R.string.brightness_preset_dim,
+            BrightnessPreset.Normal to R.string.brightness_preset_normal,
+            BrightnessPreset.Bright to R.string.brightness_preset_bright
+        ).forEach { (preset, label) ->
+            FilterChip(selected = selected == preset, onClick = { viewModel.applyBrightnessPreset(preset, family) },
+                label = { Text(stringResource(label)) }, enabled = enabled)
+        }
+    }
+}
+
+/** One button: draws the current time into a GIF and sends it through the normal upload path. */
+@Composable
+private fun ClockSendButton(enabled: Boolean, viewModel: BackpackViewModel) {
+    OutlinedButton(onClick = viewModel::sendClock, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.clock_send))
+    }
+    Text(stringResource(R.string.clock_send_hint), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** iPixel brightness, display and rotation; the panel cannot report its state, so the last set values are shown. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun IPixelSettingsSection(settings: IPixelSettings, commandError: String?, enabled: Boolean, viewModel: BackpackViewModel) {
     var brightness by remember(settings.brightness) { mutableFloatStateOf(settings.brightness.toFloat()) }
-    var clockStyle by rememberSaveable(settings.clockStyle) { mutableIntStateOf(settings.clockStyle) }
-    var use24h by rememberSaveable(settings.use24h) { mutableStateOf(settings.use24h) }
-    var showDate by rememberSaveable(settings.showDate) { mutableStateOf(settings.showDate) }
     Text(stringResource(R.string.backpack_display), style = MaterialTheme.typography.titleMedium)
     commandError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Text(stringResource(R.string.ipixel_brightness, kotlin.math.round(brightness).toInt()))
     Slider(value = brightness, onValueChange = { brightness = it }, valueRange = 0f..100f, enabled = enabled,
         onValueChangeFinished = { viewModel.ipixelBrightness(kotlin.math.round(brightness).toInt()) })
+    BrightnessPresetSection(PanelFamily.IPixel, settings.brightness, enabled, viewModel)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(if (settings.screenOn) R.string.backpack_screen_on else R.string.backpack_screen_off), Modifier.weight(1f))
         Switch(checked = settings.screenOn, onCheckedChange = viewModel::ipixelScreen, enabled = enabled)
@@ -668,26 +731,7 @@ private fun IPixelSettingsSection(settings: IPixelSettings, commandError: String
                 label = { Text(label) }, enabled = enabled)
         }
     }
-    Text(stringResource(R.string.ipixel_clock), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(R.string.ipixel_clock_style), style = MaterialTheme.typography.bodyMedium)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        (0..8).forEach { style ->
-            FilterChip(selected = clockStyle == style, onClick = { clockStyle = style },
-                label = { Text("$style") }, enabled = enabled)
-        }
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.ipixel_clock_24h), Modifier.weight(1f))
-        Switch(checked = use24h, onCheckedChange = { use24h = it }, enabled = enabled)
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.ipixel_clock_date), Modifier.weight(1f))
-        Switch(checked = showDate, onCheckedChange = { showDate = it }, enabled = enabled)
-    }
-    OutlinedButton(onClick = { viewModel.ipixelClock(clockStyle, use24h, showDate) }, enabled = enabled,
-        modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.ipixel_clock_show))
-    }
+    ClockSendButton(enabled, viewModel)
 }
 
 /** Device card for a connected iPixel panel: family, size and whether that size was tested on hardware. */
@@ -817,18 +861,25 @@ private fun BuiltInProgramsSection(count: Int, enabled: Boolean, onPlay: (Int) -
     }
 }
 
+/** Collapsible upload history (collapsed by default, the choice survives rotation and navigation). */
 @Composable
 private fun UploadHistorySection(history: List<UploadHistoryEntry>, onClear: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.backpack_history_title), style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f))
-        if (history.isNotEmpty()) TextButton(onClick = onClear) { Text(stringResource(R.string.backpack_history_clear)) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val title = stringResource(R.string.backpack_history_title)
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 8.dp)) {
+        Text(if (history.isEmpty()) title else "$title (${history.size})",
+            style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        if (expanded && history.isNotEmpty()) TextButton(onClick = onClear) { Text(stringResource(R.string.backpack_history_clear)) }
+        Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = title)
     }
-    if (history.isEmpty()) {
-        Text(stringResource(R.string.backpack_history_empty), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else {
-        UploadHistoryList(history)
+    if (expanded) {
+        if (history.isEmpty()) {
+            Text(stringResource(R.string.backpack_history_empty), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            UploadHistoryList(history)
+        }
     }
 }
 

@@ -71,4 +71,40 @@ class TextBannerLayoutTest {
     fun baselineCentresInPanelHeight() {
         assertEquals(19f, TextBannerLayout.baseline(-10f, 4f, panelHeight = 32), 0.001f)
     }
+
+    @Test
+    fun leftToRightStartsOffLeftEdgeAndEndsOffRightEdge() {
+        val plan = TextBannerLayout.plan(36, 2, 80, direction = TextBannerDirection.LeftToRight)
+        assertEquals(-36, plan.offsetX(0))
+        assertTrue(plan.offsetX(plan.frameCount - 1) < 64) // last frame still partly visible
+        assertTrue(plan.offsetX(plan.frameCount) >= 64) // next frame would be blank = frame 0 loop
+    }
+
+    @Test
+    fun directionDoesNotChangeFrameCountAndOffsetsAreMonotonic() {
+        for (speed in TextBannerSpeed.values()) for (width in listOf(0, 40, 700, 60 * 48)) {
+            val rtl = TextBannerLayout.plan(width, speed.stepPx, speed.delayMs)
+            val ltr = TextBannerLayout.plan(width, speed.stepPx, speed.delayMs, direction = TextBannerDirection.LeftToRight)
+            assertEquals(rtl.frameCount, ltr.frameCount)
+            assertEquals(rtl.stepPx, ltr.stepPx)
+            assertTrue(ltr.frameCount in 1..TextBannerLayout.MAX_FRAMES)
+            for (f in 1 until ltr.frameCount) {
+                assertTrue(ltr.offsetX(f) > ltr.offsetX(f - 1))
+                assertTrue(rtl.offsetX(f) < rtl.offsetX(f - 1))
+            }
+        }
+    }
+
+    @Test
+    fun defaultDirectionIsRightToLeft() {
+        assertEquals(TextBannerDirection.RightToLeft, TextBannerOptions(text = "x").direction)
+        assertEquals(TextBannerDirection.RightToLeft, TextBannerLayout.plan(10, 1, 100).direction)
+    }
+
+    @Test
+    fun fasterSpeedNeverNeedsMoreFramesAndSlowIsWithinLimit() {
+        val frames = TextBannerSpeed.values().map { TextBannerLayout.plan(500, it.stepPx, it.delayMs).frameCount }
+        assertTrue(frames.zipWithNext().all { (a, b) -> a >= b })
+        assertTrue(frames.all { it <= TextBannerLayout.MAX_FRAMES })
+    }
 }

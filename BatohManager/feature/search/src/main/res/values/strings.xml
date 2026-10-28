@@ -46,6 +46,8 @@
     <string name="category_hello">Hello</string>
     <string name="category_lol">LOL</string>
     <string name="search_title">Hledat</string>
+    <string name="search_last_target_check">Poslední panel: %1$s · dosah ověřím při odeslání</string>
+    <string name="search_last_target_unknown">neznámý</string>
     <string name="search_recent">Nedávno hledané</string>
     <string name="search_categories_heading">Kategorie</string>
     <string name="search_back">Zpět</string>

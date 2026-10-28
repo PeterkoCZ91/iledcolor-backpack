@@ -1,5 +1,6 @@
 package com.batoh.feature.backpack
 
+import com.batoh.core.conversion.TextBannerDirection
 import com.batoh.core.conversion.TextBannerOptions
 import com.batoh.core.conversion.TextBannerSize
 import com.batoh.core.conversion.TextBannerSpeed
@@ -11,7 +12,8 @@ data class PreparedText(val id: Long, val options: TextBannerOptions)
 
 /**
  * Prepared texts kept in SharedPreferences as plain text (one entry per line,
- * `id<TAB>textColor<TAB>backgroundColor<TAB>speed<TAB>size<TAB>bold<TAB>url-encoded text`), newest first.
+ * `id<TAB>textColor<TAB>backgroundColor<TAB>speed<TAB>size<TAB>bold<TAB>url-encoded text<TAB>direction`;
+ * the trailing direction is optional on read so older 7-field entries load as right-to-left), newest first.
  * Pure JVM so it is unit-testable.
  */
 object PreparedTexts {
@@ -28,7 +30,7 @@ object PreparedTexts {
     fun encode(list: List<PreparedText>): String = list.joinToString("\n") {
         val o = it.options
         listOf(it.id, o.textColor, o.backgroundColor, o.speed.name, o.size.name, o.bold,
-            URLEncoder.encode(o.text, "UTF-8")).joinToString("\t")
+            URLEncoder.encode(o.text, "UTF-8"), o.direction.name).joinToString("\t")
     }
 
     /** Skips malformed lines instead of losing the whole list. */
@@ -36,7 +38,7 @@ object PreparedTexts {
         if (raw.isNullOrEmpty()) return emptyList()
         return raw.lineSequence().mapNotNull { line ->
             val p = line.split('\t')
-            if (p.size != 7) return@mapNotNull null
+            if (p.size != 7 && p.size != 8) return@mapNotNull null
             val id = p[0].toLongOrNull() ?: return@mapNotNull null
             val textColor = p[1].toIntOrNull() ?: return@mapNotNull null
             val background = p[2].toIntOrNull() ?: return@mapNotNull null
@@ -45,7 +47,10 @@ object PreparedTexts {
             val bold = p[5].toBooleanStrictOrNull() ?: return@mapNotNull null
             val text = runCatching { URLDecoder.decode(p[6], "UTF-8") }.getOrNull()?.takeIf { it.isNotBlank() }
                 ?: return@mapNotNull null
-            PreparedText(id, TextBannerOptions(text, textColor, background, speed, size, bold))
+            val direction = if (p.size == 8) {
+                TextBannerDirection.entries.firstOrNull { it.name == p[7] } ?: return@mapNotNull null
+            } else TextBannerDirection.RightToLeft
+            PreparedText(id, TextBannerOptions(text, textColor, background, speed, size, bold, direction))
         }.take(MAX).toList()
     }
 }

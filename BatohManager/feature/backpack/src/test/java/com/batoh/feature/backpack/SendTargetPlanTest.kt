@@ -101,4 +101,12 @@ class SendTargetPlanTest {
         assertTrue(SendTargetPlan.needsScan(null, listOf(mineA)))
         assertFalse(SendTargetPlan.needsScan(null, emptyList()))
     }
+
+    @Test fun rememberedTargetIsPromotedOnlyWhenItIsAvailableAlongsideAnother() {
+        val available = SendTargetPlan.candidates(null, listOf(mineA, mineB),
+            listOf(adv(mineA.address, -50), adv(mineB.address, -60)))
+        assertEquals(mineB.address, SendTargetPlan.preferred(available, mineB.address)?.address)
+        assertNull(SendTargetPlan.preferred(available, mineC.address))
+        assertNull(SendTargetPlan.preferred(available.take(1), mineA.address))
+    }
 }

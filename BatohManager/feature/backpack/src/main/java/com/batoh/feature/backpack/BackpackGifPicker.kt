@@ -13,7 +13,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +54,7 @@ internal fun BackpackGifPicker(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
+        var query by remember { mutableStateOf("") }
         Text(
             stringResource(R.string.backpack_picker_title),
             style = MaterialTheme.typography.titleLarge,
@@ -62,34 +75,67 @@ internal fun BackpackGifPicker(
                 modifier = Modifier.padding(16.dp)
             )
             is Result.Success -> if (gifs.data.isEmpty()) {
-                Text(
-                    stringResource(R.string.backpack_picker_empty),
-                    modifier = Modifier.padding(16.dp)
+                PickerMessage(
+                    text = stringResource(R.string.backpack_picker_empty),
+                    actionLabel = stringResource(R.string.gif_picker_close_action),
+                    onAction = onDismiss
                 )
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(112.dp),
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(gifs.data, key = { it.id }) { gif ->
-                        Card(onClick = { onSelect(gif) }) {
-                            Column {
-                                AsyncImage(
-                                    model = gif.thumbnailUrl,
-                                    contentDescription = gif.title,
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-                                )
-                                Text(
-                                    gif.title,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(8.dp)
-                                )
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    placeholder = { Text(stringResource(R.string.gif_picker_search_hint)) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.gif_picker_search_clear))
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                )
+                val shown = remember(gifs.data, query) { GifPickerLogic.filter(gifs.data, query) }
+                if (shown.isEmpty()) {
+                    PickerMessage(
+                        text = stringResource(R.string.gif_picker_no_match),
+                        actionLabel = stringResource(R.string.gif_picker_clear_search_action),
+                        onAction = { query = "" }
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(128.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(shown, key = { it.id }) { gif ->
+                            Card(onClick = { onSelect(gif) }) {
+                                Column {
+                                    AsyncImage(
+                                        model = gif.thumbnailUrl,
+                                        contentDescription = gif.title,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                                    )
+                                    Text(
+                                        gif.title,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                                    )
+                                    if (GifPickerLogic.isNotSquare(gif.width, gif.height)) {
+                                        Text(
+                                            stringResource(R.string.gif_picker_not_square_badge),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -98,5 +144,17 @@ internal fun BackpackGifPicker(
         }
         // Keep the grid's last row above the system navigation bar (the sheet is drawn edge to edge).
         Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+@Composable
+private fun PickerMessage(text: String, actionLabel: String, onAction: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyLarge)
+        Button(onClick = onAction, modifier = Modifier.heightIn(min = 48.dp)) { Text(actionLabel) }
     }
 }

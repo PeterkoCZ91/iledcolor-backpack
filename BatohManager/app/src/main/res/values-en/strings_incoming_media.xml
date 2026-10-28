@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="incoming_media_preparing">Preparing the shared file…</string>
+    <string name="incoming_video_converting">Converting the shared video to a GIF…</string>
+    <string name="incoming_media_too_large">The shared file is too large</string>
+    <string name="incoming_media_failed">The shared file could not be processed. Try sharing it again.</string>
+</resources>

@@ -1,13 +1,9 @@
 package com.batoh.feature.backpack
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.graphics.Color
@@ -45,7 +43,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -53,10 +50,10 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import com.batoh.core.conversion.TextBannerDirection
 import com.batoh.core.conversion.TextBannerLayout
 import com.batoh.core.conversion.TextBannerSize
 import com.batoh.core.conversion.TextBannerSpeed
-import com.batoh.core.data.bluetooth.PanelFamily
 
 private data class BannerColor(val argb: Int, @StringRes val label: Int)
 
@@ -82,43 +79,20 @@ fun TextBannerScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val upload by viewModel.uploadState.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    val family by viewModel.connectedFamily.collectAsStateWithLifecycle(initialValue = null)
-    val connectedPanel by viewModel.connectedPanel.collectAsStateWithLifecycle()
-    val sendBlocked = family == PanelFamily.IPixel && connectedPanel == null
+    val chooser by viewModel.chooser.collectAsStateWithLifecycle()
     val prepared by viewModel.preparedTexts.collectAsStateWithLifecycle()
     val myPanels by viewModel.myPanels.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val deletedMessage = stringResource(R.string.text_banner_prepared_deleted)
     val undoLabel = stringResource(R.string.text_banner_prepared_undo)
-    // The send waiting for the permission result; null means the banner's own Send.
-    var pendingSend by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val sendPreflight = rememberSendPreflight()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val options = state.options
     val activeUpload = upload.stage in setOf(
         UploadStage.Preparing, UploadStage.Connecting, UploadStage.Sending, UploadStage.Finishing
     )
-    val permissions = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN)
-        }
-    }
-    fun hasPermissions() = permissions.all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }
-    var permissionDenied by remember { mutableStateOf(false) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (hasPermissions()) {
-            permissionDenied = false
-            val send = pendingSend
-            pendingSend = null
-            if (send != null) send() else viewModel.sendToBackpack()
-        } else permissionDenied = true
-    }
     val preview = remember(state.previewBytes, context) {
         state.previewBytes?.let { bytes ->
             ImageRequest.Builder(context).data(bytes)
@@ -144,7 +118,7 @@ fun TextBannerScreen(
             OutlinedTextField(
                 value = options.text,
                 onValueChange = { viewModel.update(options.copy(text = it.replace('\n', ' '))) },
-                label = { Text(stringResource(R.string.text_banner_input_label)) },
+                label = { Text(stringResource(if (state.loopEnabled) R.string.text_loop_first else R.string.text_banner_input_label)) },
                 supportingText = {
                     Text(stringResource(R.string.text_banner_input_hint, options.text.length, TextBannerLayout.MAX_TEXT_LENGTH))
                 },
@@ -156,6 +130,44 @@ fun TextBannerScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                    value = state.loopEnabled, enabled = !state.saving, role = Role.Switch,
+                    onValueChange = viewModel::setLoopEnabled
+                ), verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.text_loop_enable), Modifier.weight(1f))
+                Switch(checked = state.loopEnabled, enabled = !state.saving, onCheckedChange = null)
+            }
+            if (state.loopEnabled) {
+                Text(stringResource(R.string.text_loop_hint), style = MaterialTheme.typography.bodySmall)
+                state.loopTexts.forEachIndexed { index, text ->
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { viewModel.updateLoopText(index, it) },
+                        label = { Text(stringResource(R.string.text_loop_next, index + 2)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = if (index == 2) ImeAction.Done else ImeAction.Next),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        enabled = !state.saving,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            TargetSizePicker(
+                choices = TextBannerPanelSize.choices(myPanels),
+                autoWidth = if (state.manualSize == null) state.panelWidth else null,
+                autoHeight = if (state.manualSize == null) state.panelHeight else null,
+                manualSize = state.manualSize,
+                customOpen = state.customSizeOpen,
+                enabled = !state.saving,
+                onAuto = { viewModel.setManualSize(null) },
+                onPick = { viewModel.setManualSize(it) },
+                onCustom = { viewModel.setCustomSizeOpen(true) },
+                onCustomSize = { viewModel.setManualSize(it, custom = true) }
+            )
             Text(stringResource(R.string.text_banner_preview_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() })
             Box(
@@ -174,7 +186,7 @@ fun TextBannerScreen(
                 TextBannerStage.Empty -> Text(stringResource(R.string.text_banner_empty), style = MaterialTheme.typography.bodySmall)
                 TextBannerStage.Rendering -> Text(stringResource(R.string.text_banner_rendering), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                TextBannerStage.Ready -> state.plan?.let { plan ->
+                TextBannerStage.Ready -> if (!state.loopEnabled) state.plan?.let { plan ->
                     Text(pluralStringResource(R.plurals.text_banner_info, plan.frameCount, plan.frameCount, plan.durationMs / 1000.0,
                         ((state.previewBytes?.size ?: 0) + 1023) / 1024), style = MaterialTheme.typography.bodySmall)
                 }
@@ -198,6 +210,7 @@ fun TextBannerScreen(
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
 
+            if (!state.loopEnabled) {
             Text(stringResource(R.string.text_banner_speed), style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.semantics { heading() })
             FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -208,6 +221,17 @@ fun TextBannerScreen(
                 )) {
                     FilterChip(selected = options.speed == speed, enabled = !state.saving,
                         onClick = { viewModel.update(options.copy(speed = speed)) }, label = { Text(stringResource(label)) })
+                }
+            }
+            Text(stringResource(R.string.text_banner_direction), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() })
+            FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((direction, label) in listOf(
+                    TextBannerDirection.RightToLeft to R.string.text_banner_direction_left,
+                    TextBannerDirection.LeftToRight to R.string.text_banner_direction_right
+                )) {
+                    FilterChip(selected = options.direction == direction, enabled = !state.saving,
+                        onClick = { viewModel.update(options.copy(direction = direction)) }, label = { Text(stringResource(label)) })
                 }
             }
             Text(stringResource(R.string.text_banner_size), style = MaterialTheme.typography.titleSmall,
@@ -221,6 +245,7 @@ fun TextBannerScreen(
                     FilterChip(selected = options.size == size, enabled = !state.saving,
                         onClick = { viewModel.update(options.copy(size = size)) }, label = { Text(stringResource(label)) })
                 }
+            }
             }
             // Whole row toggles, so the label is read with the switch and the target is full width.
             Row(
@@ -236,38 +261,32 @@ fun TextBannerScreen(
                 Switch(checked = options.bold, enabled = !state.saving, onCheckedChange = null)
             }
 
-            if (state.savedUri != null) {
+            if (!state.loopEnabled && state.savedUri != null) {
                 Text(stringResource(R.string.text_banner_saved), color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
-            OutlinedButton(onClick = viewModel::save, enabled = outputReady && state.savedUri == null,
-                modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(if (state.saving) R.string.text_banner_saving else R.string.text_banner_save))
+            if (!state.loopEnabled) {
+                OutlinedButton(onClick = viewModel::save, enabled = outputReady && state.savedUri == null,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(if (state.saving) R.string.text_banner_saving else R.string.text_banner_save))
+                }
             }
-            if (sendBlocked) Text(stringResource(R.string.panel_send_unknown_type), color = MaterialTheme.colorScheme.error)
             Button(
-                onClick = {
-                    if (hasPermissions()) viewModel.sendToBackpack()
-                    else {
-                        pendingSend = null
-                        launcher.launch(permissions.toTypedArray())
-                    }
-                },
-                enabled = outputReady && !busy && !activeUpload && !sendBlocked,
+                onClick = { sendPreflight.request { viewModel.requestSend() } },
+                enabled = outputReady && (!state.loopEnabled || state.loopTexts.all { it.isNotBlank() }) &&
+                    !state.sendingLoop && !busy && !activeUpload,
                 modifier = Modifier.fillMaxWidth()
             ) { Text(stringResource(R.string.text_banner_send)) }
-            OutlinedButton(
-                onClick = {
-                    if (hasPermissions()) viewModel.sendToMyPanels()
-                    else {
-                        pendingSend = viewModel::sendToMyPanels
-                        launcher.launch(permissions.toTypedArray())
-                    }
-                },
-                enabled = outputReady && !busy && !activeUpload && myPanels.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.multi_send_action)) }
-            if (permissionDenied) {
+            if (state.sendingLoop) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.text_loop_preparing),
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                }
+            }
+            if (chooser is SendChooser.Scanning) SendScanningRow(onCancel = viewModel::dismissChooser)
+            if (sendPreflight.permissionDenied) {
                 Text(stringResource(R.string.text_banner_bluetooth_permission), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
                 // Recovery when the system no longer shows the permission dialog.
@@ -277,6 +296,11 @@ fun TextBannerScreen(
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     )
                 }) { Text(stringResource(R.string.text_banner_open_settings)) }
+            }
+            if (sendPreflight.bluetoothOff) {
+                Text(stringResource(R.string.backpack_bluetooth_off), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+                TextButton(onClick = sendPreflight.retry) { Text(stringResource(R.string.backpack_turn_on_bluetooth)) }
             }
             if (state.uploadRequested && upload.stage != UploadStage.Idle) {
                 Card(Modifier.fillMaxWidth()) {
@@ -288,7 +312,7 @@ fun TextBannerScreen(
                                 UploadStage.Connecting -> stringResource(R.string.backpack_connecting)
                                 UploadStage.Sending -> stringResource(R.string.backpack_upload_progress, (upload.progress.coerceIn(0f, 1f) * 100).toInt())
                                 UploadStage.Finishing -> stringResource(R.string.backpack_upload_finishing)
-                                UploadStage.Success -> stringResource(R.string.backpack_upload_success)
+                                UploadStage.Success -> upload.message ?: stringResource(R.string.backpack_upload_success)
                                 UploadStage.Error -> stringResource(R.string.backpack_upload_failed)
                                 UploadStage.Cancelled -> stringResource(R.string.backpack_upload_cancelled)
                             },
@@ -300,7 +324,7 @@ fun TextBannerScreen(
                             }
                         )
                         upload.multi?.let { MultiPanelStatus(upload.stage, it) }
-                        upload.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        upload.message?.takeIf { upload.stage != UploadStage.Success }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                         if (activeUpload) {
                             if (upload.stage == UploadStage.Sending) {
                                 LinearProgressIndicator(progress = { upload.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
@@ -312,31 +336,18 @@ fun TextBannerScreen(
                     }
                 }
             }
-            Text(stringResource(R.string.text_banner_prepared_title), style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.semantics { heading() })
-            OutlinedButton(onClick = viewModel::savePrepared, enabled = options.text.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.text_banner_prepared_save))
-            }
-            for (item in prepared) {
-                PreparedTextRow(
+            if (!state.loopEnabled) {
+                Text(stringResource(R.string.text_banner_prepared_title), style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() })
+                OutlinedButton(onClick = viewModel::savePrepared, enabled = options.text.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.text_banner_prepared_save))
+                }
+                for (item in prepared) {
+                    PreparedTextRow(
                     item = item,
-                    sendEnabled = !busy && !activeUpload && !sendBlocked,
-                    onSend = {
-                        if (hasPermissions()) viewModel.sendPrepared(item.id)
-                        else {
-                            pendingSend = { viewModel.sendPrepared(item.id) }
-                            launcher.launch(permissions.toTypedArray())
-                        }
-                    },
-                    sendAllEnabled = !busy && !activeUpload && myPanels.isNotEmpty(),
-                    onSendAll = {
-                        if (hasPermissions()) viewModel.sendPreparedToMyPanels(item.id)
-                        else {
-                            pendingSend = { viewModel.sendPreparedToMyPanels(item.id) }
-                            launcher.launch(permissions.toTypedArray())
-                        }
-                    },
+                    sendEnabled = !busy && !activeUpload,
+                    onSend = { sendPreflight.request { viewModel.requestSend(item.id) } },
                     onDelete = {
                         val index = prepared.indexOfFirst { it.id == item.id }
                         viewModel.deletePrepared(item.id)
@@ -347,12 +358,85 @@ fun TextBannerScreen(
                             if (result == SnackbarResult.ActionPerformed) viewModel.restorePrepared(item, index)
                         }
                     }
-                )
+                    )
+                }
             }
             TextButton(onClick = onOpenBackpack, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.text_banner_open_backpack))
             }
         }
+    }
+    (chooser as? SendChooser.Choosing)?.let { choosing ->
+        SendTargetSheet(choosing, onPick = { target -> sendPreflight.request { viewModel.chooseTarget(target) } },
+            onAll = { sendPreflight.request(viewModel::chooseAllMyPanels) },
+            onRetry = { sendPreflight.request(viewModel::retryChooser) }, onDismiss = viewModel::dismissChooser)
+    }
+}
+
+/** Compact chooser of the size the banner is composed for: automatic, one of my panels, or typed width x height. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TargetSizePicker(
+    choices: List<TextBannerSizeChoice>,
+    autoWidth: Int?,
+    autoHeight: Int?,
+    manualSize: Pair<Int, Int>?,
+    customOpen: Boolean,
+    enabled: Boolean,
+    onAuto: () -> Unit,
+    onPick: (Pair<Int, Int>) -> Unit,
+    onCustom: () -> Unit,
+    onCustomSize: (Pair<Int, Int>) -> Unit
+) {
+    Text(stringResource(R.string.text_banner_target_title), style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.semantics { heading() })
+    FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(selected = manualSize == null && !customOpen, enabled = enabled, onClick = onAuto, label = {
+            Text(if (autoWidth != null && autoHeight != null)
+                stringResource(R.string.text_banner_target_auto_size, autoWidth, autoHeight)
+            else stringResource(R.string.text_banner_target_auto))
+        })
+        for (choice in choices) {
+            val size = choice.width to choice.height
+            FilterChip(selected = manualSize == size && !customOpen, enabled = enabled, onClick = { onPick(size) }, label = {
+                Text(if (choice.name.isNullOrBlank()) stringResource(R.string.text_banner_target_size, choice.width, choice.height)
+                    else stringResource(R.string.text_banner_target_panel, choice.name, choice.width, choice.height))
+            })
+        }
+        FilterChip(selected = customOpen, enabled = enabled, onClick = onCustom,
+            label = { Text(stringResource(R.string.text_banner_target_custom)) })
+    }
+    if (customOpen) {
+        var widthText by rememberSaveable { mutableStateOf(manualSize?.first?.toString() ?: "") }
+        var heightText by rememberSaveable { mutableStateOf(manualSize?.second?.toString() ?: "") }
+        val parsed = TextBannerPanelSize.parse(widthText, heightText)
+        val invalid = parsed == null && (widthText.isNotEmpty() || heightText.isNotEmpty())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+            for (isWidth in listOf(true, false)) {
+                OutlinedTextField(
+                    value = if (isWidth) widthText else heightText,
+                    onValueChange = { raw ->
+                        val digits = raw.filter { it.isDigit() }.take(3)
+                        if (isWidth) widthText = digits else heightText = digits
+                        TextBannerPanelSize.parse(if (isWidth) digits else widthText, if (isWidth) heightText else digits)
+                            ?.let(onCustomSize)
+                    },
+                    label = { Text(stringResource(if (isWidth) R.string.text_banner_target_width else R.string.text_banner_target_height)) },
+                    singleLine = true,
+                    isError = invalid,
+                    enabled = enabled,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        Text(
+            stringResource(if (invalid) R.string.text_banner_target_invalid else R.string.text_banner_target_hint,
+                TextBannerLayout.MIN_PANEL_SIDE, TextBannerLayout.MAX_PANEL_SIDE),
+            color = if (invalid) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.semantics { if (invalid) liveRegion = LiveRegionMode.Polite }
+        )
     }
 }
 
@@ -362,8 +446,6 @@ private fun PreparedTextRow(
     item: PreparedText,
     sendEnabled: Boolean,
     onSend: () -> Unit,
-    sendAllEnabled: Boolean,
-    onSendAll: () -> Unit,
     onDelete: () -> Unit
 ) {
     // Text on its own line, actions wrap below it, so nothing is squeezed at large font scales.
@@ -377,9 +459,6 @@ private fun PreparedTextRow(
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = onSend, enabled = sendEnabled) { Text(stringResource(R.string.text_banner_prepared_send)) }
-        val sendAllLabel = stringResource(R.string.multi_send_action)
-        TextButton(onClick = onSendAll, enabled = sendAllEnabled,
-            modifier = Modifier.semantics { contentDescription = sendAllLabel }) { Text(stringResource(R.string.multi_send_short)) }
         TextButton(onClick = onDelete) { Text(stringResource(R.string.text_banner_prepared_delete)) }
     }
     }

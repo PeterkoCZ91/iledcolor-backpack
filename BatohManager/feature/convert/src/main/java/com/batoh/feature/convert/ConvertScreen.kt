@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -64,6 +65,8 @@ private val SuccessGreen = Color(0xFF2E7D32)
 fun ConvertRoute(
     onBack: () -> Unit,
     onNavigateToLibrary: () -> Unit,
+    onSendToPanel: (String) -> Unit,
+    onEditGif: (String) -> Unit,
     viewModel: ConvertViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,7 +80,9 @@ fun ConvertRoute(
         onReset = viewModel::onReset,
         onCancel = viewModel::cancelConversion,
         onBack = onBack,
-        onNavigateToLibrary = onNavigateToLibrary
+        onNavigateToLibrary = onNavigateToLibrary,
+        onSendToPanel = onSendToPanel,
+        onEditGif = onEditGif
     )
 }
 
@@ -91,7 +96,9 @@ fun ConvertScreen(
     onReset: () -> Unit,
     onCancel: () -> Unit,
     onBack: () -> Unit,
-    onNavigateToLibrary: () -> Unit
+    onNavigateToLibrary: () -> Unit,
+    onSendToPanel: (String) -> Unit,
+    onEditGif: (String) -> Unit
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -170,7 +177,9 @@ fun ConvertScreen(
                     PreviewContent(
                         gifUri = uiState.gifUri.toString(),
                         onReset = onReset,
-                        onNavigateToLibrary = onNavigateToLibrary
+                        onNavigateToLibrary = onNavigateToLibrary,
+                        onSendToPanel = onSendToPanel,
+                        onEditGif = onEditGif
                     )
                 }
             }
@@ -292,7 +301,9 @@ private fun ProgressContent(label: String, progress: Float) {
 private fun PreviewContent(
     gifUri: String,
     onReset: () -> Unit,
-    onNavigateToLibrary: () -> Unit
+    onNavigateToLibrary: () -> Unit,
+    onSendToPanel: (String) -> Unit,
+    onEditGif: (String) -> Unit
 ) {
     Text(
         text = stringResource(R.string.convert_saved),
@@ -331,7 +342,7 @@ private fun PreviewContent(
     Spacer(modifier = Modifier.height(32.dp))
 
     Button(
-        onClick = onNavigateToLibrary,
+        onClick = { onSendToPanel(gifUri) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 72.dp),
@@ -341,7 +352,7 @@ private fun PreviewContent(
         )
     ) {
         Text(
-            text = stringResource(R.string.convert_go_to_library),
+            text = stringResource(R.string.convert_send_to_panel),
             style = MaterialTheme.typography.titleMedium
         )
     }
@@ -349,7 +360,7 @@ private fun PreviewContent(
     Spacer(modifier = Modifier.height(16.dp))
 
     Button(
-        onClick = onReset,
+        onClick = { onEditGif(gifUri) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp),
@@ -358,12 +369,20 @@ private fun PreviewContent(
             containerColor = MaterialTheme.colorScheme.secondary
         )
     ) {
-        Icon(Icons.Default.Refresh, contentDescription = null)
-        Spacer(modifier = Modifier.padding(4.dp))
         Text(
-            text = stringResource(R.string.convert_another),
+            text = stringResource(R.string.convert_edit_gif),
             style = MaterialTheme.typography.titleSmall
         )
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+    TextButton(onClick = onNavigateToLibrary, modifier = Modifier.heightIn(min = 48.dp)) {
+        Text(stringResource(R.string.convert_go_to_library))
+    }
+    TextButton(onClick = onReset, modifier = Modifier.heightIn(min = 48.dp)) {
+        Icon(Icons.Default.Refresh, contentDescription = null)
+        Spacer(modifier = Modifier.padding(4.dp))
+        Text(stringResource(R.string.convert_another))
     }
 }
 

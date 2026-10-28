@@ -58,12 +58,12 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.batoh.core.common.LastPanelSize
+import com.batoh.core.common.LastSendTarget
 
 @Composable
 fun DetailRoute(
     onBack: () -> Unit,
     onSendToBackpack: (String) -> Unit,
-    onSendToMyPanels: (String) -> Unit,
     onEditGif: (String) -> Unit,
     viewModel: DetailViewModel = hiltViewModel()
 ) {
@@ -77,7 +77,6 @@ fun DetailRoute(
         onSaveClick = viewModel::onSaveClick,
         onConvertForBackpackClick = viewModel::onConvertForBackpackClick,
         onSendToBackpack = { onSendToBackpack(viewModel.gifUrl) },
-        onSendToMyPanels = { onSendToMyPanels(viewModel.gifUrl) },
         onEditGif = { onEditGif(viewModel.gifUrl) },
         onBack = onBack
     )
@@ -93,7 +92,6 @@ fun DetailScreen(
     onSaveClick: () -> Unit,
     onConvertForBackpackClick: () -> Unit,
     onSendToBackpack: () -> Unit,
-    onSendToMyPanels: () -> Unit,
     onEditGif: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -132,7 +130,6 @@ fun DetailScreen(
                 onSaveClick = onSaveClick,
                 onConvertForBackpackClick = onConvertForBackpackClick,
                 onSendToBackpack = onSendToBackpack,
-                onSendToMyPanels = onSendToMyPanels,
                 onEditGif = onEditGif,
                 previewLoaded = previewLoaded
             )
@@ -243,10 +240,10 @@ private fun DetailActionBar(
     onSaveClick: () -> Unit,
     onConvertForBackpackClick: () -> Unit,
     onSendToBackpack: () -> Unit,
-    onSendToMyPanels: () -> Unit,
     onEditGif: () -> Unit,
     previewLoaded: Boolean
 ) {
+    val lastTarget = LastSendTarget.read(LocalContext.current)
     Surface(tonalElevation = 2.dp) {
         Column(
             modifier = Modifier
@@ -259,8 +256,12 @@ private fun DetailActionBar(
             if (isLocal) {
                 Button(onClick = onSendToBackpack, enabled = previewLoaded,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_send_to_backpack)) }
-                androidx.compose.material3.OutlinedButton(onClick = onSendToMyPanels, enabled = previewLoaded,
-                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_send_to_my_panels)) }
+                if (lastTarget != null) {
+                    Text(stringResource(R.string.detail_last_target_check,
+                        lastTarget.name ?: stringResource(R.string.detail_last_target_unknown)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 androidx.compose.material3.OutlinedButton(onClick = onEditGif, enabled = previewLoaded,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.detail_edit_for_backpack)) }
                 // No early return here: return@Column from an inline composable lambda

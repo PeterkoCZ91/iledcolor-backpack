@@ -143,11 +143,6 @@
     <string name="text_banner_prepared_deleted">Text deleted</string>
     <string name="text_banner_prepared_undo">Undo</string>
     <string name="ipixel_brightness">Brightness: %1$d %%</string>
-    <string name="ipixel_clock">Clock</string>
-    <string name="ipixel_clock_style">Clock style</string>
-    <string name="ipixel_clock_24h">24-hour format</string>
-    <string name="ipixel_clock_date">Show date</string>
-    <string name="ipixel_clock_show">Show clock</string>
     <string name="ipixel_setting_failed">Could not apply the panel setting.</string>
     <string name="my_panels_title">My panels</string>
     <string name="my_panels_hint">Panels you picked in the nearby panels list. Only these receive “Send to all my panels”.</string>

@@ -24,6 +24,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val incomingGif: IncomingGifViewModel by viewModels()
+    private val incomingMedia: IncomingMediaViewModel by viewModels()
     private var pendingSharedUri: android.net.Uri? = null
     // Set once the user refused the legacy permission; survives recreation so we do not ask again.
     private var legacyPermissionDenied = false
@@ -47,6 +48,12 @@ class MainActivity : AppCompatActivity() {
         }
         val clipUri = intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
         (uri ?: clipUri)?.let { shared ->
+            when (SharedKind.of(intent.type ?: runCatching { contentResolver.getType(shared) }.getOrNull())) {
+                // A replayed launch intent (rotation, process restore) must not start a second conversion.
+                SharedKind.Video -> { if (!restoring) incomingMedia.submitVideo(shared); return }
+                SharedKind.Image -> { if (!restoring) incomingMedia.submitImage(shared); return }
+                SharedKind.Gif -> Unit
+            }
             if (android.os.Build.VERSION.SDK_INT < 29 && androidx.core.content.ContextCompat.checkSelfPermission(
                     this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 // After recreation the permission dialog result is redelivered for the restored
@@ -140,6 +147,9 @@ class MainActivity : AppCompatActivity() {
                     incomingGif = incoming,
                     onIncomingNavigationHandled = incomingGif::navigationHandled,
                     onDismissIncomingMessage = incomingGif::dismissMessage,
+                    incomingMedia = incomingMedia.state.collectAsStateWithLifecycle().value,
+                    onIncomingMediaHandled = incomingMedia::handled,
+                    onDismissIncomingMediaMessage = incomingMedia::dismissMessage,
                     themeMode = themeMode,
                     gridColumns = gridColumns,
                     appLanguage = AppCompatDelegate.getApplicationLocales().toLanguageTags()
@@ -174,5 +184,21 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val KEY_PENDING_LEGACY_SHARE = "pending_legacy_share"
         const val KEY_LEGACY_PERMISSION_DENIED = "legacy_permission_denied"
+    }
+}
+
+/** How a shared item is handled; anything that is not clearly a video or PNG/JPEG keeps the GIF import path. */
+internal enum class SharedKind {
+    Gif, Video, Image;
+
+    companion object {
+        fun of(mimeType: String?): SharedKind {
+            val type = mimeType?.substringBefore(';')?.trim()?.lowercase() ?: return Gif
+            return when {
+                type.startsWith("video/") -> Video
+                type == "image/png" || type == "image/jpeg" -> Image
+                else -> Gif
+            }
+        }
     }
 }

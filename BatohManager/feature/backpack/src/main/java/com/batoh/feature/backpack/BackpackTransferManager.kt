@@ -13,6 +13,7 @@ import com.batoh.core.conversion.EffectTestGif
 import com.batoh.core.conversion.TestPatternGif
 import com.batoh.core.conversion.TextBannerOptions
 import com.batoh.core.conversion.TextBannerRenderer
+import com.batoh.core.conversion.TextLoopRenderer
 import com.batoh.core.data.bluetooth.BackpackCommands
 import com.batoh.core.data.bluetooth.BackpackInfoFormatter
 import com.batoh.core.data.bluetooth.BackpackPasswordStatus
@@ -97,6 +98,9 @@ class BackpackTransferManager @Inject constructor(
     /** A user-built programme sequence waiting for the backpack screen to grant permissions and start it. */
     private var stagedSequence: StagedSequence? = null
     private class StagedSequence(val payloads: List<ByteArray>, val stagedAtMs: Long)
+    fun hasStagedSequence(): Boolean = stagedSequence?.let {
+        System.currentTimeMillis() - it.stagedAtMs <= STAGED_SEQUENCE_TTL_MS
+    } == true
     private val initialized = MutableStateFlow(false)
     private val settingsBusy = MutableStateFlow(false)
     private val transferBusy = MutableStateFlow(false)
@@ -256,6 +260,11 @@ class BackpackTransferManager @Inject constructor(
         val payload = PanelUploadPrep.eagerProgramme(copy, isIPixel(), playback)
         startUpload(UploadRequest(name ?: localizedString(R.string.backpack_program_name), null, payload, gif = copy, playback = playback))
     }
+
+    /** Sends ready GIF bytes to the panel explicitly chosen in the send sheet. */
+    fun uploadGifBytesToPanel(gif: ByteArray, name: String?, address: String) =
+        startUpload(UploadRequest(name ?: localizedString(R.string.backpack_program_name), null,
+            gif = gif.copyOf(), panelAddress = address))
     /** Backpack: the 64x64 test pattern programme; iPixel: the test pattern at the panel size. */
     fun sendTestImage() = startUpload(UploadRequest(localizedString(R.string.backpack_test_image_name), null, test = true))
     /** Experimental: one upload of the asymmetric [EffectTestGif] with programme item effect code [effect]. */
@@ -389,7 +398,10 @@ class BackpackTransferManager @Inject constructor(
         } catch (e: Exception) {
             throw UploadFailureException(UploadFailure.GifUnreadable, e)
         }) ?: throw UploadFailureException(UploadFailure.GifUnreadable)
-        return gif
+        return if (StaticImageGif.isSupported(gif)) {
+            try { StaticImageGif.convert(gif) }
+            catch (e: Exception) { throw UploadFailureException(UploadFailure.GifInvalid, e) }
+        } else gif
     }
 
     private inline fun buildPayload(block: () -> ByteArray): ByteArray = PanelUploadPrep.payload(block)
@@ -531,6 +543,10 @@ class BackpackTransferManager @Inject constructor(
     fun uploadBannerToMyPanels(options: TextBannerOptions, name: String) =
         startMultiUpload(MultiPanelContent.Banner(name, options))
 
+    /** Builds the four-part loop separately for each picked panel's actual dimensions. */
+    fun uploadTextLoopToMyPanels(texts: List<String>, textColor: Int, backgroundColor: Int, bold: Boolean, name: String) =
+        startMultiUpload(MultiPanelContent.TextLoop(name, texts.toList(), textColor, backgroundColor, bold))
+
     /**
      * "Send to all my panels": a quick scan for the picked panels, then one at a time connect, wait for Ready and
      * initialisation, upload through [uploadToReadyPanel], record history, disconnect. A failing panel does not stop
@@ -650,6 +666,16 @@ class BackpackTransferManager @Inject constructor(
                             TextBannerRenderer.render(content.options, spec.width, spec.height) { taskContext.ensureActive() }.gifBytes
                         }
                         UploadRequest(content.name, null, gif = banner) to banner
+                    }
+                    is MultiPanelContent.TextLoop -> {
+                        val spec = bluetoothManager.connectedPanel.value
+                            ?: throw UploadFailureException(UploadFailure.Unknown, IllegalStateException("Panel of unknown type"))
+                        val gif = withContext(Dispatchers.Default) {
+                            val taskContext = currentCoroutineContext()
+                            TextLoopRenderer.render(content.texts, spec.width, spec.height,
+                                content.textColor, content.backgroundColor, content.bold) { taskContext.ensureActive() }
+                        }
+                        UploadRequest(content.name, null, gif = gif) to gif
                     }
                 }
                 when (uploadToReadyPanel(request, gif, emptyList())) {
@@ -896,6 +922,8 @@ class BackpackTransferManager @Inject constructor(
         class ReadyGif(override val name: String, val gif: ByteArray, val playback: EditorPlaybackOptions?) : MultiPanelContent
         /** A text banner, rendered at each panel's own size. */
         class Banner(override val name: String, val options: TextBannerOptions) : MultiPanelContent
+        class TextLoop(override val name: String, val texts: List<String>, val textColor: Int,
+                       val backgroundColor: Int, val bold: Boolean) : MultiPanelContent
     }
 
     private companion object {

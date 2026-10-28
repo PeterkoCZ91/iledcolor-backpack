@@ -1,0 +1,4 @@
+<resources>
+    <string name="shortcut_panel_short">Panel</string>
+    <string name="shortcut_panel_long">Open the panel</string>
+</resources>

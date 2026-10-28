@@ -46,6 +46,8 @@
     <string name="category_hello">Hello</string>
     <string name="category_lol">LOL</string>
     <string name="search_title">Search</string>
+    <string name="search_last_target_check">Last panel: %1$s · range checked when sending</string>
+    <string name="search_last_target_unknown">unknown</string>
     <string name="search_recent">Recent searches</string>
     <string name="search_categories_heading">Categories</string>
     <string name="search_back">Back</string>

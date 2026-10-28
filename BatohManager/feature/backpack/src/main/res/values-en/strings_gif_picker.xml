@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gif_picker_search_hint">Search by name</string>
+    <string name="gif_picker_search_clear">Clear search</string>
+    <string name="gif_picker_no_match">Nothing found. Try another word.</string>
+    <string name="gif_picker_clear_search_action">Clear search</string>
+    <string name="gif_picker_close_action">Close</string>
+    <string name="gif_picker_not_square_badge">Will be resized</string>
+</resources>

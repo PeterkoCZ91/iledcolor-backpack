@@ -95,7 +95,7 @@ class DetailViewModel @Inject constructor(
                     _uiState.value = DetailUiState.Converting(progress)
                 }
 
-                val title = "batoh_${System.currentTimeMillis()}"
+                val title = "gif_${System.currentTimeMillis()}"
                 when (val result = saveGifBytesUseCase(gifBytes, title)) {
                     is Result.Success -> _uiState.value = DetailUiState.ConvertedAndSaved
                     is Result.Error -> _uiState.value =

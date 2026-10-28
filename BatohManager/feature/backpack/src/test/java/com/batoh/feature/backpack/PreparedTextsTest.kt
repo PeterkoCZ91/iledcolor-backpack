@@ -1,5 +1,6 @@
 package com.batoh.feature.backpack
 
+import com.batoh.core.conversion.TextBannerDirection
 import com.batoh.core.conversion.TextBannerOptions
 import com.batoh.core.conversion.TextBannerSize
 import com.batoh.core.conversion.TextBannerSpeed
@@ -18,6 +19,29 @@ class PreparedTextsTest {
             item(1)
         )
         assertEquals(list, PreparedTexts.decode(PreparedTexts.encode(list)))
+    }
+
+    @Test
+    fun roundTrip_keepsDirection() {
+        val list = listOf(PreparedText(5, TextBannerOptions("abc", direction = TextBannerDirection.LeftToRight)))
+        val decoded = PreparedTexts.decode(PreparedTexts.encode(list))
+        assertEquals(list, decoded)
+        assertEquals(TextBannerDirection.LeftToRight, decoded.single().options.direction)
+    }
+
+    @Test
+    fun decode_legacySevenFieldEntryDefaultsToRightToLeft() {
+        val legacy = "9\t-1\t-16777216\tNormal\tMedium\ttrue\tabc"
+        val decoded = PreparedTexts.decode(legacy)
+        assertEquals(1, decoded.size)
+        assertEquals(TextBannerDirection.RightToLeft, decoded.single().options.direction)
+        assertEquals("abc", decoded.single().options.text)
+    }
+
+    @Test
+    fun decode_unknownDirectionSkipsOnlyThatEntry() {
+        val raw = "9\t-1\t-16777216\tNormal\tMedium\ttrue\tabc\tSIDEWAYS"
+        assertTrue(PreparedTexts.decode(raw).isEmpty())
     }
 
     @Test

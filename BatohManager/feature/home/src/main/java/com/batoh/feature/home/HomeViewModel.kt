@@ -24,6 +24,15 @@ class HomeViewModel @Inject constructor(
     getLibraryEntries: GetLibraryEntriesUseCase
 ) : ViewModel() {
 
+    /** True when no panel is saved in My panels yet (drives the first-run card). */
+    val noSavedPanel: StateFlow<Boolean> = bluetoothManager.myPanels
+        .map { it.isEmpty() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = bluetoothManager.myPanels.value.isEmpty()
+        )
+
     val backpackStatus: StateFlow<HomeBackpackStatus> = combine(
         bluetoothManager.connectionStatus,
         bluetoothManager.deviceName,

@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import com.batoh.core.common.LastSendTarget
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -137,6 +138,7 @@ fun SearchScreen(
     onToggleCategoryPin: (GifCategory) -> Unit = {},
     onRetryCategories: () -> Unit = {}
 ) {
+    val lastTarget = LastSendTarget.read(LocalContext.current)
     var showFilterSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -217,6 +219,13 @@ fun SearchScreen(
                     unfocusedIndicatorColor = Color.Transparent
                 )
             )
+            if (lastTarget != null && searchQuery.isNotBlank()) {
+                Text(stringResource(R.string.search_last_target_check,
+                    lastTarget.name ?: stringResource(R.string.search_last_target_unknown)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+            }
 
             if (searchQuery.isEmpty() && searchHistory.isNotEmpty()) {
                 Text(

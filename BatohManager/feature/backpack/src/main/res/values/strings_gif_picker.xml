@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gif_picker_search_hint">Hledat podle názvu</string>
+    <string name="gif_picker_search_clear">Smazat hledání</string>
+    <string name="gif_picker_no_match">Nic nenalezeno. Zkus jiné slovo.</string>
+    <string name="gif_picker_clear_search_action">Zrušit hledání</string>
+    <string name="gif_picker_close_action">Zavřít</string>
+    <string name="gif_picker_not_square_badge">Přizpůsobí se</string>
+</resources>

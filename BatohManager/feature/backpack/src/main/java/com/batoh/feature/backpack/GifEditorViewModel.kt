@@ -243,7 +243,7 @@ class GifEditorViewModel @Inject constructor(
         _state.value = current.copy(saving = true, error = null)
         saveJob = viewModelScope.launch {
             try {
-                when (val saved = saveGifBytes(bytes, "batoh_upraveny")) {
+                when (val saved = saveGifBytes(bytes, "gif_edited")) {
                     is Result.Success -> {
                         val uri = saved.data.toString()
                         _state.value = _state.value.copy(saving = false, savedUri = uri)

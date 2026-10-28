@@ -145,11 +145,6 @@
     <string name="text_banner_prepared_deleted">Text smazán</string>
     <string name="text_banner_prepared_undo">Vrátit</string>
     <string name="ipixel_brightness">Jas: %1$d %%</string>
-    <string name="ipixel_clock">Hodiny</string>
-    <string name="ipixel_clock_style">Styl hodin</string>
-    <string name="ipixel_clock_24h">24hodinový formát</string>
-    <string name="ipixel_clock_date">Zobrazit datum</string>
-    <string name="ipixel_clock_show">Zobrazit hodiny</string>
     <string name="ipixel_setting_failed">Nastavení panelu se nepodařilo použít.</string>
     <string name="my_panels_title">Moje panely</string>
     <string name="my_panels_hint">Sem se přidá každý panel, který vybereš v seznamu Panely v okolí. „Poslat na všechny moje panely“ posílá jen na ně, nikdy na cizí panely.</string>

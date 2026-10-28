@@ -38,4 +38,6 @@
     <string name="more_section_about">About</string>
     <string name="home_search_hint">Search GIFs…</string>
     <string name="home_recent_show_all">Show all</string>
+    <string name="home_first_panel_title">Connect your first panel</string>
+    <string name="home_first_panel_button">Connect a panel</string>
 </resources>

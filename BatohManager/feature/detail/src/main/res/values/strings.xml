@@ -9,6 +9,8 @@
     <string name="detail_converting">Konverze… %1$d%%</string>
     <string name="detail_converted">Uloženo pro panel</string>
     <string name="detail_send_to_backpack">Odeslat do panelu</string>
+    <string name="detail_last_target_check">Poslední panel: %1$s · dosah ověřím při odeslání</string>
+    <string name="detail_last_target_unknown">neznámý</string>
     <string name="detail_edit_for_backpack">Upravit pro panel</string>
     <string name="detail_download_failed">Stahování selhalo</string>
     <string name="detail_unknown_status">Neznámý stav stahování</string>
@@ -19,5 +21,4 @@
     <string name="detail_preview_loaded">Náhled GIFu načten</string>
     <string name="detail_preview_description">Náhled GIFu</string>
     <string name="detail_preview_failed">GIF se nepodařilo zobrazit. Soubor může být poškozený; zkus ho stáhnout znovu.</string>
-    <string name="detail_send_to_my_panels">Odeslat na všechny moje panely</string>
 </resources>

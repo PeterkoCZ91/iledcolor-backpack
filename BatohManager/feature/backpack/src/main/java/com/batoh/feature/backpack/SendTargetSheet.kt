@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +18,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -30,7 +35,8 @@ sealed interface SendChooser {
     object Hidden : SendChooser
     /** Looking for my panels in range; shown inline, no sheet yet. */
     data class Scanning(val uri: android.net.Uri) : SendChooser
-    data class Choosing(val uri: android.net.Uri, val targets: List<SendTarget>, val offerAll: Boolean) : SendChooser
+    data class Choosing(val uri: android.net.Uri, val targets: List<SendTarget>, val offerAll: Boolean,
+                        val preferredAddress: String? = null) : SendChooser
 }
 
 /** "Name · W × H · connected/in range" as one line; the size reads "unknown type" while the panel's size is unknown. */
@@ -49,6 +55,8 @@ internal fun SendTargetSheet(
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val preferred = SendTargetPlan.preferred(state.targets, state.preferredAddress)
+    var showOtherTargets by remember(state.targets, state.preferredAddress) { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.send_target_title), style = MaterialTheme.typography.titleLarge,
@@ -60,7 +68,18 @@ internal fun SendTargetSheet(
                     Text(stringResource(R.string.send_target_retry))
                 }
             }
-            state.targets.forEach { target ->
+            if (preferred != null && !showOtherTargets) {
+                val name = preferred.name ?: stringResource(R.string.backpack_unknown_device)
+                Button(onClick = { onPick(preferred) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.send_target_preferred, name))
+                }
+                Text(sendTargetDetails(preferred), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 4.dp))
+                OutlinedButton(onClick = { showOtherTargets = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.send_target_another))
+                }
+            }
+            if (preferred == null || showOtherTargets) state.targets.forEach { target ->
                 val name = target.name ?: stringResource(R.string.backpack_unknown_device)
                 ListItem(
                     headlineContent = { Text(name) },
@@ -70,7 +89,7 @@ internal fun SendTargetSheet(
                         onClick = { onPick(target) })
                 )
             }
-            if (state.offerAll) {
+            if (state.offerAll && (preferred == null || showOtherTargets)) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.send_target_all)) },
                     supportingContent = { Text(stringResource(R.string.send_target_all_hint)) },

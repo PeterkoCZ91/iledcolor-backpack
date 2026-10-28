@@ -281,6 +281,6 @@ class GifChainViewModel @Inject constructor(
 
     private companion object {
         const val DEBOUNCE_MS = 400L
-        const val SAVE_TITLE = "batoh_spojeny"
+        const val SAVE_TITLE = "gif_joined"
     }
 }

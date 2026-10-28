@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="incoming_media_preparing">Připravuji sdílený soubor…</string>
+    <string name="incoming_video_converting">Převádím sdílené video na GIF…</string>
+    <string name="incoming_media_too_large">Sdílený soubor je příliš velký</string>
+    <string name="incoming_media_failed">Sdílený soubor se nepodařilo zpracovat. Zkus ho sdílet znovu.</string>
+</resources>

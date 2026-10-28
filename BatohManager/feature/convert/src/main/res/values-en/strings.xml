@@ -11,6 +11,8 @@
     <string name="convert_saved">GIF saved to collection!</string>
     <string name="convert_preview_label">Preview (enlarged, the GIF is a small square)</string>
     <string name="convert_go_to_library">Go to Collection</string>
+    <string name="convert_send_to_panel">Send to panel…</string>
+    <string name="convert_edit_gif">Edit GIF</string>
     <string name="convert_another">Convert another video</string>
     <string name="convert_paste_clipboard">Paste from clipboard</string>
     <string name="convert_cancel">Cancel conversion</string>

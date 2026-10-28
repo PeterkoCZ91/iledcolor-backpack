@@ -54,6 +54,7 @@ fun HomeRoute(
 ) {
     val backpackStatus by viewModel.backpackStatus.collectAsStateWithLifecycle()
     val recentGifs by viewModel.recentGifs.collectAsStateWithLifecycle()
+    val noSavedPanel by viewModel.noSavedPanel.collectAsStateWithLifecycle()
     HomeScreen(
         onSearchClick = onNavigateToSearch,
         onLibraryClick = onNavigateToLibrary,
@@ -62,7 +63,8 @@ fun HomeRoute(
         onTextBannerClick = onNavigateToTextBanner,
         backpackStatus = backpackStatus,
         recentGifs = recentGifs,
-        onRecentGifClick = onNavigateToDetail
+        onRecentGifClick = onNavigateToDetail,
+        showFirstPanelCard = noSavedPanel
     )
 }
 
@@ -76,7 +78,8 @@ fun HomeScreen(
     onTextBannerClick: () -> Unit = {},
     backpackStatus: HomeBackpackStatus = HomeBackpackStatus(),
     recentGifs: List<HomeRecentGif> = emptyList(),
-    onRecentGifClick: (String) -> Unit = {}
+    onRecentGifClick: (String) -> Unit = {},
+    showFirstPanelCard: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -85,6 +88,9 @@ fun HomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (showFirstPanelCard) {
+            FirstPanelCard(onConnectClick = onBackpackClick)
+        }
         BackpackStatusCard(status = backpackStatus, onClick = onBackpackClick)
         SearchEntry(onClick = onSearchClick)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
@@ -111,6 +117,25 @@ fun HomeScreen(
         }
         if (recentGifs.isNotEmpty()) {
             RecentGifsRow(gifs = recentGifs, onGifClick = onRecentGifClick, onShowAll = onLibraryClick)
+        }
+    }
+}
+
+/** First-run card shown until a panel is saved in My panels; the button opens the Panel tab. */
+@Composable
+private fun FirstPanelCard(onConnectClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.home_first_panel_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Button(onClick = onConnectClick, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.home_first_panel_button))
+            }
         }
     }
 }

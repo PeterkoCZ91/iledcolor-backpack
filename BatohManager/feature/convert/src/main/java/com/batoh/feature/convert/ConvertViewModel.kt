@@ -73,7 +73,7 @@ class ConvertViewModel @Inject constructor(
 
                 _uiState.value = ConvertUiState.Converting(100)
 
-                val title = "batoh_${System.currentTimeMillis()}"
+                val title = "gif_${System.currentTimeMillis()}"
                 when (val result = saveGifBytesUseCase(gifBytes, title)) {
                     is Result.Success -> _uiState.value = ConvertUiState.Preview(result.data)
                     is Result.Error -> _uiState.value =

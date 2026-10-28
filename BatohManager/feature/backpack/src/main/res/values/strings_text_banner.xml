@@ -3,6 +3,11 @@
     <string name="text_banner_title">Běžící text</string>
     <string name="text_banner_input_label">Text</string>
     <string name="text_banner_input_hint">%1$d / %2$d znaků</string>
+    <string name="text_loop_enable">Smyčka čtyř textů</string>
+    <string name="text_loop_first">Text 1</string>
+    <string name="text_loop_next">Text %1$d</string>
+    <string name="text_loop_hint">Každý text se posouvá 10 sekund; pak se smyčka opakuje. Náhled ukazuje první text. Smyčku lze zatím jen odeslat.</string>
+    <string name="text_loop_preparing">Připravuji smyčku…</string>
     <string name="text_banner_preview_title">Náhled</string>
     <string name="text_banner_preview_description">Náhled běžícího textu</string>
     <string name="text_banner_empty">Napiš text, který má po panelu běžet.</string>
@@ -20,6 +25,9 @@
     <string name="text_banner_speed_slow">Pomalu</string>
     <string name="text_banner_speed_normal">Středně</string>
     <string name="text_banner_speed_fast">Rychle</string>
+    <string name="text_banner_direction">Směr</string>
+    <string name="text_banner_direction_left">Doleva</string>
+    <string name="text_banner_direction_right">Doprava</string>
     <string name="text_banner_size">Velikost písma</string>
     <string name="text_banner_size_small">Malé</string>
     <string name="text_banner_size_medium">Střední</string>
@@ -43,4 +51,14 @@
     <string name="text_banner_color_blue">Modrá</string>
     <string name="text_banner_color_magenta">Purpurová</string>
     <string name="text_banner_color_black">Černá</string>
+    <string name="text_banner_target_title">Velikost panelu</string>
+    <string name="text_banner_target_auto">Automaticky</string>
+    <string name="text_banner_target_auto_size">Automaticky · %1$d × %2$d</string>
+    <string name="text_banner_target_panel">%1$s · %2$d × %3$d</string>
+    <string name="text_banner_target_custom">Jiná velikost</string>
+    <string name="text_banner_target_width">Šířka</string>
+    <string name="text_banner_target_height">Výška</string>
+    <string name="text_banner_target_invalid">Zadej u obou stran %1$d až %2$d pixelů.</string>
+    <string name="text_banner_target_hint">Použije se pro panel, který svou velikost nehlásí (%1$d až %2$d pixelů).</string>
+    <string name="text_banner_target_size">%1$d × %2$d</string>
 </resources>

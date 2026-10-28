@@ -10,7 +10,8 @@ class TextBannerSavedOptionsTest {
     @Test
     fun roundTripsAllOptions() {
         val options = TextBannerOptions("Hello", 0xFF112233.toInt(), 0xFF445566.toInt(),
-            TextBannerSpeed.entries.last(), TextBannerSize.entries.first(), bold = false)
+            TextBannerSpeed.entries.last(), TextBannerSize.entries.first(), bold = false,
+            direction = com.batoh.core.conversion.TextBannerDirection.LeftToRight)
         val store = mutableMapOf<String, Any>()
         TextBannerSavedOptions.write(options) { k, v -> store[k] = v }
         assertEquals(options, TextBannerSavedOptions.read { store[it] })

@@ -6,6 +6,9 @@
     <string name="send_target_all_hint">The GIF is sent to all your panels in range, one after another.</string>
     <string name="send_target_none">None of your panels is in range right now. Turn the panel on, move closer and try again.</string>
     <string name="send_target_retry">Search again</string>
+    <string name="send_target_preferred">Send to %1$s</string>
+    <string name="send_target_another">Another panel…</string>
+    <string name="send_failure_choose_another">Choose another panel</string>
     <string name="send_target_sending">Sending to %1$s</string>
     <string name="send_target_sending_sized">Sending to %1$s (%2$s)</string>
     <string name="send_target_a11y_send_to">Send to panel %1$s</string>
@@ -14,8 +17,8 @@
     <string name="send_action_a11y">Send a GIF to the panel. You choose whether from your phone or your collection.</string>
     <string name="send_source_title">Send a GIF from…</string>
     <string name="send_source_phone">From my phone</string>
-    <string name="send_source_phone_hint">Your gallery or another file on the phone.</string>
-    <string name="send_source_phone_a11y">Pick a GIF from your phone</string>
+    <string name="send_source_phone_hint">GIF, JPG or PNG from your gallery or files.</string>
+    <string name="send_source_phone_a11y">Pick a GIF or image from your phone</string>
     <string name="send_source_collection">From my collection</string>
     <string name="send_source_collection_hint">GIFs saved in the app.</string>
     <string name="send_source_collection_a11y">Pick a GIF from your collection</string>

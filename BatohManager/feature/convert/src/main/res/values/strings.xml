@@ -11,6 +11,8 @@
     <string name="convert_saved">GIF uložen do sbírky!</string>
     <string name="convert_preview_label">Náhled (zvětšený, GIF je malý čtverec)</string>
     <string name="convert_go_to_library">Přejít do sbírky</string>
+    <string name="convert_send_to_panel">Odeslat na panel…</string>
+    <string name="convert_edit_gif">Upravit GIF</string>
     <string name="convert_another">Převést další video</string>
     <string name="convert_paste_clipboard">Vložit ze schránky</string>
     <string name="convert_cancel">Zrušit převod</string>

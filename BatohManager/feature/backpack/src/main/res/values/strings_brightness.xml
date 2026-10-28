@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="brightness_preset_dim">Tlumený</string>
+    <string name="brightness_preset_normal">Normální</string>
+    <string name="brightness_preset_bright">Jasný</string>
+    <string name="clock_send">Poslat hodiny</string>
+    <string name="clock_send_hint">Ukáže čas z okamžiku odeslání, dál se sám neaktualizuje.</string>
+</resources>

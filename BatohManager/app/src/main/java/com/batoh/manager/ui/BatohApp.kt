@@ -40,6 +40,9 @@ fun BatohApp(
     incomingGif: com.batoh.manager.IncomingGifState = com.batoh.manager.IncomingGifState(),
     onIncomingNavigationHandled: (Long, String?) -> Unit = { _, _ -> },
     onDismissIncomingMessage: () -> Unit = {},
+    incomingMedia: com.batoh.manager.IncomingMediaState = com.batoh.manager.IncomingMediaState(),
+    onIncomingMediaHandled: (Long) -> Unit = {},
+    onDismissIncomingMediaMessage: () -> Unit = {},
     themeMode: UiThemeMode,
     gridColumns: Int,
     appLanguage: String,
@@ -67,9 +70,28 @@ fun BatohApp(
         val currentRoute = navBackStackEntry?.destination?.route.orEmpty()
         LaunchedEffect(incomingGif.event, incomingGif.copiedUri) {
             if (incomingGif.event != 0L) {
-                val route = incomingGif.copiedUri?.let { Screen.Detail.createRoute(it) } ?: Screen.Library.route
-                navController.navigate(route) { launchSingleTop = true }
+                val route = incomingGif.copiedUri?.let { Screen.Backpack.uploadRoute(it) } ?: Screen.Library.route
+                navController.navigate(route) {
+                    launchSingleTop = true
+                    // Already on the Panel screen: replace it, otherwise the new gif_uri argument is never read.
+                    if (currentRoute.startsWith("backpack") && route.startsWith("backpack")) {
+                        popUpTo(Screen.Backpack.route) { inclusive = true }
+                    }
+                }
                 onIncomingNavigationHandled(incomingGif.event, incomingGif.copiedUri)
+            }
+        }
+
+        // A shared video (already converted) or PNG/JPEG goes straight into the one send flow.
+        LaunchedEffect(incomingMedia.event, incomingMedia.sendUri) {
+            val sendUri = incomingMedia.sendUri
+            if (incomingMedia.event != 0L && sendUri != null) {
+                navController.navigate(Screen.Backpack.uploadRoute(sendUri)) {
+                    launchSingleTop = true
+                    // Already on the Panel screen: replace it, otherwise the new gif_uri argument is never read.
+                    if (currentRoute.startsWith("backpack")) popUpTo(Screen.Backpack.route) { inclusive = true }
+                }
+                onIncomingMediaHandled(incomingMedia.event)
             }
         }
 
@@ -83,15 +105,23 @@ fun BatohApp(
         )
 
         Scaffold(
-            snackbarHost = {
-                incomingGif.messageRes?.let { messageRes ->
+            snackbarHost = { androidx.compose.foundation.layout.Column {
+                // Failed send started on Detail/Search/Convert/shared import: Try again (+ Choose another panel).
+                com.batoh.feature.backpack.SendFailureSnackbar(
+                    onPanelScreen = currentRoute.startsWith("backpack"),
+                    onChooseAnother = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) }
+                )
+                val gifMessage = incomingGif.messageRes
+                (incomingMedia.messageRes ?: gifMessage)?.let { messageRes ->
                     androidx.compose.material3.Snackbar(action = {
-                        androidx.compose.material3.TextButton(onClick = onDismissIncomingMessage) {
+                        androidx.compose.material3.TextButton(onClick = {
+                            if (incomingMedia.messageRes != null) onDismissIncomingMediaMessage() else onDismissIncomingMessage()
+                        }) {
                             androidx.compose.material3.Text(stringResource(com.batoh.manager.R.string.common_close))
                         }
                     }) { androidx.compose.material3.Text(stringResource(messageRes)) }
                 }
-            },
+            } },
             bottomBar = {
                 val showBottomBar = bottomItems.any { currentRoute.startsWith(it.prefix) }
 
@@ -173,6 +203,8 @@ fun BatohApp(
                 composable(Screen.Convert.route) {
                     ConvertRoute(
                         onBack = { navController.popBackStack() },
+                        onSendToPanel = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
+                        onEditGif = { uri -> navController.navigate(Screen.GifEditor.createRoute(uri)) },
                         onNavigateToLibrary = {
                             navController.navigate(Screen.Library.route) {
                                 popUpTo(Screen.Convert.route) { inclusive = true }
@@ -279,7 +311,6 @@ fun BatohApp(
                 ) {
                     DetailRoute(onBack = { navController.popBackStack() },
                         onSendToBackpack = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri)) },
-                        onSendToMyPanels = { uri -> navController.navigate(Screen.Backpack.uploadRoute(uri, toMyPanels = true)) },
                         onEditGif = { uri -> navController.navigate(Screen.GifEditor.createRoute(uri)) })
                 }
             }
