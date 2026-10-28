@@ -79,6 +79,9 @@ class LibraryViewModel @Inject constructor(
     val deleteConsent = _deleteConsent.asStateFlow()
     private var pendingDelete: Gif? = null
     private var pendingDuplicateCount = 0
+    /** Context of a batch delete (duplicates or selection) waiting for the system consent dialog. */
+    private var pendingBatch: PendingBatch? = null
+    private class PendingBatch(val bulk: Boolean, val deleted: Int, val failed: Int)
     private val _duplicates = MutableStateFlow<DuplicateScanState?>(null)
     val duplicates = _duplicates.asStateFlow()
     private var duplicateJob: kotlinx.coroutines.Job? = null
@@ -154,13 +157,15 @@ class LibraryViewModel @Inject constructor(
 
     fun toggleSelection(gif: Gif) {
         val current = selection.value
-        val next = LibrarySelection.toggle(current, gif.id)
-        if (next == current) {
-            _actionMessage.value = localizedString(R.string.library_select_max, LibrarySelection.MAX_TO_CHAIN)
-            return
-        }
+        // No cap here: a big selection is fine for deleting; only Join is limited (see canChain).
         _actionMessage.value = null
-        setSelection(next)
+        setSelection(LibrarySelection.toggle(current, gif.id, max = Int.MAX_VALUE))
+    }
+
+    /** Selects every currently shown (searched/filtered) GIF, keeping the existing selection order. */
+    fun selectAll(shown: List<Gif>) {
+        _actionMessage.value = null
+        setSelection(LibrarySelection.selectAll(selection.value, shown.map { it.id }))
     }
 
     fun clearSelection() = setSelection(emptyList())
@@ -241,30 +246,47 @@ class LibraryViewModel @Inject constructor(
      */
     fun deleteDuplicates(gifs: List<Gif>) {
         _duplicates.value = null
-        if (gifs.isEmpty() || pendingDelete != null) return
+        deleteBatch(gifs, bulk = false)
+    }
+
+    /** Deletes the selected GIFs (the screen asks for one confirmation first); same machinery as duplicates. */
+    fun deleteSelected() {
+        val gifs = LibrarySelection.resolve(selection.value, allGifs.value ?: return)
+        if (gifs.isEmpty()) { clearSelection(); return }
+        deleteBatch(gifs, bulk = true)
+    }
+
+    private fun deleteBatch(gifs: List<Gif>, bulk: Boolean) {
+        if (gifs.isEmpty() || pendingDelete != null || pendingDuplicateCount > 0) return
         viewModelScope.launch {
-            val total = gifs.size
             val needConsent = ArrayList<Gif>()
+            var deleted = 0
             var failed = 0
             for (gif in gifs) {
                 val result = deleteGifUseCase(gif)
-                if (result is Result.Error) {
-                    if (Build.VERSION.SDK_INT >= 30 && result.exception is SecurityException) needConsent.add(gif)
-                    else failed++
-                } else if (result !is Result.Success) failed++
+                if (result is Result.Success) deleted++
+                else if (result is Result.Error && Build.VERSION.SDK_INT >= 30 && result.exception is SecurityException) needConsent.add(gif)
+                else failed++
             }
             if (needConsent.isNotEmpty()) {
                 try {
-                    _deleteConsent.value = MediaStore.createDeleteRequest(getApplication<Application>().contentResolver,
+                    val sender = MediaStore.createDeleteRequest(getApplication<Application>().contentResolver,
                         needConsent.map { Uri.parse(it.originalUrl) }).intentSender
+                    pendingBatch = PendingBatch(bulk, deleted, failed)
                     pendingDuplicateCount = needConsent.size
+                    _deleteConsent.value = sender
                     return@launch
                 } catch (e: Exception) {
                     failed += needConsent.size
                 }
             }
-            _actionMessage.value = duplicatesResultMessage(total - failed, failed)
+            finishBatch(bulk, deleted, failed)
         }
+    }
+
+    private fun finishBatch(bulk: Boolean, deleted: Int, failed: Int) {
+        if (bulk) clearSelection()
+        _actionMessage.value = if (bulk) bulkResultMessage(deleted, failed) else duplicatesResultMessage(deleted, failed)
     }
 
     /** Called when Coil cannot show a tile; reads the file to explain why and gate edit/send. */
@@ -378,12 +400,23 @@ class LibraryViewModel @Inject constructor(
         return if (failed == 0) done else done + " " + context.getString(R.string.library_duplicates_delete_partial, failed)
     }
 
+    private fun bulkResultMessage(deleted: Int, failed: Int): String {
+        val context = ContextCompat.getContextForLanguage(getApplication<Application>())
+        val done = if (deleted > 0) context.resources.getQuantityString(R.plurals.library_bulk_delete_result, deleted, deleted) else ""
+        return if (failed == 0) done else (done + " " + context.getString(R.string.library_bulk_delete_partial, failed)).trim()
+    }
+
     fun deleteConsentResult(approved: Boolean) {
         val dupCount = pendingDuplicateCount
         pendingDuplicateCount = 0
         if (dupCount > 0) {
-            _actionMessage.value = if (approved) duplicatesResultMessage(dupCount, 0)
-                else localizedString(R.string.library_delete_cancelled)
+            val batch = pendingBatch
+            pendingBatch = null
+            val bulk = batch?.bulk ?: false
+            val deleted = (batch?.deleted ?: 0) + if (approved) dupCount else 0
+            val failed = (batch?.failed ?: 0)
+            if (deleted == 0 && failed == 0) _actionMessage.value = localizedString(R.string.library_delete_cancelled)
+            else finishBatch(bulk, deleted, if (approved) failed else failed + dupCount)
             return
         }
         val gif = pendingDelete

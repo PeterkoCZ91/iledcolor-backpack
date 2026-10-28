@@ -10,4 +10,23 @@
     <string name="library_select_a11y_not_selected">nevybráno</string>
     <string name="library_select_toggle_label">přidat nebo odebrat z výběru</string>
     <string name="library_more_actions_description">Další akce pro %1$s</string>
+    <string name="library_select_all">Vybrat vše</string>
+    <string name="library_bulk_delete">Smazat (%1$d)</string>
+    <string name="library_bulk_delete_confirm">Smazat</string>
+    <string name="library_bulk_delete_cancel">Zrušit</string>
+    <plurals name="library_bulk_delete_title">
+        <item quantity="one">Smazat %1$d GIF z telefonu?</item>
+        <item quantity="few">Smazat %1$d GIFy z telefonu?</item>
+        <item quantity="many">Smazat %1$d GIFu z telefonu?</item>
+        <item quantity="other">Smazat %1$d GIFů z telefonu?</item>
+    </plurals>
+    <string name="library_bulk_delete_message">Vybrané GIFy se smažou z telefonu. Akci nelze vrátit.</string>
+    <string name="library_bulk_delete_message_size">Vybrané GIFy (%1$s) se smažou z telefonu. Akci nelze vrátit.</string>
+    <plurals name="library_bulk_delete_result">
+        <item quantity="one">Smazán %1$d GIF.</item>
+        <item quantity="few">Smazány %1$d GIFy.</item>
+        <item quantity="many">Smazáno %1$d GIFu.</item>
+        <item quantity="other">Smazáno %1$d GIFů.</item>
+    </plurals>
+    <string name="library_bulk_delete_partial">GIFů, které se nepodařilo smazat: %1$d.</string>
 </resources>

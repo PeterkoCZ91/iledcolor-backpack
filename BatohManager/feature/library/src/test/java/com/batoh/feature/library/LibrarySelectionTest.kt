@@ -1,6 +1,7 @@
 package com.batoh.feature.library
 
 import com.batoh.core.domain.model.Gif
+import com.batoh.core.domain.model.LibraryEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,5 +39,33 @@ class LibrarySelectionTest {
         val gifs = listOf(gif("a"), gif("b"), gif("c"))
         assertEquals(listOf("content://x/c", "content://x/a"),
             LibrarySelection.uris(listOf("c", "gone", "a"), gifs))
+    }
+
+    @Test fun cannotChainMoreThanMaximum() {
+        assertTrue(LibrarySelection.canChain((1..LibrarySelection.MAX_TO_CHAIN).map { "$it" }))
+        assertFalse(LibrarySelection.canChain((1..LibrarySelection.MAX_TO_CHAIN + 1).map { "$it" }))
+    }
+
+    @Test fun selectAllKeepsOrderAndAppendsMissing() {
+        assertEquals(listOf("c", "a", "b"), LibrarySelection.selectAll(listOf("c", "a"), listOf("a", "b", "c")))
+        assertEquals(listOf("a", "b"), LibrarySelection.selectAll(emptyList(), listOf("a", "b")))
+    }
+
+    @Test fun allSelectedNeedsNonEmptyShownList() {
+        assertFalse(LibrarySelection.allSelected(listOf("a"), emptyList()))
+        assertFalse(LibrarySelection.allSelected(listOf("a"), listOf("a", "b")))
+        assertTrue(LibrarySelection.allSelected(listOf("b", "a", "x"), listOf("a", "b")))
+    }
+
+    @Test fun resolveSkipsMissingAndKeepsSelectionOrder() {
+        val gifs = listOf(gif("a"), gif("b"), gif("c"))
+        assertEquals(listOf("c", "a"), LibrarySelection.resolve(listOf("c", "gone", "a"), gifs).map { it.id })
+    }
+
+    @Test fun totalBytesIsNullWhenASelectedGifIsNotShown() {
+        val entries = listOf(LibraryEntry(gif("a"), 100, 0), LibraryEntry(gif("b"), 50, 0))
+        assertEquals(150L, LibrarySelection.totalBytes(listOf("a", "b"), entries))
+        assertEquals(null, LibrarySelection.totalBytes(listOf("a", "hidden"), entries))
+        assertEquals(0L, LibrarySelection.totalBytes(emptyList(), entries))
     }
 }

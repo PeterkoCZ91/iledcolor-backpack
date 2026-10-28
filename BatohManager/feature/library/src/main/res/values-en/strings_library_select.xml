@@ -10,4 +10,19 @@
     <string name="library_select_a11y_not_selected">not selected</string>
     <string name="library_select_toggle_label">add to or remove from selection</string>
     <string name="library_more_actions_description">More actions for %1$s</string>
+    <string name="library_select_all">Select all</string>
+    <string name="library_bulk_delete">Delete (%1$d)</string>
+    <string name="library_bulk_delete_confirm">Delete</string>
+    <string name="library_bulk_delete_cancel">Cancel</string>
+    <plurals name="library_bulk_delete_title">
+        <item quantity="one">Delete %1$d GIF from the phone?</item>
+        <item quantity="other">Delete %1$d GIFs from the phone?</item>
+    </plurals>
+    <string name="library_bulk_delete_message">The selected GIFs will be deleted from the phone. This cannot be undone.</string>
+    <string name="library_bulk_delete_message_size">The selected GIFs (%1$s) will be deleted from the phone. This cannot be undone.</string>
+    <plurals name="library_bulk_delete_result">
+        <item quantity="one">Deleted %1$d GIF.</item>
+        <item quantity="other">Deleted %1$d GIFs.</item>
+    </plurals>
+    <string name="library_bulk_delete_partial">GIFs that could not be deleted: %1$d.</string>
 </resources>

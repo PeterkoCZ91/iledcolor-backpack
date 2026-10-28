@@ -48,13 +48,18 @@ import com.batoh.core.domain.model.GifNameValidation
 internal fun LibraryToolbar(
     state: LibraryUiState.Success,
     onQueryChange: (String) -> Unit,
-    onSortChange: (LibrarySort) -> Unit
+    onSortChange: (LibrarySort) -> Unit,
+    resetToken: Int = 0
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     // Local text state keeps typing synchronous; the ViewModel filters from the pushed value.
     var text by rememberSaveable { mutableStateOf(state.query) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    // The screen asks for an empty field (e.g. its "clear search" button in the no-results state).
+    androidx.compose.runtime.LaunchedEffect(resetToken) {
+        if (resetToken > 0) text = ""
+    }
     val summary = state.summary
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {

@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.heightIn
@@ -168,6 +170,8 @@ fun LibraryRoute(
             } else viewModel.toggleSelection(gif)
         },
         onClearSelection = viewModel::clearSelection,
+        onSelectAll = viewModel::selectAll,
+        onDeleteSelected = viewModel::deleteSelected,
         duplicates = duplicates,
         onFindDuplicates = viewModel::findDuplicates,
         onDismissDuplicates = viewModel::dismissDuplicates,
@@ -201,6 +205,8 @@ fun LibraryScreen(
     onStartSelection: (Gif) -> Unit = {},
     onToggleSelection: (Gif) -> Unit = {},
     onClearSelection: () -> Unit = {},
+    onSelectAll: (List<Gif>) -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
     onChain: () -> Unit = {},
     duplicates: DuplicateScanState? = null,
     onFindDuplicates: () -> Unit = {},
@@ -212,7 +218,10 @@ fun LibraryScreen(
     var gifToAction by remember { mutableStateOf<Gif?>(null) }
     var gifToRemove by remember { mutableStateOf<Gif?>(null) }
     var gifToRename by remember { mutableStateOf<Gif?>(null) }
+    var confirmBulkDelete by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
+    // Bumped by the "clear search" button of the no-results state so the search field empties too.
+    var searchResetToken by remember { mutableStateOf(0) }
 
     gifToRename?.let { gif ->
         RenameGifDialog(
@@ -227,6 +236,37 @@ fun LibraryScreen(
     }
     var backpackView by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+
+    if (confirmBulkDelete && selecting) {
+        val shownEntries = (uiState as? LibraryUiState.Success)?.entries.orEmpty()
+        val totalBytes = LibrarySelection.totalBytes(selection, shownEntries)
+        AlertDialog(
+            onDismissRequest = { confirmBulkDelete = false },
+            title = {
+                Text(pluralStringResource(R.plurals.library_bulk_delete_title, selection.size, selection.size))
+            },
+            text = {
+                Text(
+                    if (totalBytes == null) stringResource(R.string.library_bulk_delete_message)
+                    else stringResource(R.string.library_bulk_delete_message_size,
+                        android.text.format.Formatter.formatShortFileSize(context, totalBytes))
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmBulkDelete = false
+                    onDeleteSelected()
+                }) {
+                    Text(stringResource(R.string.library_bulk_delete_confirm), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmBulkDelete = false }) {
+                    Text(stringResource(R.string.library_bulk_delete_cancel))
+                }
+            }
+        )
+    }
 
     duplicates?.let { DuplicatesDialog(it, onDelete = onDeleteDuplicates, onDismiss = onDismissDuplicates) }
 
@@ -367,19 +407,30 @@ fun LibraryScreen(
                 Surface(tonalElevation = 3.dp) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         if (!LibrarySelection.canChain(selection)) {
-                            Text(stringResource(R.string.library_select_chain_hint),
+                            Text(
+                                if (selection.size > LibrarySelection.MAX_TO_CHAIN)
+                                    stringResource(R.string.library_select_max, LibrarySelection.MAX_TO_CHAIN)
+                                else stringResource(R.string.library_select_chain_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = onClearSelection, modifier = Modifier.heightIn(min = 48.dp)) {
-                                Text(stringResource(R.string.library_select_cancel))
+                            val shownGifs = (uiState as? LibraryUiState.Success)?.gifs.orEmpty()
+                            if (!LibrarySelection.allSelected(selection, shownGifs.map { it.id })) {
+                                TextButton(onClick = { onSelectAll(shownGifs) },
+                                    modifier = Modifier.heightIn(min = 48.dp)) {
+                                    Text(stringResource(R.string.library_select_all), maxLines = 1)
+                                }
                             }
-                            Spacer(Modifier.weight(1f))
-                            Button(onClick = onChain, enabled = LibrarySelection.canChain(selection),
+                            TextButton(onClick = { confirmBulkDelete = true },
                                 modifier = Modifier.heightIn(min = 48.dp)) {
-                                Text(stringResource(R.string.library_select_chain, selection.size))
+                                Text(stringResource(R.string.library_bulk_delete, selection.size),
+                                    color = MaterialTheme.colorScheme.error, maxLines = 1)
+                            }
+                            Button(onClick = onChain, enabled = LibrarySelection.canChain(selection),
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                                Text(stringResource(R.string.library_select_chain, selection.size), maxLines = 1)
                             }
                         }
                     }
@@ -450,16 +501,30 @@ fun LibraryScreen(
                             LibraryToolbar(
                                 state = state,
                                 onQueryChange = onQueryChange,
-                                onSortChange = onSortChange
+                                onSortChange = onSortChange,
+                                resetToken = searchResetToken
                             )
                             if (state.entries.isEmpty()) {
-                                Text(
-                                    text = stringResource(R.string.library_search_no_results, state.query.trim()),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(32.dp)
-                                        .semantics { liveRegion = LiveRegionMode.Polite }
-                                )
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.library_search_no_results, state.query.trim()),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                                    )
+                                    if (state.query.isNotBlank()) {
+                                        Spacer(Modifier.height(16.dp))
+                                        Button(onClick = {
+                                            searchResetToken++
+                                            onQueryChange("")
+                                        }, modifier = Modifier.heightIn(min = 48.dp)) {
+                                            Text(stringResource(R.string.library_search_clear))
+                                        }
+                                    }
+                                }
                             } else LazyVerticalGrid(
                                 state = gridState,
                                 columns = GridCells.Fixed(gridColumns.coerceIn(2, 3)),
@@ -641,7 +706,10 @@ fun GifItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .semantics { selectionState?.let { stateDescription = it } }
+                    .semantics {
+                        selectionState?.let { stateDescription = it }
+                        if (selectionMode) selected = selectedPosition != null
+                    }
                     .combinedClickable(
                         onClickLabel = clickLabel,
                         onLongClickLabel = longClickLabel,
