@@ -39,15 +39,19 @@ class GiphyRepositoryImpl @Inject constructor(
     private companion object {
         // The process keeps the last successful category list in memory (without Room).
         @Volatile var lastCategories: List<GifCategory>? = null
+        @Volatile var lastCategoriesAt: Long = 0L
     }
 
     override fun searchGifs(query: String, filter: GifFilter, offset: Int, limit: Int): Flow<Result<List<Gif>>> = flow {
         // 1. Check Cache
         if (offset == 0) {
             val cacheKey = GifCachePolicy.giphySearchKey(query, filter)
-            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(now))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
+                // Fresh enough: no API call (saves the rate limit); older rows are refreshed below.
+                if (cached.all { GifCachePolicy.isFreshEnough(it.cachedAt, now) }) return@flow
             }
         }
 
@@ -90,9 +94,12 @@ class GiphyRepositoryImpl @Inject constructor(
     override fun getTrendingGifs(filter: GifFilter, offset: Int, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == 0) {
             val cacheKey = GifCachePolicy.giphyTrendingKey(filter)
-            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(now))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
+                // Fresh enough: no API call (saves the rate limit); older rows are refreshed below.
+                if (cached.all { GifCachePolicy.isFreshEnough(it.cachedAt, now) }) return@flow
             }
         }
 
@@ -137,6 +144,12 @@ class GiphyRepositoryImpl @Inject constructor(
         if (lastKnown != null) {
             lastCategories = lastKnown
             emit(Result.Success(lastKnown))
+            // Fresh enough (in memory from this process, or stored rows): skip the API call.
+            val memoryFresh = lastCategories != null && GifCachePolicy.isFreshEnough(lastCategoriesAt, now)
+            val storedFresh = runCatching {
+                cachedCategoryDao.getAll(GifCachePolicy.minFreshCachedAt(now)).isNotEmpty()
+            }.getOrDefault(false)
+            if (memoryFresh || storedFresh) return@flow
         }
         if (CategoryCachePolicy.shouldEmitLoading(lastKnown)) emit(Result.Loading)
         try {
@@ -150,6 +163,7 @@ class GiphyRepositoryImpl @Inject constructor(
             }
             if (categories.isNotEmpty()) {
                 lastCategories = categories
+                lastCategoriesAt = System.currentTimeMillis()
                 val saved = System.currentTimeMillis()
                 runCatching {
                     cachedCategoryDao.replaceAll(categories.mapIndexed { i, c -> c.toCachedEntity(i, saved) })

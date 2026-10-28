@@ -7,6 +7,15 @@ import com.batoh.core.domain.model.GifType
 object GifCachePolicy {
     const val TTL_MS: Long = 7L * 24 * 60 * 60 * 1000
 
+    /** Window in which first-page cached rows are served without calling the API at all. */
+    const val FRESH_MS: Long = 30L * 60 * 1000
+
+    /** Oldest storage time that still counts as fresh enough to skip the network. */
+    fun minFreshCachedAt(now: Long): Long = now - FRESH_MS
+
+    /** True when [cachedAt] is within [FRESH_MS] of [now] (boundary inclusive). */
+    fun isFreshEnough(cachedAt: Long, now: Long): Boolean = cachedAt >= minFreshCachedAt(now)
+
     /** Oldest still-valid storage time. */
     fun minValidCachedAt(now: Long): Long = now - TTL_MS
 

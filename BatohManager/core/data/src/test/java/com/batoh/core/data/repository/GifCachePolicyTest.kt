@@ -68,4 +68,17 @@ class GifCachePolicyTest {
         assertFalse(GifCachePolicy.isFresh(now - GifCachePolicy.TTL_MS - 1, now))
         assertEquals(now - 7L * 24 * 3600 * 1000, GifCachePolicy.minValidCachedAt(now))
     }
+
+    @Test fun freshEnoughBoundaries() {
+        val now = 10_000_000L
+        assertTrue(GifCachePolicy.isFreshEnough(now, now))
+        assertTrue(GifCachePolicy.isFreshEnough(now - GifCachePolicy.FRESH_MS, now))
+        assertFalse(GifCachePolicy.isFreshEnough(now - GifCachePolicy.FRESH_MS - 1, now))
+        assertEquals(30L * 60 * 1000, GifCachePolicy.FRESH_MS)
+        assertEquals(now - GifCachePolicy.FRESH_MS, GifCachePolicy.minFreshCachedAt(now))
+    }
+
+    @Test fun freshWindowIsShorterThanTtl() {
+        assertTrue(GifCachePolicy.FRESH_MS < GifCachePolicy.TTL_MS)
+    }
 }

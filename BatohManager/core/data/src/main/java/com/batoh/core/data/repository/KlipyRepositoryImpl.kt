@@ -41,9 +41,12 @@ class KlipyRepositoryImpl @Inject constructor(
     override fun searchGifs(query: String, filter: GifFilter, offset: String?, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == null) {
             val cacheKey = GifCachePolicy.klipySearchKey(query, filter)
-            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(now))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
+                // Fresh enough: no API call (saves the rate limit); older rows are refreshed below.
+                if (cached.all { GifCachePolicy.isFreshEnough(it.cachedAt, now) }) return@flow
             }
         }
 
@@ -76,9 +79,12 @@ class KlipyRepositoryImpl @Inject constructor(
     override fun getTrendingGifs(filter: GifFilter, offset: String?, limit: Int): Flow<Result<List<Gif>>> = flow {
         if (offset == null) {
             val cacheKey = GifCachePolicy.klipyTrendingKey(filter)
-            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            val cached = cachedGifDao.getGifsForQuery(cacheKey, GifCachePolicy.minValidCachedAt(now))
             if (cached.isNotEmpty()) {
                 emit(Result.Success(cached.map { it.toDomain() }))
+                // Fresh enough: no API call (saves the rate limit); older rows are refreshed below.
+                if (cached.all { GifCachePolicy.isFreshEnough(it.cachedAt, now) }) return@flow
             }
         }
 

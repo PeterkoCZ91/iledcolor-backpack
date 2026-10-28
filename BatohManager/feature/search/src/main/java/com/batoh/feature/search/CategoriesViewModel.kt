@@ -57,7 +57,7 @@ class CategoriesViewModel @Inject constructor(
 
     private val categoryReloads = MutableStateFlow(0)
     private var retryInFlight = false
-    private val _previews = MutableStateFlow<Map<String, Gif>>(emptyMap())
+    private val _previews = MutableStateFlow<Map<String, Gif>>(previewMemory.toMap())
     private var previewsFetched = false
 
     val uiState: StateFlow<CategoriesUiState> = combine(
@@ -150,7 +150,10 @@ class CategoriesViewModel @Inject constructor(
     private fun fetchMissingPreviews(categories: List<GifCategory>) {
         viewModelScope.launch {
             val semaphore = Semaphore(6)
-            categories.filter { it.previewGif == null }
+            // Each category is tried once per process: an empty result (all hits filtered out) is never cached
+            // by the repository, so without this the same request would repeat on every visit to Search.
+            categories.filter { it.previewGif == null && !previewMemory.containsKey(normalizeQuery(it.nameEncoded)) }
+                .filter { previewAttempted.add(normalizeQuery(it.nameEncoded)) }
                 .map { category ->
                     async {
                         semaphore.withPermit {
@@ -161,12 +164,19 @@ class CategoriesViewModel @Inject constructor(
                                     limit = PREVIEW_CANDIDATES
                                 ).first { it is Result.Success || it is Result.Error }
                                 if (result is Result.Success && result.data.isNotEmpty()) {
+                                    previewMemory[normalizeQuery(category.nameEncoded)] = result.data.first()
                                     _previews.update { map ->
                                         map + (normalizeQuery(category.nameEncoded) to result.data.first())
                                     }
+                                } else if (result is Result.Error) {
+                                    // A network failure may be temporary: allow another try on the next visit.
+                                    previewAttempted.remove(normalizeQuery(category.nameEncoded))
+                                } else {
+                                    // An empty result stays marked as tried.
                                 }
                             } catch (_: Exception) {
                                 // Ignore preview fetch failures
+                                previewAttempted.remove(normalizeQuery(category.nameEncoded))
                             }
                         }
                     }
@@ -205,5 +215,8 @@ class CategoriesViewModel @Inject constructor(
 
     private companion object {
         const val PREVIEW_CANDIDATES = 10
+        /** Preview GIFs found so far and categories already tried; they live as long as the process. */
+        val previewMemory = java.util.concurrent.ConcurrentHashMap<String, Gif>()
+        val previewAttempted: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     }
 }

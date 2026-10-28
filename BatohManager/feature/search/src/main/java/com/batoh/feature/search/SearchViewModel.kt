@@ -5,7 +5,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.batoh.core.common.Result
-import com.batoh.core.common.UiPreferences
 import com.batoh.core.domain.model.*
 import com.batoh.core.domain.repository.SearchHistoryRepository
 import com.batoh.core.domain.usecase.*
@@ -13,8 +12,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,6 +31,9 @@ sealed interface SearchUiState {
 }
 
 private const val PAGE_SIZE = 25
+
+/** Blank queries are served by the category browser, so they need no network request. */
+internal fun requiresRemoteSearch(query: String): Boolean = query.isNotBlank()
 
 private fun Gif.uniqueKey(): String = "$source|$id|$originalUrl"
 
@@ -218,18 +218,9 @@ class SearchViewModel @Inject constructor(
         failedKlipyOffset = null
         accumulatedGifs = emptyList()
 
-        // Personalized trending: if no query and user has interests
-        if (query.isBlank()) {
-            val interestQueries = loadUserInterestQueries()
-            if (interestQueries.isNotEmpty()) {
-                loadPersonalized(interestQueries, filter)
-                return
-            }
-        }
-
-        val trending = query.isBlank()
-
-        if (filter.source == GifSource.LOSPEC && query.isBlank()) {
+        // A blank query shows the category browser (see SearchScreen), never results,
+        // so there is nothing to fetch. Typing a query re-enters this path with a request.
+        if (!requiresRemoteSearch(query)) {
             _uiState.value = SearchUiState.Empty
             return
         }
@@ -273,8 +264,7 @@ class SearchViewModel @Inject constructor(
                         } else {
                             SearchUiState.Success(
                                 gifs = accumulatedGifs,
-                                hasMore = result.data.size >= 10,
-                                isTrending = trending
+                                hasMore = result.data.size >= 10
                             )
                         }
                     }
@@ -285,58 +275,6 @@ class SearchViewModel @Inject constructor(
                         }
                     }
                 }
-            }
-        }
-    }
-
-    private fun loadUserInterestQueries(): List<String> {
-        val prefs = appContext.getSharedPreferences(UiPreferences.PREFS_NAME, Context.MODE_PRIVATE)
-        val raw = prefs.getString(UiPreferences.KEY_USER_INTERESTS, "") ?: ""
-        val names = raw.split(",").filter { it.isNotBlank() }.toSet()
-        return PredefinedInterests.all
-            .filter { it.name in names }
-            .map { it.searchQuery }
-    }
-
-    private fun loadPersonalized(interestQueries: List<String>, filter: GifFilter) {
-        if (filter.source == GifSource.LOSPEC) {
-            _uiState.value = SearchUiState.Empty
-            return
-        }
-
-        _uiState.value = SearchUiState.Loading
-
-        val selectedQueries = interestQueries.shuffled().take(3)
-
-        requests.search(viewModelScope) { token ->
-            val results = selectedQueries.map { q ->
-                async {
-                    var gifs = emptyList<Gif>()
-                    val flow = when {
-                        filter.source == GifSource.KLIPY -> searchKlipyGifsUseCase(q, filter = filter, offset = null)
-                        filter.type == GifType.STICKER -> searchStickersUseCase(q, filter = filter, offset = 0)
-                        else -> searchGifsUseCase(q, filter = filter, offset = 0)
-                    }
-                    flow.catch { error ->
-                if (error is CancellationException) throw error
-                emit(Result.Error(error))
-            }.collect { result ->
-                        if (result is Result.Success) gifs = result.data
-                    }
-                    gifs
-                }
-            }.awaitAll()
-
-            if (!requests.accepts(token)) return@search
-            accumulatedGifs = results.flatten().distinctBy { it.uniqueKey() }
-            _uiState.value = if (accumulatedGifs.isEmpty()) {
-                SearchUiState.Empty
-            } else {
-                SearchUiState.Success(
-                    gifs = accumulatedGifs,
-                    hasMore = false,
-                    isPersonalized = true
-                )
             }
         }
     }

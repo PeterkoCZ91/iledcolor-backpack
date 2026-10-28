@@ -7,6 +7,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import androidx.appcompat.app.AppCompatDelegate
 import com.batoh.core.common.UiPreferences
 import com.batoh.core.common.UiThemeMode
@@ -47,6 +49,19 @@ class BatohApplication : Application(), Configuration.Provider, ImageLoaderFacto
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) add(ImageDecoderDecoder.Factory())
             else add(GifDecoder.Factory())
         }
+        .memoryCache {
+            MemoryCache.Builder(this)
+                .maxSizePercent(0.25)
+                .build()
+        }
+        .diskCache {
+            DiskCache.Builder()
+                .directory(cacheDir.resolve("image_cache"))
+                .maxSizeBytes(256L * 1024 * 1024)
+                .build()
+        }
+        // Keep GIF thumbnails cached even when the server sends no-cache / short max-age headers.
+        .respectCacheHeaders(false)
         .build()
 
     override val workManagerConfiguration: Configuration
